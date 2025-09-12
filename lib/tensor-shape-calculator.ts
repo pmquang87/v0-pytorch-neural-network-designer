@@ -97,10 +97,10 @@ export function calculateOutputShape(nodeType: string, inputShape: TensorShape, 
   switch (nodeType) {
     case "inputNode":
       return {
-        batch: nodeData.batch_size || 1,
-        channels: nodeData.channels || 3,
-        height: nodeData.height || 28,
-        width: nodeData.width || 28,
+        batch: nodeData.batch_size ?? 1,
+        channels: nodeData.channels ?? 3,
+        height: nodeData.height ?? 28,
+        width: nodeData.width ?? 28,
       }
 
     case "conv2dNode":
@@ -362,7 +362,16 @@ export function calculateOutputShape(nodeType: string, inputShape: TensorShape, 
       return { ...inputShape, channels: nodeData.out_channels || 64 }
 
     default:
-      return inputShape
+      return {
+        batch: inputShape.batch ?? 1,
+        channels: inputShape.channels ?? "dynamic",
+        height: inputShape.height ?? "dynamic",
+        width: inputShape.width ?? "dynamic",
+        depth: inputShape.depth ?? "dynamic",
+        features: inputShape.features ?? "dynamic",
+        sequence: inputShape.sequence ?? "dynamic",
+        length: inputShape.length ?? "dynamic",
+      }
   }
 }
 
@@ -375,15 +384,25 @@ export function formatTensorShape(shape: TensorShape | {} | undefined): string {
   const typedShape = shape as TensorShape
   const parts: string[] = []
 
-  // Only add parts that are actually defined and not undefined
+  // Prioritize 2D convolutional dimensions if available
   if (typedShape.batch !== undefined) parts.push(`${typedShape.batch}`)
   if (typedShape.channels !== undefined) parts.push(`${typedShape.channels}`)
-  if (typedShape.depth !== undefined) parts.push(`${typedShape.depth}`)
   if (typedShape.height !== undefined) parts.push(`${typedShape.height}`)
   if (typedShape.width !== undefined) parts.push(`${typedShape.width}`)
-  if (typedShape.length !== undefined) parts.push(`${typedShape.length}`)
-  if (typedShape.features !== undefined) parts.push(`${typedShape.features}`)
-  if (typedShape.sequence !== undefined) parts.push(`${typedShape.sequence}`)
+
+  // Add other dimensions only if they are the primary ones or if 2D dims are not present
+  if (
+    parts.length === 0 ||
+    (typedShape.features !== undefined &&
+      typedShape.channels === undefined &&
+      typedShape.height === undefined &&
+      typedShape.width === undefined)
+  ) {
+    if (typedShape.depth !== undefined) parts.push(`${typedShape.depth}`)
+    if (typedShape.features !== undefined) parts.push(`${typedShape.features}`)
+    if (typedShape.sequence !== undefined) parts.push(`${typedShape.sequence}`)
+    if (typedShape.length !== undefined) parts.push(`${typedShape.length}`)
+  }
 
   // If no valid parts found, return placeholder
   if (parts.length === 0) {

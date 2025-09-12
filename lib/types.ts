@@ -1,29 +1,204 @@
-// Types for the JSON Intermediate Representation (IR)
-export interface NodeData {
-  [key: string]: any
+// Core types for the neural network designer
+
+export interface TensorShape {
+  batch: number | "dynamic"
+  channels?: number | "dynamic"
+  height?: number | "dynamic"
+  width?: number | "dynamic"
+  depth?: number | "dynamic"
+  features?: number | "dynamic"
+  sequence?: number | "dynamic"
+  length?: number | "dynamic"
+}
+
+// Base node data interface
+export interface BaseNodeData {
+  name?: string
+  inputShape?: TensorShape
+  outputShape?: TensorShape
+}
+
+// Input node data
+export interface InputNodeData extends BaseNodeData {
+  batch_size: number
+  channels?: number
+  height?: number
+  width?: number
+  features?: number
+}
+
+// Linear layer data
+export interface LinearNodeData extends BaseNodeData {
+  in_features: number
+  out_features: number
+}
+
+// Convolutional layer data
+export interface ConvNodeData extends BaseNodeData {
+  in_channels: number
+  out_channels: number
+  kernel_size: number | [number, number] | [number, number, number]
+  stride?: number | [number, number] | [number, number, number]
+  padding?: number | [number, number] | [number, number, number]
+  dilation?: number | [number, number] | [number, number, number]
+  groups?: number
+  bias?: boolean
+}
+
+// Pooling layer data
+export interface PoolNodeData extends BaseNodeData {
+  kernel_size: number | [number, number] | [number, number, number]
+  stride?: number | [number, number] | [number, number, number]
+  padding?: number | [number, number] | [number, number, number]
+  dilation?: number | [number, number] | [number, number, number]
+  return_indices?: boolean
+  ceil_mode?: boolean
+}
+
+// Normalization layer data
+export interface NormNodeData extends BaseNodeData {
+  num_features?: number
+  eps?: number
+  momentum?: number
+  affine?: boolean
+  track_running_stats?: boolean
+  num_groups?: number
+  num_channels?: number
+}
+
+// Activation function data
+export interface ActivationNodeData extends BaseNodeData {
+  inplace?: boolean
+  negative_slope?: number // for LeakyReLU
+  alpha?: number // for ELU
+  beta?: number // for Hardswish
+}
+
+// Dropout data
+export interface DropoutNodeData extends BaseNodeData {
+  p: number
+  inplace?: boolean
+}
+
+// LSTM/GRU data
+export interface RNNNodeData extends BaseNodeData {
+  input_size: number
+  hidden_size: number
+  num_layers?: number
+  bias?: boolean
+  batch_first?: boolean
+  dropout?: number
+  bidirectional?: boolean
+}
+
+// Multihead attention data
+export interface AttentionNodeData extends BaseNodeData {
+  embed_dim: number
+  num_heads: number
+  dropout?: number
+  bias?: boolean
+  add_bias_kv?: boolean
+  add_zero_attn?: boolean
+  kdim?: number
+  vdim?: number
+}
+
+// Transformer layer data
+export interface TransformerNodeData extends BaseNodeData {
+  d_model: number
+  nhead: number
+  dim_feedforward?: number
+  dropout?: number
+  activation?: string
+  layer_norm_eps?: number
+  batch_first?: boolean
+  norm_first?: boolean
+}
+
+// Operation node data
+export interface OperationNodeData extends BaseNodeData {
+  dim?: number
+  index?: number
+  start_dim?: number
+  end_dim?: number
+}
+
+// Union type for all node data
+export type NodeData = 
+  | InputNodeData
+  | LinearNodeData
+  | ConvNodeData
+  | PoolNodeData
+  | NormNodeData
+  | ActivationNodeData
+  | DropoutNodeData
+  | RNNNodeData
+  | AttentionNodeData
+  | TransformerNodeData
+  | OperationNodeData
+
+// Network state for undo/redo
+export interface NetworkState {
+  nodes: any[]
+  edges: any[]
+  timestamp: number
+}
+
+// Model validation result
+export interface ValidationResult {
+  isValid: boolean
+  errors: string[]
+  warnings: string[]
+}
+
+// Keyboard shortcut configuration
+export interface KeyboardShortcut {
+  key: string
+  ctrlKey?: boolean
+  shiftKey?: boolean
+  altKey?: boolean
+  action: () => void
+  description: string
+}
+
+// Help content structure
+export interface HelpContent {
+  title: string
+  description: string
+  parameters?: Array<{
+    name: string
+    type: string
+    description: string
+    default?: any
+  }>
+  examples?: string[]
+  tips?: string[]
+}
+
+// Graph IR representation
+export interface GraphIR {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
 }
 
 export interface GraphNode {
   id: string
   type: string
   data: NodeData
+  position?: { x: number; y: number }
 }
 
 export interface GraphEdge {
   id: string
   source: string
   target: string
-  sourceHandle?: string
-  targetHandle?: string
+  type?: string
 }
 
-export interface GraphIR {
+// API Request/Response types
+export interface GenerateModelRequest {
   nodes: GraphNode[]
   edges: GraphEdge[]
-}
-
-export interface GenerateModelRequest {
-  graph: GraphIR
 }
 
 export interface GenerateModelResponse {
@@ -32,255 +207,182 @@ export interface GenerateModelResponse {
   error?: string
 }
 
-// PyTorch layer manifest - maps node types to PyTorch classes
+// PyTorch layer manifest - defines layer parameters and class names
 export const PYTORCH_LAYER_MANIFEST = {
-  inputNode: {
-    className: null, // Special case - not a PyTorch layer
-    imports: [],
-  },
   linearNode: {
     className: "nn.Linear",
-    imports: ["torch.nn as nn"],
-    params: ["in_features", "out_features", "bias"],
+    params: ["in_features", "out_features", "bias"]
   },
   conv1dNode: {
     className: "nn.Conv1d",
-    imports: ["torch.nn as nn"],
-    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding"],
+    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding", "dilation", "groups", "bias"]
   },
   conv2dNode: {
     className: "nn.Conv2d",
-    imports: ["torch.nn as nn"],
-    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding"],
+    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding", "dilation", "groups", "bias"]
   },
   conv3dNode: {
     className: "nn.Conv3d",
-    imports: ["torch.nn as nn"],
-    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding"],
+    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding", "dilation", "groups", "bias"]
   },
-  convtranspose1dNode: {
-    className: "nn.ConvTranspose1d",
-    imports: ["torch.nn as nn"],
-    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding"],
+  maxPool1dNode: {
+    className: "nn.MaxPool1d",
+    params: ["kernel_size", "stride", "padding", "dilation", "return_indices", "ceil_mode"]
   },
-  convtranspose2dNode: {
-    className: "nn.ConvTranspose2d",
-    imports: ["torch.nn as nn"],
-    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding"],
+  maxPool2dNode: {
+    className: "nn.MaxPool2d",
+    params: ["kernel_size", "stride", "padding", "dilation", "return_indices", "ceil_mode"]
   },
-  convtranspose3dNode: {
-    className: "nn.ConvTranspose3d",
-    imports: ["torch.nn as nn"],
-    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding"],
+  maxPool3dNode: {
+    className: "nn.MaxPool3d",
+    params: ["kernel_size", "stride", "padding", "dilation", "return_indices", "ceil_mode"]
+  },
+  avgPool1dNode: {
+    className: "nn.AvgPool1d",
+    params: ["kernel_size", "stride", "padding", "ceil_mode", "count_include_pad"]
+  },
+  avgPool2dNode: {
+    className: "nn.AvgPool2d",
+    params: ["kernel_size", "stride", "padding", "ceil_mode", "count_include_pad", "divisor_override"]
+  },
+  avgPool3dNode: {
+    className: "nn.AvgPool3d",
+    params: ["kernel_size", "stride", "padding", "ceil_mode", "count_include_pad", "divisor_override"]
+  },
+  batchNorm1dNode: {
+    className: "nn.BatchNorm1d",
+    params: ["num_features", "eps", "momentum", "affine", "track_running_stats"]
+  },
+  batchNorm2dNode: {
+    className: "nn.BatchNorm2d",
+    params: ["num_features", "eps", "momentum", "affine", "track_running_stats"]
+  },
+  batchNorm3dNode: {
+    className: "nn.BatchNorm3d",
+    params: ["num_features", "eps", "momentum", "affine", "track_running_stats"]
+  },
+  layerNormNode: {
+    className: "nn.LayerNorm",
+    params: ["normalized_shape", "eps", "elementwise_affine"]
+  },
+  instanceNorm1dNode: {
+    className: "nn.InstanceNorm1d",
+    params: ["num_features", "eps", "momentum", "affine", "track_running_stats"]
+  },
+  instanceNorm2dNode: {
+    className: "nn.InstanceNorm2d",
+    params: ["num_features", "eps", "momentum", "affine", "track_running_stats"]
+  },
+  instanceNorm3dNode: {
+    className: "nn.InstanceNorm3d",
+    params: ["num_features", "eps", "momentum", "affine", "track_running_stats"]
+  },
+  groupNormNode: {
+    className: "nn.GroupNorm",
+    params: ["num_groups", "num_channels", "eps", "affine"]
   },
   reluNode: {
     className: "nn.ReLU",
-    imports: ["torch.nn as nn"],
-    params: [],
+    params: ["inplace"]
   },
-  leakyreluNode: {
+  leakyReluNode: {
     className: "nn.LeakyReLU",
-    imports: ["torch.nn as nn"],
-    params: ["negative_slope"],
+    params: ["negative_slope", "inplace"]
   },
   sigmoidNode: {
     className: "nn.Sigmoid",
-    imports: ["torch.nn as nn"],
-    params: [],
+    params: []
   },
   tanhNode: {
     className: "nn.Tanh",
-    imports: ["torch.nn as nn"],
-    params: [],
+    params: []
+  },
+  eluNode: {
+    className: "nn.ELU",
+    params: ["alpha", "inplace"]
+  },
+  seluNode: {
+    className: "nn.SELU",
+    params: ["inplace"]
   },
   geluNode: {
     className: "nn.GELU",
-    imports: ["torch.nn as nn"],
-    params: [],
-  },
-  siluNode: {
-    className: "nn.SiLU",
-    imports: ["torch.nn as nn"],
-    params: [],
-  },
-  mishNode: {
-    className: "nn.Mish",
-    imports: ["torch.nn as nn"],
-    params: [],
-  },
-  hardswishNode: {
-    className: "nn.Hardswish",
-    imports: ["torch.nn as nn"],
-    params: [],
-  },
-  hardsigmoidNode: {
-    className: "nn.Hardsigmoid",
-    imports: ["torch.nn as nn"],
-    params: [],
+    params: []
   },
   softmaxNode: {
     className: "nn.Softmax",
-    imports: ["torch.nn as nn"],
-    params: ["dim"],
-  },
-  maxpool2dNode: {
-    className: "nn.MaxPool2d",
-    imports: ["torch.nn as nn"],
-    params: ["kernel_size", "stride"],
-  },
-  avgpool2dNode: {
-    className: "nn.AvgPool2d",
-    imports: ["torch.nn as nn"],
-    params: ["kernel_size", "stride"],
-  },
-  adaptiveavgpool2dNode: {
-    className: "nn.AdaptiveAvgPool2d",
-    imports: ["torch.nn as nn"],
-    params: ["output_size"],
-  },
-  adaptivemaxpool1dNode: {
-    className: "nn.AdaptiveMaxPool1d",
-    imports: ["torch.nn as nn"],
-    params: ["output_size"],
-  },
-  adaptivemaxpool3dNode: {
-    className: "nn.AdaptiveMaxPool3d",
-    imports: ["torch.nn as nn"],
-    params: ["output_size"],
-  },
-  fractionalmaxpool2dNode: {
-    className: "nn.FractionalMaxPool2d",
-    imports: ["torch.nn as nn"],
-    params: ["kernel_size", "output_ratio"],
-  },
-  fractionalmaxpool3dNode: {
-    className: "nn.FractionalMaxPool3d",
-    imports: ["torch.nn as nn"],
-    params: ["kernel_size", "output_ratio"],
-  },
-  lppool1dNode: {
-    className: "nn.LPPool1d",
-    imports: ["torch.nn as nn"],
-    params: ["norm_type", "kernel_size", "stride"],
-  },
-  lppool2dNode: {
-    className: "nn.LPPool2d",
-    imports: ["torch.nn as nn"],
-    params: ["norm_type", "kernel_size", "stride"],
-  },
-  lppool3dNode: {
-    className: "nn.LPPool3d",
-    imports: ["torch.nn as nn"],
-    params: ["norm_type", "kernel_size", "stride"],
-  },
-  maxpool1dNode: {
-    className: "nn.MaxPool1d",
-    imports: ["torch.nn as nn"],
-    params: ["kernel_size", "stride"],
-  },
-  maxpool3dNode: {
-    className: "nn.MaxPool3d",
-    imports: ["torch.nn as nn"],
-    params: ["kernel_size", "stride"],
-  },
-  avgpool1dNode: {
-    className: "nn.AvgPool1d",
-    imports: ["torch.nn as nn"],
-    params: ["kernel_size", "stride"],
-  },
-  avgpool3dNode: {
-    className: "nn.AvgPool3d",
-    imports: ["torch.nn as nn"],
-    params: ["kernel_size", "stride"],
-  },
-  batchnorm1dNode: {
-    className: "nn.BatchNorm1d",
-    imports: ["torch.nn as nn"],
-    params: ["num_features"],
-  },
-  batchnorm2dNode: {
-    className: "nn.BatchNorm2d",
-    imports: ["torch.nn as nn"],
-    params: ["num_features"],
-  },
-  layernormNode: {
-    className: "nn.LayerNorm",
-    imports: ["torch.nn as nn"],
-    params: ["normalized_shape"],
-  },
-  groupnormNode: {
-    className: "nn.GroupNorm",
-    imports: ["torch.nn as nn"],
-    params: ["num_groups", "num_channels"],
-  },
-  instancenorm1dNode: {
-    className: "nn.InstanceNorm1d",
-    imports: ["torch.nn as nn"],
-    params: ["num_features"],
-  },
-  instancenorm2dNode: {
-    className: "nn.InstanceNorm2d",
-    imports: ["torch.nn as nn"],
-    params: ["num_features"],
-  },
-  instancenorm3dNode: {
-    className: "nn.InstanceNorm3d",
-    imports: ["torch.nn as nn"],
-    params: ["num_features"],
+    params: ["dim"]
   },
   dropoutNode: {
     className: "nn.Dropout",
-    imports: ["torch.nn as nn"],
-    params: ["p"],
+    params: ["p", "inplace"]
   },
-  flattenNode: {
-    className: "nn.Flatten",
-    imports: ["torch.nn as nn"],
-    params: ["start_dim", "end_dim"],
+  dropout2dNode: {
+    className: "nn.Dropout2d",
+    params: ["p", "inplace"]
+  },
+  dropout3dNode: {
+    className: "nn.Dropout3d",
+    params: ["p", "inplace"]
   },
   lstmNode: {
     className: "nn.LSTM",
-    imports: ["torch.nn as nn"],
-    params: ["input_size", "hidden_size", "num_layers"],
+    params: ["input_size", "hidden_size", "num_layers", "bias", "batch_first", "dropout", "bidirectional"]
   },
   gruNode: {
     className: "nn.GRU",
-    imports: ["torch.nn as nn"],
-    params: ["input_size", "hidden_size", "num_layers"],
+    params: ["input_size", "hidden_size", "num_layers", "bias", "batch_first", "dropout", "bidirectional"]
   },
-  multiheadattentionNode: {
+  rnnNode: {
+    className: "nn.RNN",
+    params: ["input_size", "hidden_size", "num_layers", "nonlinearity", "bias", "batch_first", "dropout", "bidirectional"]
+  },
+  multiheadAttentionNode: {
     className: "nn.MultiheadAttention",
-    imports: ["torch.nn as nn"],
-    params: ["embed_dim", "num_heads", "dropout", "batch_first"],
+    params: ["embed_dim", "num_heads", "dropout", "bias", "add_bias_kv", "add_zero_attn", "kdim", "vdim"]
   },
-  transformerencoderlayerNode: {
+  transformerEncoderLayerNode: {
     className: "nn.TransformerEncoderLayer",
-    imports: ["torch.nn as nn"],
-    params: ["d_model", "nhead", "dim_feedforward", "dropout"],
+    params: ["d_model", "nhead", "dim_feedforward", "dropout", "activation", "layer_norm_eps", "batch_first", "norm_first"]
   },
-  transformerdecoderlayerNode: {
+  transformerDecoderLayerNode: {
     className: "nn.TransformerDecoderLayer",
-    imports: ["torch.nn as nn"],
-    params: ["d_model", "nhead", "dim_feedforward", "dropout"],
+    params: ["d_model", "nhead", "dim_feedforward", "dropout", "activation", "layer_norm_eps", "batch_first", "norm_first"]
   },
-  addNode: {
-    className: null, // Special case - handled in forward pass
-    imports: [],
-    params: [],
+  flattenNode: {
+    className: "nn.Flatten",
+    params: ["start_dim", "end_dim"]
   },
-  concatenateNode: {
-    className: null, // Special case - handled in forward pass
-    imports: [],
-    params: ["dim"],
+  upsampleNode: {
+    className: "nn.Upsample",
+    params: ["size", "scale_factor", "mode", "align_corners"]
+  },
+  convTranspose1dNode: {
+    className: "nn.ConvTranspose1d",
+    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding", "output_padding", "groups", "bias", "dilation"]
+  },
+  convTranspose2dNode: {
+    className: "nn.ConvTranspose2d",
+    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding", "output_padding", "groups", "bias", "dilation"]
+  },
+  convTranspose3dNode: {
+    className: "nn.ConvTranspose3d",
+    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding", "output_padding", "groups", "bias", "dilation"]
   },
   depthwiseconv2dNode: {
     className: "nn.Conv2d",
-    imports: ["torch.nn as nn"],
-    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding", "groups"],
+    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding", "dilation", "bias"]
   },
   separableconv2dNode: {
-    className: null, // Special case - combination of depthwise + pointwise
-    imports: [],
-    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding"],
+    className: null, // Special handling in generator
+    params: ["in_channels", "out_channels", "kernel_size", "stride", "padding"]
   },
-} as const
+  addNode: {
+    className: null, // Special handling in generator
+    params: []
+  },
+  concatenateNode: {
+    className: null, // Special handling in generator
+    params: ["dim"]
+  }
+}
