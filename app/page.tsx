@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -46,6 +46,8 @@ import {
   Layers,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ResizableBox } from "react-resizable"
+import "react-resizable/css/styles.css"
 
 import { EXAMPLE_NETWORKS } from "@/lib/example-networks"
 import { calculateOutputShape as calcOutputShape, type TensorShape } from "@/lib/tensor-shape-calculator"
@@ -63,7 +65,7 @@ import { SoftmaxNode } from "@/components/nodes/SoftmaxNode"
 import { LeakyReLUNode } from "@/components/nodes/LeakyReLUNode"
 import { DropoutNode } from "@/components/nodes/DropoutNode"
 import { FlattenNode } from "@/components/nodes/FlattenNode"
-import { MaxPool2DNode } from "@/components/nodes/MaxPool2DNode"
+import { MaxPool2DNode } from "@/components/nodes/maxpool2dNode"
 import { AvgPool2DNode } from "@/components/nodes/AvgPool2DNode"
 import { AdaptiveAvgPool2DNode } from "@/components/nodes/AdaptiveAvgPool2DNode"
 import { BatchNorm1DNode } from "@/components/nodes/BatchNorm1DNode"
@@ -185,24 +187,28 @@ export default function NeuralNetworkDesigner() {
     defaultValue,
     min = 0,
     step = 1,
+    max,
     onUpdate,
   }: {
     label: string
-    value: number
+    value: number | undefined
     defaultValue: number
     min?: number
     step?: number
+    max?: number
     onUpdate: (newValue: number) => void
   }) => {
-    const [inputValue, setInputValue] = useState(value?.toString() || defaultValue.toString())
+    const [inputValue, setInputValue] = useState(
+      value !== undefined && value !== null ? value.toString() : defaultValue.toString()
+    )
     const [isEditing, setIsEditing] = useState(false)
 
     useEffect(() => {
-      setInputValue(value?.toString() || defaultValue.toString())
+      setInputValue(value !== undefined && value !== null ? value.toString() : defaultValue.toString())
     }, [value, defaultValue])
 
     useEffect(() => {
-      if (!isEditing && value !== undefined) {
+      if (!isEditing && value !== undefined && value !== null) {
         setInputValue(value.toString())
       }
     }, [isEditing, value])
@@ -212,7 +218,7 @@ export default function NeuralNetworkDesigner() {
         const numValue = Number.parseInt(inputValue) || defaultValue
         onUpdate(numValue)
         setIsEditing(false)
-        e.currentTarget.blur()
+        ;(e.currentTarget as HTMLInputElement).blur()
       }
     }
 
@@ -242,6 +248,7 @@ export default function NeuralNetworkDesigner() {
           onFocus={handleFocus}
           min={min}
           step={step}
+          max={max}
           className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
@@ -294,13 +301,13 @@ export default function NeuralNetworkDesigner() {
 
         if (node.type === "inputNode") {
           const inputShape: TensorShape = {
-            batch: node.data.batch_size || 1,
-            channels: node.data.channels || 3,
-            height: node.data.height || 28,
-            width: node.data.width || 28,
+            batch: (node.data as any).batch_size ?? 1,
+            channels: (node.data as any).channels ?? 3,
+            height: (node.data as any).height ?? 28,
+            width: (node.data as any).width ?? 28,
           }
           node.data = {
-            ...node.data,
+            ...(node.data as any),
             inputShape,
             outputShape: inputShape,
           }
@@ -315,7 +322,12 @@ export default function NeuralNetworkDesigner() {
           // Get input shape from the first connected node
           const sourceNode = nodeMap.get(inputEdges[0].source)
           if (sourceNode && sourceNode.data.outputShape) {
-            inputShape = sourceNode.data.outputShape
+            inputShape = {
+              batch: (sourceNode.data.outputShape as any).batch ?? 1,
+              channels: (sourceNode.data.outputShape as any).channels ?? 3,
+              height: (sourceNode.data.outputShape as any).height ?? 28,
+              width: (sourceNode.data.outputShape as any).width ?? 28,
+            }
           } else {
             inputShape = { batch: 1, channels: 3, height: 28, width: 28 }
           }
@@ -438,6 +450,7 @@ export default function NeuralNetworkDesigner() {
       console.log("[v0] Loading example:", example.name)
 
       try {
+        console.log("[v0] Validating node types...")
         // Validate that all node types exist in nodeTypes mapping
         const invalidNodeTypes = example.nodes.filter((node: any) => !nodeTypes[node.type])
         if (invalidNodeTypes.length > 0) {
@@ -452,7 +465,9 @@ export default function NeuralNetworkDesigner() {
           })
           return
         }
+        console.log("[v0] Node types validated successfully.")
 
+        console.log("[v0] Validating edges...")
         // Validate edges reference existing nodes
         const nodeIds = new Set(example.nodes.map((node: any) => node.id))
         const invalidEdges = example.edges.filter((edge: any) => !nodeIds.has(edge.source) || !nodeIds.has(edge.target))
@@ -465,10 +480,9 @@ export default function NeuralNetworkDesigner() {
           })
           return
         }
+        console.log("[v0] Edges validated successfully.")
 
-        console.log("[v0] Setting nodes:", example.nodes.length, "nodes")
-        console.log("[v0] Setting edges:", example.edges.length, "edges")
-
+        console.log("[v0] Setting nodes and edges...")
         setNodes(example.nodes)
         setEdges(example.edges)
         setSelectedNode(null)
@@ -496,7 +510,7 @@ export default function NeuralNetworkDesigner() {
         })
       }
     },
-    [setNodes, setEdges, toast, propagateTensorShapes],
+    [setNodes, setEdges, toast, propagateTensorShapes, nodeTypes],
   )
 
   const resetCanvas = useCallback(() => {
@@ -981,7 +995,7 @@ export default function NeuralNetworkDesigner() {
       // Trigger tensor shape propagation
       setTimeout(() => {
         console.log("[v0] Triggering tensor shape propagation after code import")
-        propagateTensorShapes(result.nodes, result.edges)
+        propagateTensorShapes()
       }, 100)
     }, 50)
   }, [inputCode, parsePyTorchCode, propagateTensorShapes, toast])
@@ -1540,35 +1554,35 @@ export default function NeuralNetworkDesigner() {
                     <>
                       <EditableNumberInput
                         label="Batch Size"
-                        value={selectedNode.data.batch_size}
+                        value={selectedNode.data.batch_size as number | undefined}
                         defaultValue={1}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { batch_size: value })}
                       />
                       <EditableNumberInput
                         label="Channels"
-                        value={selectedNode.data.channels}
+                        value={selectedNode.data.channels as number | undefined}
                         defaultValue={3}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { channels: value })}
                       />
                       <EditableNumberInput
                         label="Height"
-                        value={selectedNode.data.height}
+                        value={selectedNode.data.height as number | undefined}
                         defaultValue={28}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { height: value })}
                       />
                       <EditableNumberInput
                         label="Width"
-                        value={selectedNode.data.width}
+                        value={selectedNode.data.width as number | undefined}
                         defaultValue={28}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { width: value })}
                       />
                       <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
-                        Shape: [{selectedNode.data.batch_size || 1}, {selectedNode.data.channels || 3},{" "}
-                        {selectedNode.data.height || 28}, {selectedNode.data.width || 28}]
+                        Shape: [{(selectedNode.data.batch_size ?? 1)}, {(selectedNode.data.channels ?? 3)},
+                        {(selectedNode.data.height ?? 28)}, {(selectedNode.data.width ?? 28)}].join(", ")]
                       </div>
                     </>
                   )}
@@ -1576,14 +1590,14 @@ export default function NeuralNetworkDesigner() {
                     <>
                       <EditableNumberInput
                         label="Input Features"
-                        value={selectedNode.data.in_features}
+                        value={selectedNode.data.in_features as number | undefined}
                         defaultValue={128}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { in_features: value })}
                       />
                       <EditableNumberInput
                         label="Output Features"
-                        value={selectedNode.data.out_features}
+                        value={selectedNode.data.out_features as number | undefined}
                         defaultValue={64}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { out_features: value })}
@@ -1594,28 +1608,28 @@ export default function NeuralNetworkDesigner() {
                     <>
                       <EditableNumberInput
                         label="Input Channels"
-                        value={selectedNode.data.in_channels}
+                        value={selectedNode.data.in_channels as number | undefined}
                         defaultValue={3}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { in_channels: value })}
                       />
                       <EditableNumberInput
                         label="Output Channels"
-                        value={selectedNode.data.out_channels}
+                        value={selectedNode.data.out_channels as number | undefined}
                         defaultValue={32}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { out_channels: value })}
                       />
                       <EditableNumberInput
                         label="Kernel Size"
-                        value={selectedNode.data.kernel_size}
+                        value={selectedNode.data.kernel_size as number | undefined}
                         defaultValue={3}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { kernel_size: value })}
                       />
                       <EditableNumberInput
                         label="Padding"
-                        value={selectedNode.data.padding}
+                        value={selectedNode.data.padding as number | undefined}
                         defaultValue={0}
                         min={0}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { padding: value })}
@@ -1628,379 +1642,344 @@ export default function NeuralNetworkDesigner() {
                         <label className="text-sm font-medium text-sidebar-foreground">Dropout Probability (p)</label>
                         <input
                           type="number"
-                          value={selectedNode.data.p || 0.5}
+                          value={selectedNode.data.p as number ?? 0.5}
                           onChange={(e) =>
-                            updateNodeData(selectedNode.id, { p: Number.parseFloat(e.target.value) || 0.5 })
+                            updateNodeData(selectedNode.id, { p: Number.parseFloat(e.target.value) ?? 0.5 })
                           }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="0"
-                          max="1"
-                          step="0.1"
-                        />
-                      </div>
-                      <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
-                        Probability of an element to be zeroed during training
-                      </div>
-                    </>
-                  )}
-                  {selectedNode.type === "conv1dNode" && (
-                    <>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Input Channels</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.in_channels || 1}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { in_channels: Number.parseInt(e.target.value) || 1 })
-                          }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="1"
-                          step="1"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Output Channels</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.out_channels || 32}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { out_channels: Number.parseInt(e.target.value) || 32 })
-                          }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="1"
-                          step="1"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Kernel Size</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.kernel_size || 3}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { kernel_size: Number.parseInt(e.target.value) || 3 })
-                          }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="1"
-                          step="1"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Stride</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.stride || 1}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { stride: Number.parseInt(e.target.value) || 1 })
-                          }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="1"
-                          step="1"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Padding</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.padding || 0}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { padding: Number.parseInt(e.target.value) || 0 })
-                          }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="0"
-                          step="1"
+                          step={0.01}
+                          min={0}
+                          max={1}
+                          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                       </div>
                     </>
                   )}
-                  {selectedNode.type === "conv3dNode" && (
-                    <>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Input Channels</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.in_channels || 1}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { in_channels: Number.parseInt(e.target.value) || 1 })
-                          }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="1"
-                          step="1"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Output Channels</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.out_channels || 32}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { out_channels: Number.parseInt(e.target.value) || 32 })
-                          }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="1"
-                          step="1"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Kernel Size</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.kernel_size || 3}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { kernel_size: Number.parseInt(e.target.value) || 3 })
-                          }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="1"
-                          step="1"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Stride</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.stride || 1}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { stride: Number.parseInt(e.target.value) || 1 })
-                          }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="1"
-                          step="1"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Padding</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.padding || 0}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { padding: Number.parseInt(e.target.value) || 0 })
-                          }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="0"
-                          step="1"
-                        />
-                      </div>
-                    </>
-                  )}
-                  {(selectedNode.type === "convtranspose1dNode" ||
-                    selectedNode.type === "convtranspose2dNode" ||
-                    selectedNode.type === "convtranspose3dNode") && (
-                    <>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Input Channels</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.in_channels || 32}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { in_channels: Number.parseInt(e.target.value) || 32 })
-                          }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="1"
-                          step="1"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Output Channels</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.out_channels || 16}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { out_channels: Number.parseInt(e.target.value) || 16 })
-                          }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="1"
-                          step="1"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Kernel Size</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.kernel_size || 3}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { kernel_size: Number.parseInt(e.target.value) || 3 })
-                          }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="1"
-                          step="1"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Stride</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.stride || 1}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { stride: Number.parseInt(e.target.value) || 1 })
-                          }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="1"
-                          step="1"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Padding</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.padding || 0}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { padding: Number.parseInt(e.target.value) || 0 })
-                          }
-                          className="w-full mt-1 px-3 py-2 bg-sidebar-accent border border-sidebar-border rounded-md text-sidebar-foreground [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min="0"
-                          step="1"
-                        />
-                      </div>
-                    </>
-                  )}
-                  {selectedNode.type === "depthwiseconv2dNode" && (
+                  {selectedNode.type === "batchnorm2dNode" && (
                     <>
                       <EditableNumberInput
-                        label="Input Channels"
-                        value={selectedNode.data.in_channels}
+                        label="Number of Features"
+                        value={selectedNode.data.num_features as number | undefined}
                         defaultValue={32}
                         min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { in_channels: value })}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_features: value })}
                       />
-                      <EditableNumberInput
-                        label="Kernel Size"
-                        value={selectedNode.data.kernel_size}
-                        defaultValue={3}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { kernel_size: value })}
-                      />
-                      <EditableNumberInput
-                        label="Stride"
-                        value={selectedNode.data.stride}
-                        defaultValue={1}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { stride: value })}
-                      />
-                      <EditableNumberInput
-                        label="Padding"
-                        value={selectedNode.data.padding}
-                        defaultValue={1}
-                        min={0}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { padding: value })}
-                      />
-                      <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
-                        Depthwise convolution applies a single filter per input channel
-                      </div>
                     </>
                   )}
-                  {selectedNode.type === "separableconv2dNode" && (
+                  {selectedNode.type === "convtranspose2dNode" && (
                     <>
                       <EditableNumberInput
                         label="Input Channels"
-                        value={selectedNode.data.in_channels}
+                        value={selectedNode.data.in_channels as number | undefined}
                         defaultValue={32}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { in_channels: value })}
                       />
                       <EditableNumberInput
                         label="Output Channels"
-                        value={selectedNode.data.out_channels}
-                        defaultValue={64}
+                        value={selectedNode.data.out_channels as number | undefined}
+                        defaultValue={16}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { out_channels: value })}
                       />
                       <EditableNumberInput
                         label="Kernel Size"
-                        value={selectedNode.data.kernel_size}
-                        defaultValue={3}
+                        value={selectedNode.data.kernel_size as number | undefined}
+                        defaultValue={2}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { kernel_size: value })}
                       />
                       <EditableNumberInput
                         label="Stride"
-                        value={selectedNode.data.stride}
-                        defaultValue={1}
+                        value={selectedNode.data.stride as number | undefined}
+                        defaultValue={2}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { stride: value })}
                       />
                       <EditableNumberInput
                         label="Padding"
-                        value={selectedNode.data.padding}
-                        defaultValue={1}
+                        value={selectedNode.data.padding as number | undefined}
+                        defaultValue={0}
                         min={0}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { padding: value })}
                       />
-                      <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
-                        Separable convolution: depthwise + pointwise (1x1) convolution
-                      </div>
-                    </>
-                  )}
-                  {selectedNode.type === "addNode" && (
-                    <>
                       <EditableNumberInput
-                        label="Number of Inputs"
-                        value={selectedNode.data.num_inputs}
-                        defaultValue={2}
-                        min={2}
-                        max={8}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_inputs: value })}
-                      />
-                      <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
-                        Configure how many tensors to add together. All inputs must have the same shape.
-                      </div>
-                    </>
-                  )}
-                  {selectedNode.type === "concatenateNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Number of Inputs"
-                        value={selectedNode.data.num_inputs}
-                        defaultValue={2}
-                        min={2}
-                        max={8}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_inputs: value })}
-                      />
-                      <EditableNumberInput
-                        label="Concatenation Dimension"
-                        value={selectedNode.data.dim}
-                        defaultValue={1}
+                        label="Output Padding"
+                        value={selectedNode.data.output_padding as number | undefined}
+                        defaultValue={0}
                         min={0}
-                        max={3}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { dim: value })}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { output_padding: value })}
                       />
-                      <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
-                        Configure how many tensors to concatenate along the specified dimension
-                      </div>
+                    </>
+                  )}
+                  {selectedNode.type === "maxpool2dNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Kernel Size"
+                        value={selectedNode.data.kernel_size as number | undefined}
+                        defaultValue={2}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { kernel_size: value })}
+                      />
+                      <EditableNumberInput
+                        label="Stride"
+                        value={selectedNode.data.stride as number | undefined}
+                        defaultValue={2}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { stride: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "adaptiveavgpool2dNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Output Height"
+                        value={selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size) ? (selectedNode.data.output_size[0] as number | undefined) ?? 1 : 1}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) =>
+                          updateNodeData(selectedNode.id, {
+                            output_size: [
+                              value,
+                              selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size) ? (selectedNode.data.output_size[1] as number | undefined) ?? 1 : 1,
+                            ],
+                          })
+                        }
+                      />
+                      <EditableNumberInput
+                        label="Output Width"
+                        value={selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size) ? (selectedNode.data.output_size[1] as number | undefined) ?? 1 : 1}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) =>
+                          updateNodeData(selectedNode.id, {
+                            output_size: [
+                              selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size) ? (selectedNode.data.output_size[0] as number | undefined) ?? 1 : 1,
+                              value,
+                            ],
+                          })
+                        }
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "layernormNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Normalized Shape"
+                        value={selectedNode.data.normalized_shape as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { normalized_shape: value })}
+                      />
+                      <EditableNumberInput
+                        label="Epsilon (eps)"
+                        value={selectedNode.data.eps as number | undefined}
+                        defaultValue={1e-5}
+                        min={0}
+                        step={1e-6}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { eps: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "groupnormNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Number of Groups"
+                        value={selectedNode.data.num_groups as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_groups: value })}
+                      />
+                      <EditableNumberInput
+                        label="Number of Channels"
+                        value={selectedNode.data.num_channels as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_channels: value })}
+                      />
+                      <EditableNumberInput
+                        label="Epsilon (eps)"
+                        value={selectedNode.data.eps as number | undefined}
+                        defaultValue={1e-5}
+                        min={0}
+                        step={1e-6}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { eps: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "lstmNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Input Size"
+                        value={selectedNode.data.input_size as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { input_size: value })}
+                      />
+                      <EditableNumberInput
+                        label="Hidden Size"
+                        value={selectedNode.data.hidden_size as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { hidden_size: value })}
+                      />
+                      <EditableNumberInput
+                        label="Number of Layers"
+                        value={selectedNode.data.num_layers as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_layers: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "gruNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Input Size"
+                        value={selectedNode.data.input_size as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { input_size: value })}
+                      />
+                      <EditableNumberInput
+                        label="Hidden Size"
+                        value={selectedNode.data.hidden_size as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { hidden_size: value })}
+                      />
+                      <EditableNumberInput
+                        label="Number of Layers"
+                        value={selectedNode.data.num_layers as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_layers: value })}
+                      />
                     </>
                   )}
                   {selectedNode.type === "multiheadattentionNode" && (
                     <>
                       <EditableNumberInput
                         label="Embedding Dimension"
-                        value={selectedNode.data.embed_dim}
+                        value={selectedNode.data.embed_dim as number | undefined}
                         defaultValue={128}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { embed_dim: value })}
                       />
                       <EditableNumberInput
                         label="Number of Heads"
-                        value={selectedNode.data.num_heads}
+                        value={selectedNode.data.num_heads as number | undefined}
                         defaultValue={8}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { num_heads: value })}
                       />
+                      <EditableNumberInput
+                        label="Dropout"
+                        value={selectedNode.data.dropout as number | undefined}
+                        defaultValue={0.0}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { dropout: value })}
+                      />
                     </>
                   )}
-                  {(selectedNode.type === "transformerencoderlayerNode" ||
-                    selectedNode.type === "transformerdecoderlayerNode") && (
+                  {selectedNode.type === "transformerencoderlayerNode" && (
                     <>
                       <EditableNumberInput
-                        label="Model Dimension"
-                        value={selectedNode.data.d_model}
+                        label="D_model"
+                        value={selectedNode.data.d_model as number | undefined}
                         defaultValue={512}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { d_model: value })}
                       />
                       <EditableNumberInput
-                        label="Number of Heads"
-                        value={selectedNode.data.nhead}
+                        label="Nhead"
+                        value={selectedNode.data.nhead as number | undefined}
                         defaultValue={8}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { nhead: value })}
+                      />
+                      <EditableNumberInput
+                        label="Dim Feedforward"
+                        value={selectedNode.data.dim_feedforward as number | undefined}
+                        defaultValue={2048}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { dim_feedforward: value })}
+                      />
+                      <EditableNumberInput
+                        label="Dropout"
+                        value={selectedNode.data.dropout as number | undefined}
+                        defaultValue={0.1}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { dropout: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "transformerdecoderlayerNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="D_model"
+                        value={selectedNode.data.d_model as number | undefined}
+                        defaultValue={512}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { d_model: value })}
+                      />
+                      <EditableNumberInput
+                        label="Nhead"
+                        value={selectedNode.data.nhead as number | undefined}
+                        defaultValue={8}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { nhead: value })}
+                      />
+                      <EditableNumberInput
+                        label="Dim Feedforward"
+                        value={selectedNode.data.dim_feedforward as number | undefined}
+                        defaultValue={2048}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { dim_feedforward: value })}
+                      />
+                      <EditableNumberInput
+                        label="Dropout"
+                        value={selectedNode.data.dropout as number | undefined}
+                        defaultValue={0.1}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { dropout: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "transposeNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Dimension 0"
+                        value={selectedNode.data.dim0 as number | undefined}
+                        defaultValue={0}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { dim0: value })}
+                      />
+                      <EditableNumberInput
+                        label="Dimension 1"
+                        value={selectedNode.data.dim1 as number | undefined}
+                        defaultValue={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { dim1: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "selectNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Dimension"
+                        value={selectedNode.data.dim as number | undefined}
+                        defaultValue={0}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { dim: value })}
+                      />
+                      <EditableNumberInput
+                        label="Index"
+                        value={selectedNode.data.index as number | undefined}
+                        defaultValue={0}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { index: value })}
                       />
                     </>
                   )}
@@ -2018,35 +1997,51 @@ export default function NeuralNetworkDesigner() {
 
       {/* Code Generation Dialog */}
       <Dialog open={showCodeDialog} onOpenChange={setShowCodeDialog}>
-        <DialogContent className="max-w-[90vw] w-[90vw] max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Generated PyTorch Model</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 flex-1 min-h-0">
-            <ScrollArea className="h-[60vh] w-full rounded-md border p-4 bg-gray-50">
-              <pre className="text-sm whitespace-pre break-words text-gray-900">
-                <code className="block text-gray-900">{generatedCode}</code>
-              </pre>
-            </ScrollArea>
-          </div>
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={() => setShowCodeDialog(false)}>
-              Close
-            </Button>
-            <Button
-              variant={copySuccess ? "default" : "outline"}
-              onClick={copyCode}
-              disabled={!generatedCode}
-              className={copySuccess ? "bg-green-600 hover:bg-green-700" : ""}
-            >
-              <Copy className="h-4 w-4 mr-2" />
-              {copySuccess ? "Copied!" : "Copy Code"}
-            </Button>
-            <Button onClick={downloadCode} disabled={!generatedCode}>
-              <Download className="h-4 w-4 mr-2" />
-              Download Code
-            </Button>
-          </div>
+        <DialogContent className="w-[3500px] h-[80vh] flex flex-col">
+          <ResizableBox
+            width={1000} // Initial width
+            height={600} // Initial height
+            minConstraints={[400, 300]} // Minimum size
+            maxConstraints={[3500, 1200]} // Maximum size (adjust as needed)
+            resizeHandles={["se", "s", "e"]}
+            className="flex-1 flex flex-col overflow-hidden resize-x"
+            // You might need to adjust these styles to fit your existing dialog styling
+            style={{ overflow: "auto" }} // Allow content to scroll if it exceeds ResizableBox size
+          >
+            <DialogHeader>
+              <DialogTitle>Generated PyTorch Model</DialogTitle>
+              <DialogDescription>
+                Here's the PyTorch code for your model. Click a node to view its specific code.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+              <div className="flex-1 relative">
+                <ScrollArea className="h-full w-full rounded-md border p-4 font-mono text-sm">
+                  <pre className="whitespace-pre-wrap">{
+                    selectedNode
+                      ? `// Code for ${selectedNode.data.label || selectedNode.type} (getNodeCode not yet implemented)
+`
+                      : generatedCode
+                  }</pre>
+                </ScrollArea>
+                {generatedCode && (
+                  <div className="absolute bottom-2 right-2 flex gap-2">
+                    <Button variant="outline" size="sm" onClick={copyCode} className={copySuccess ? "bg-green-500 text-white" : ""}>
+                      {copySuccess ? "Copied!" : <Copy className="h-4 w-4" />}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={downloadCode}>
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowCodeDialog(false)}>
+                Close
+              </Button>
+            </div>
+          </ResizableBox>
         </DialogContent>
       </Dialog>
 
@@ -2178,20 +2173,29 @@ export default function NeuralNetworkDesigner() {
       </Dialog>
 
       <Dialog open={showCodeInputDialog} onOpenChange={setShowCodeInputDialog}>
-        <DialogContent className="max-w-6xl w-[95vw] h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Input PyTorch Code</DialogTitle>
-            <DialogDescription>
-              Paste your PyTorch model code below and we'll recreate it visually in the canvas
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 flex flex-col gap-4">
-            <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">PyTorch Model Code:</label>
-              <textarea
-                value={inputCode}
-                onChange={(e) => setInputCode(e.target.value)}
-                placeholder={`import torch
+        <DialogContent className="w-[3500px] h-[80vh] flex flex-col">
+          <ResizableBox
+            width={1000} // Initial width
+            height={600} // Initial height
+            minConstraints={[400, 300]} // Minimum size
+            maxConstraints={[3500, 1200]} // Maximum size (adjust as needed)
+            resizeHandles={["se", "s", "e"]}
+            className="flex-1 flex flex-col overflow-hidden resize-x"
+            style={{ overflow: "auto" }} // Allow content to scroll if it exceeds ResizableBox size
+          >
+            <DialogHeader>
+              <DialogTitle>Input PyTorch Code</DialogTitle>
+              <DialogDescription>
+                Paste your PyTorch model code below and we'll recreate it visually in the canvas
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 flex flex-col gap-4">
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-2 block">PyTorch Model Code:</label>
+                <textarea
+                  value={inputCode}
+                  onChange={(e) => setInputCode(e.target.value)}
+                  placeholder={`import torch
 import torch.nn as nn
 
 class MyModel(nn.Module):
@@ -2209,58 +2213,50 @@ class MyModel(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.fc1(x)
         return x`}
-                className="w-full h-full p-3 border rounded-md font-mono text-sm resize-none"
-              />
-            </div>
-
-            {parseErrors.length > 0 && (
-              <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3">
-                <h4 className="font-medium text-destructive mb-2">Parsing Issues:</h4>
-                <ul className="text-sm text-destructive space-y-1">
-                  {parseErrors.map((error, index) => (
-                    <li key={index}>• {error}</li>
-                  ))}
-                </ul>
+                  className="w-full h-full p-3 border rounded-md font-mono text-sm resize-none"
+                ></textarea>
               </div>
-            )}
-
-            {parseWarnings.length > 0 && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                <h4 className="font-medium text-yellow-800 mb-2">Warnings & Suggestions:</h4>
-                <ul className="text-sm text-yellow-700 space-y-1">
-                  {parseWarnings.map((warning, index) => (
-                    <li key={index}>• {warning}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {unsupportedModules.length > 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                <h4 className="font-medium text-blue-800 mb-2">Unsupported Modules Found:</h4>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {[...new Set(unsupportedModules)].map((module, index) => (
-                    <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-mono">
-                      nn.{module}
-                    </span>
-                  ))}
+              {parseErrors.length > 0 && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                  <strong className="font-bold">Parsing Errors:</strong>
+                  <ul className="mt-1 list-disc list-inside">
+                    {parseErrors.map((error, index) => (
+                      <li key={index}>{error}</li>
+                    ))}
+                  </ul>
                 </div>
-                <p className="text-sm text-blue-700">
-                  These PyTorch modules are not yet available for visualization. Consider requesting support for these
-                  features.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowCodeInputDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCodeInput} disabled={!inputCode.trim()}>
-              Import Model
-            </Button>
-          </div>
+              )}
+              {parseWarnings.length > 0 && (
+                <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">
+                  <strong className="font-bold">Parsing Warnings:</strong>
+                  <ul className="mt-1 list-disc list-inside">
+                    {parseWarnings.map((warning, index) => (
+                      <li key={index}>{warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {unsupportedModules.length > 0 && (
+                <div className="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-3 rounded relative" role="alert">
+                  <strong className="font-bold">Unsupported Modules:</strong>
+                  <ul className="mt-1 list-disc list-inside">
+                    {unsupportedModules.map((module, index) => (
+                      <li key={index}>{module}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowCodeInputDialog(false)}>
+                Close
+              </Button>
+              <Button onClick={() => parsePyTorchCode(inputCode)}>
+                <Zap className="h-4 w-4 mr-2" />
+                Parse Code
+              </Button>
+            </div>
+          </ResizableBox>
         </DialogContent>
       </Dialog>
 
