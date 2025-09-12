@@ -27,6 +27,7 @@ import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/hooks/use-toast"
+import { EditableNumberInput } from "@/components/ui/EditableNumberInput"
 import {
   Brain,
   Code,
@@ -65,7 +66,7 @@ import { SoftmaxNode } from "@/components/nodes/SoftmaxNode"
 import { LeakyReLUNode } from "@/components/nodes/LeakyReLUNode"
 import { DropoutNode } from "@/components/nodes/DropoutNode"
 import { FlattenNode } from "@/components/nodes/FlattenNode"
-import { MaxPool2DNode } from "@/components/nodes/maxpool2dNode"
+import { MaxPool2DNode } from "@/components/nodes/MaxPool2DNode"
 import { AvgPool2DNode } from "@/components/nodes/AvgPool2DNode"
 import { AdaptiveAvgPool2DNode } from "@/components/nodes/AdaptiveAvgPool2DNode"
 import { BatchNorm1DNode } from "@/components/nodes/BatchNorm1DNode"
@@ -180,80 +181,6 @@ export default function NeuralNetworkDesigner() {
   // const [showFeedbackDialog, setShowFeedbackDialog] = useState(false)
   // const [feedbackMessage, setFeedbackMessage] = useState("")
   // const [feedbackEmail, setFeedbackEmail] = useState("")
-
-  const EditableNumberInput = ({
-    label,
-    value,
-    defaultValue,
-    min = 0,
-    step = 1,
-    max,
-    onUpdate,
-  }: {
-    label: string
-    value: number | undefined
-    defaultValue: number
-    min?: number
-    step?: number
-    max?: number
-    onUpdate: (newValue: number) => void
-  }) => {
-    const [inputValue, setInputValue] = useState(
-      value !== undefined && value !== null ? value.toString() : defaultValue.toString()
-    )
-    const [isEditing, setIsEditing] = useState(false)
-
-    useEffect(() => {
-      setInputValue(value !== undefined && value !== null ? value.toString() : defaultValue.toString())
-    }, [value, defaultValue])
-
-    useEffect(() => {
-      if (!isEditing && value !== undefined && value !== null) {
-        setInputValue(value.toString())
-      }
-    }, [isEditing, value])
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
-        const numValue = Number.parseInt(inputValue) || defaultValue
-        onUpdate(numValue)
-        setIsEditing(false)
-        ;(e.currentTarget as HTMLInputElement).blur()
-      }
-    }
-
-    const handleBlur = () => {
-      const numValue = Number.parseInt(inputValue) || defaultValue
-      onUpdate(numValue)
-      setIsEditing(false)
-    }
-
-    const handleFocus = () => {
-      setIsEditing(true)
-    }
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setInputValue(e.target.value)
-    }
-
-    return (
-      <div>
-        <label className="text-sm font-medium text-sidebar-foreground">{label}</label>
-        <input
-          type="number"
-          value={inputValue}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-          onFocus={handleFocus}
-          min={min}
-          step={step}
-          max={max}
-          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-      </div>
-    )
-  }
 
   const propagateTensorShapes = useCallback(() => {
     if (isUpdatingShapes.current) return // Prevent recursive calls
@@ -617,13 +544,12 @@ export default function NeuralNetworkDesigner() {
     try {
       console.log("[v0] Starting PyTorch code parsing...")
 
-      // Fixed regex patterns by replacing $$ with proper parentheses escaping $$ and $$
       // Step 1: Find PyTorch model class with proper regex
       const classPatterns = [
-        /class\s+(\w+)\s*$$\s*nn\.Module\s*$$\s*:/,
-        /class\s+(\w+)\s*$$\s*torch\.nn\.Module\s*$$\s*:/,
-        /class\s+(\w+)\s*$$[^)]*nn\.Module[^)]*$$\s*:/,
-        /class\s+(\w+)\s*$$[^)]*torch\.nn\.Module[^)]*$$\s*:/,
+        /class\s+(\w+)\s*\(\s*nn\.Module\s*\):/,
+        /class\s+(\w+)\s*\(\s*torch\.nn\.Module\s*\):/,
+        /class\s+(\w+)\s*\([^)]*nn\.Module[^)]*\):/,
+        /class\s+(\w+)\s*\([^)]*torch\.nn\.Module[^)]*\):/,
       ]
 
       let className = ""
@@ -647,7 +573,7 @@ export default function NeuralNetworkDesigner() {
       }
 
       // Step 2: Extract __init__ method content
-      const initPattern = /def\s+__init__\s*$$[^)]*$$\s*:([\s\S]*?)(?=\n\s*def\s+\w+|\n\s*class\s+\w+|$)/
+      const initPattern = /def\s+__init__\s*\([^)]*\)\s*:([\s\S]*?)(?=\n\s*def\s+\w+|\n\s*class\s+\w+|$)/
       const initMatch = code.match(initPattern)
 
       if (!initMatch) {
@@ -660,8 +586,8 @@ export default function NeuralNetworkDesigner() {
 
       // Step 3: Find all layer definitions with improved patterns
       const layerPatterns = [
-        /self\.(\w+)\s*=\s*nn\.(\w+)\s*$$([^)]*)$$/g,
-        /self\.(\w+)\s*=\s*torch\.nn\.(\w+)\s*$$([^)]*)$$/g,
+        /self\.(\w+)\s*=\s*nn\.(\w+)\s*\(([^)]*)\)/g,
+        /self\.(\w+)\s*=\s*torch\.nn\.(\w+)\s*\(([^)]*)\)/g,
       ]
 
       const allLayerMatches: RegExpMatchArray[] = []
@@ -898,8 +824,8 @@ export default function NeuralNetworkDesigner() {
     if (/^\d*\.\d+$/.test(trimmedValue)) return Number.parseFloat(trimmedValue)
 
     // Handle tuples like (3, 3)
-    if (/^$$[^)]+$$$/.test(trimmedValue)) {
-      const tupleMatch = trimmedValue.match(/$$([^)]+)$$/)
+    if (/^\([^)]+\)$/.test(trimmedValue)) {
+      const tupleMatch = trimmedValue.match(/\(([^)]+)\)/)
       if (tupleMatch) {
         const tupleValues = tupleMatch[1].split(",").map((v) => {
           const num = Number.parseInt(v.trim())
