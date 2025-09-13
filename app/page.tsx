@@ -48,7 +48,6 @@ import {
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ResizableBox } from "react-resizable"
-import "react-resizable/css/styles.css"
 
 import { EXAMPLE_NETWORKS } from "@/lib/example-networks"
 import { calculateOutputShape as calcOutputShape, type TensorShape } from "@/lib/tensor-shape-calculator"
