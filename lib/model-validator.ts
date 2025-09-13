@@ -147,40 +147,34 @@ export class ModelValidator {
 
       if (sourceNode && targetNode) {
         const sourceOutputShape = sourceNode.data?.outputShape
-        const targetInputShape = targetNode.data?.inputShape
 
-        if (sourceOutputShape && targetInputShape) {
-          // Basic shape compatibility check
-          if (!this.shapesCompatible(sourceOutputShape, targetInputShape)) {
-            errors.push(`Shape mismatch between ${edge.source} output and ${edge.target} input`)
-          }
+        if (sourceOutputShape) {
+            // Rule for LinearNode: requires a 2D input (batch, features)
+            if (targetNode.type === 'linearNode') {
+                const isFuzzy2D = sourceOutputShape.features !== undefined;
+                const is4D = sourceOutputShape.channels !== undefined || sourceOutputShape.height !== undefined || sourceOutputShape.width !== undefined;
+
+                if (is4D && !isFuzzy2D) { // Clearly a 4D image shape, not flattened
+                    errors.push(`Shape mismatch: Node ${targetNode.id} (${targetNode.data.label || 'Linear'}) expects a 2D input (e.g., from a Flatten layer), but received a 4D image-like input from ${sourceNode.id}.`);
+                } else if (sourceOutputShape.features && targetNode.data?.in_features && sourceOutputShape.features !== targetNode.data?.in_features) {
+                    errors.push(`Shape mismatch: Node ${targetNode.id} (${targetNode.data.label || 'Linear'}) expects in_features=${targetNode.data?.in_features}, but received ${sourceOutputShape.features} from ${sourceNode.id}.`);
+                }
+            }
+
+            // Rule for Conv2DNode: requires a 4D input (batch, channels, height, width)
+            if (targetNode.type === 'conv2dNode') {
+                const is4D = sourceOutputShape.channels !== undefined && sourceOutputShape.height !== undefined && sourceOutputShape.width !== undefined;
+                if (!is4D) {
+                    errors.push(`Shape mismatch: Node ${targetNode.id} (${targetNode.data.label || 'Conv2D'}) expects a 4D image input, but received a different shape from ${sourceNode.id}.`);
+                } else if (sourceOutputShape.channels && targetNode.data?.in_channels && sourceOutputShape.channels !== targetNode.data?.in_channels) {
+                    errors.push(`Shape mismatch: Node ${targetNode.id} (${targetNode.data.label || 'Conv2D'}) expects in_channels=${targetNode.data?.in_channels}, but received ${sourceOutputShape.channels} from ${sourceNode.id}.`);
+                }
+            }
         }
       }
     }
 
     return errors
-  }
-
-  // Check if two shapes are compatible
-  private shapesCompatible(shape1: any, shape2: any): boolean {
-    // This is a simplified compatibility check
-    // In a real implementation, you'd want more sophisticated shape checking
-    const keys1 = Object.keys(shape1).filter(key => shape1[key] !== undefined)
-    const keys2 = Object.keys(shape2).filter(key => shape2[key] !== undefined)
-    
-    // If both shapes have the same keys and values (ignoring "dynamic")
-    for (const key of keys1) {
-      if (keys2.includes(key)) {
-        const val1 = shape1[key]
-        const val2 = shape2[key]
-        
-        if (val1 !== "dynamic" && val2 !== "dynamic" && val1 !== val2) {
-          return false
-        }
-      }
-    }
-    
-    return true
   }
 
   // Check for missing required parameters
