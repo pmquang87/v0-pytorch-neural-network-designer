@@ -46,19 +46,13 @@ import {
   Layers,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ResizableBox } from "react-resizable"
+import "react-resizable/css/styles.css"
 
 import { EXAMPLE_NETWORKS } from "@/lib/example-networks"
 import { calculateOutputShape as calcOutputShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
 import { analyzeModel, formatNumber, type ModelAnalysis } from "@/lib/model-analyzer"
-
-// New imports for enhanced features
-import { ErrorBoundary } from "@/components/ErrorBoundary"
-import { UndoRedoManager } from "@/lib/undo-redo"
-import { useKeyboardShortcuts } from "@/lib/keyboard-shortcuts"
-import { useAutoSave, StorageUtils } from "@/lib/auto-save"
-import { useModelValidation } from "@/lib/model-validator"
-import { type NodeData } from "@/lib/types"
 
 // Custom Node Components
 import { InputNode } from "@/components/nodes/InputNode"
@@ -71,7 +65,7 @@ import { SoftmaxNode } from "@/components/nodes/SoftmaxNode"
 import { LeakyReLUNode } from "@/components/nodes/LeakyReLUNode"
 import { DropoutNode } from "@/components/nodes/DropoutNode"
 import { FlattenNode } from "@/components/nodes/FlattenNode"
-import { MaxPool2DNode } from "@/components/nodes/MaxPool2DNode"
+import { MaxPool2DNode } from "@/components/nodes/maxpool2dNode"
 import { AvgPool2DNode } from "@/components/nodes/AvgPool2DNode"
 import { AdaptiveAvgPool2DNode } from "@/components/nodes/AdaptiveAvgPool2DNode"
 import { BatchNorm1DNode } from "@/components/nodes/BatchNorm1DNode"
@@ -158,7 +152,7 @@ const nodeTypes: NodeTypes = {
   selectNode: SelectNode,
 }
 
-function NeuralNetworkDesigner() {
+export default function NeuralNetworkDesigner() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
@@ -182,53 +176,6 @@ function NeuralNetworkDesigner() {
   const [unsupportedModules, setUnsupportedModules] = useState<string[]>([])
 
   const reactFlowInstanceRef = useRef<any>(null)
-
-  // Enhanced features
-  const { validateModel } = useModelValidation()
-  const { save: autoSave, load: loadAutoSave, hasSavedData, lastSaveTime } = useAutoSave()
-  
-  // Undo/Redo functionality
-  const [undoRedoManager] = useState(() => new UndoRedoManager())
-  const [canUndo, setCanUndo] = useState(false)
-  const [canRedo, setCanRedo] = useState(false)
-  
-  // New state for enhanced features
-  const [validationResult, setValidationResult] = useState<any>(null)
-  const [showValidationDialog, setShowValidationDialog] = useState(false)
-  const [lastSaveTimeDisplay, setLastSaveTimeDisplay] = useState<number>(0)
-
-  // Undo/Redo functions
-  const saveState = useCallback((newNodes: any[], newEdges: any[]) => {
-    undoRedoManager.saveState(newNodes, newEdges)
-    setNodes(newNodes)
-    setEdges(newEdges)
-    setCanUndo(undoRedoManager.canUndo())
-    setCanRedo(undoRedoManager.canRedo())
-  }, [undoRedoManager, setNodes, setEdges])
-
-  const undo = useCallback(() => {
-    const state = undoRedoManager.undo()
-    if (state) {
-      setNodes(state.nodes)
-      setEdges(state.edges)
-      setCanUndo(undoRedoManager.canUndo())
-      setCanRedo(undoRedoManager.canRedo())
-      return state
-    }
-    return null
-  }, [undoRedoManager, setNodes, setEdges])
-
-  const redo = useCallback(() => {
-    const state = undoRedoManager.redo()
-    if (state) {
-      setNodes(state.nodes)
-      setEdges(state.edges)
-      setCanUndo(undoRedoManager.canUndo())
-      setCanRedo(undoRedoManager.canRedo())
-      return state
-    }
-    return null
-  }, [undoRedoManager, setNodes, setEdges])
 
   // const [showFeedbackDialog, setShowFeedbackDialog] = useState(false)
   // const [feedbackMessage, setFeedbackMessage] = useState("")
@@ -498,87 +445,6 @@ function NeuralNetworkDesigner() {
     propagateTensorShapes()
   }, [edges, propagateTensorShapes])
 
-  // Enhanced features setup
-  useEffect(() => {
-    // Load auto-saved data on component mount
-    if (hasSavedData()) {
-      const savedData = loadAutoSave()
-      if (savedData) {
-        setNodes(savedData.nodes)
-        setEdges(savedData.edges)
-        toast({
-          title: "Auto-saved model loaded",
-          description: "Your previous work has been restored from auto-save.",
-        })
-      }
-    }
-  }, [])
-
-  // Auto-save functionality
-  useEffect(() => {
-    if (typeof window === "undefined") return
-
-    const handleAutoSaveTrigger = () => {
-      autoSave(nodes, edges)
-      setLastSaveTimeDisplay(Date.now())
-    }
-
-    window.addEventListener("auto-save-trigger", handleAutoSaveTrigger)
-    return () => window.removeEventListener("auto-save-trigger", handleAutoSaveTrigger)
-  }, [nodes, edges, autoSave])
-
-  // Keyboard shortcuts
-  useKeyboardShortcuts([
-    {
-      key: "z",
-      ctrlKey: true,
-      action: () => {
-        if (canUndo) {
-          const state = undo()
-          if (state) {
-            toast({ title: "Undo", description: "Action undone" })
-          }
-        }
-      },
-      description: "Undo"
-    },
-    {
-      key: "y",
-      ctrlKey: true,
-      action: () => {
-        if (canRedo) {
-          const state = redo()
-          if (state) {
-            toast({ title: "Redo", description: "Action redone" })
-          }
-        }
-      },
-      description: "Redo"
-    },
-    {
-      key: "s",
-      ctrlKey: true,
-      action: () => {
-        const modelName = prompt("Enter model name:")
-        if (modelName) {
-          StorageUtils.saveModel(`nn-model-${modelName}`, nodes, edges)
-          toast({ title: "Model saved", description: `Model "${modelName}" saved successfully` })
-        }
-      },
-      description: "Save model"
-    },
-    {
-      key: "v",
-      ctrlKey: true,
-      action: () => {
-        const result = validateModel(nodes, edges)
-        setValidationResult(result)
-        setShowValidationDialog(true)
-      },
-      description: "Validate model"
-    }
-  ])
-
   const loadExample = useCallback(
     (example: any) => {
       console.log("[v0] Loading example:", example.name)
@@ -617,7 +483,8 @@ function NeuralNetworkDesigner() {
         console.log("[v0] Edges validated successfully.")
 
         console.log("[v0] Setting nodes and edges...")
-        saveState(example.nodes, example.edges)
+        setNodes(example.nodes)
+        setEdges(example.edges)
         setSelectedNode(null)
 
         toast({
@@ -647,7 +514,8 @@ function NeuralNetworkDesigner() {
   )
 
   const resetCanvas = useCallback(() => {
-    saveState(initialNodes, initialEdges)
+    setNodes(initialNodes)
+    setEdges(initialEdges)
     setSelectedNode(null)
     toast({
       title: "Canvas Reset",
@@ -657,7 +525,7 @@ function NeuralNetworkDesigner() {
     setTimeout(() => {
       propagateTensorShapes()
     }, 0)
-  }, [saveState, toast, propagateTensorShapes])
+  }, [setNodes, setEdges, toast, propagateTensorShapes])
 
   const analyzeCurrentModel = useCallback(() => {
     if (nodes.length === 0) return
@@ -1143,28 +1011,6 @@ function NeuralNetworkDesigner() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Undo/Redo buttons */}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={undo} 
-            disabled={!canUndo}
-            title="Undo (Ctrl+Z)"
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={redo} 
-            disabled={!canRedo}
-            title="Redo (Ctrl+Y)"
-          >
-            <RotateCcw className="h-4 w-4 rotate-180" />
-          </Button>
-          
-          <Separator orientation="vertical" className="h-6" />
-          
           <Button variant="outline" size="sm" onClick={() => setShowHelpDialog(true)}>
             <HelpCircle className="h-4 w-4 mr-2" />
             Help
@@ -1194,20 +1040,6 @@ function NeuralNetworkDesigner() {
           <Button variant="outline" size="sm" onClick={analyzeCurrentModel} disabled={nodes.length === 0}>
             <BarChart3 className="h-4 w-4 mr-2" />
             Analyze Model
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => {
-              const result = validateModel(nodes, edges)
-              setValidationResult(result)
-              setShowValidationDialog(true)
-            }}
-            disabled={nodes.length === 0}
-            title="Validate Model (Ctrl+V)"
-          >
-            <Eye className="h-4 w-4 mr-2" />
-            Validate
           </Button>
           <Button onClick={generateModel} disabled={isGenerating} className="flex items-center">
             {isGenerating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Code className="h-4 w-4 mr-2" />}
@@ -1749,7 +1581,8 @@ function NeuralNetworkDesigner() {
                         onUpdate={(value) => updateNodeData(selectedNode.id, { width: value })}
                       />
                       <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
-                        Shape: {[selectedNode.data.batch_size ?? 1, selectedNode.data.channels ?? 3, selectedNode.data.height ?? 28, selectedNode.data.width ?? 28].join(", ")}
+                        Shape: [{(selectedNode.data.batch_size ?? 1)}, {(selectedNode.data.channels ?? 3)},
+                        {(selectedNode.data.height ?? 28)}, {(selectedNode.data.width ?? 28)}].join(", ")]
                       </div>
                     </>
                   )}
@@ -2164,40 +1997,56 @@ function NeuralNetworkDesigner() {
 
       {/* Code Generation Dialog */}
       <Dialog open={showCodeDialog} onOpenChange={setShowCodeDialog}>
-        <DialogContent className="w-[65vw] h-[80vh] flex flex-col sm:max-w-none">
-          <DialogHeader>
-            <DialogTitle>Generated PyTorch Code</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 flex-1 min-h-0">
-            <ScrollArea className="h-[60vh] w-full rounded-md border p-4 bg-gray-50">
-              <pre className="text-sm whitespace-pre break-words text-gray-900">
-                <code className="block text-gray-900">{generatedCode}</code>
-              </pre>
-            </ScrollArea>
-          </div>
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={() => setShowCodeDialog(false)}>
-              Close
-            </Button>
-            <Button
-              variant={copySuccess ? "default" : "outline"}
-              onClick={copyCode}
-              disabled={!generatedCode}
-              className={copySuccess ? "bg-green-600 hover:bg-green-700" : ""}
-            >
-              <Copy className="h-4 w-4 mr-2" />
-              {copySuccess ? "Copied!" : "Copy Code"}
-            </Button>
-            <Button onClick={downloadCode} disabled={!generatedCode}>
-              <Download className="h-4 w-4 mr-2" />
-              Download Code
-            </Button>
-          </div>
+        <DialogContent className="w-[3500px] h-[80vh] flex flex-col">
+          <ResizableBox
+            width={1000} // Initial width
+            height={600} // Initial height
+            minConstraints={[400, 300]} // Minimum size
+            maxConstraints={[3500, 1200]} // Maximum size (adjust as needed)
+            resizeHandles={["se", "s", "e"]}
+            className="flex-1 flex flex-col overflow-hidden resize-x"
+            // You might need to adjust these styles to fit your existing dialog styling
+            style={{ overflow: "auto" }} // Allow content to scroll if it exceeds ResizableBox size
+          >
+            <DialogHeader>
+              <DialogTitle>Generated PyTorch Model</DialogTitle>
+              <DialogDescription>
+                Here's the PyTorch code for your model. Click a node to view its specific code.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+              <div className="flex-1 relative">
+                <ScrollArea className="h-full w-full rounded-md border p-4 font-mono text-sm">
+                  <pre className="whitespace-pre-wrap">{
+                    selectedNode
+                      ? `// Code for ${selectedNode.data.label || selectedNode.type} (getNodeCode not yet implemented)
+`
+                      : generatedCode
+                  }</pre>
+                </ScrollArea>
+                {generatedCode && (
+                  <div className="absolute bottom-2 right-2 flex gap-2">
+                    <Button variant="outline" size="sm" onClick={copyCode} className={copySuccess ? "bg-green-500 text-white" : ""}>
+                      {copySuccess ? "Copied!" : <Copy className="h-4 w-4" />}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={downloadCode}>
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowCodeDialog(false)}>
+                Close
+              </Button>
+            </div>
+          </ResizableBox>
         </DialogContent>
       </Dialog>
 
       <Dialog open={showAnalysisPanel} onOpenChange={setShowAnalysisPanel}>
-        <DialogContent className="max-w-6xl max-h-[95vh] w-[40vw]">
+        <DialogContent className="max-w-6xl max-h-[90vh] w-[95vw]">
           <DialogHeader>
             <DialogTitle>Model Analysis</DialogTitle>
           </DialogHeader>
@@ -2324,20 +2173,29 @@ function NeuralNetworkDesigner() {
       </Dialog>
 
       <Dialog open={showCodeInputDialog} onOpenChange={setShowCodeInputDialog}>
-        <DialogContent className="w-[95vw] h-[80vh] flex flex-col sm:max-w-none">
-          <DialogHeader>
-            <DialogTitle>Input PyTorch Code</DialogTitle>
-            <DialogDescription>
-              Paste your PyTorch model code below and we'll recreate it visually in the canvas
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 flex flex-col gap-4">
-            <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">PyTorch Model Code:</label>
-              <textarea
-                value={inputCode}
-                onChange={(e) => setInputCode(e.target.value)}
-                placeholder={`import torch
+        <DialogContent className="w-[3500px] h-[80vh] flex flex-col">
+          <ResizableBox
+            width={1000} // Initial width
+            height={600} // Initial height
+            minConstraints={[400, 300]} // Minimum size
+            maxConstraints={[3500, 1200]} // Maximum size (adjust as needed)
+            resizeHandles={["se", "s", "e"]}
+            className="flex-1 flex flex-col overflow-hidden resize-x"
+            style={{ overflow: "auto" }} // Allow content to scroll if it exceeds ResizableBox size
+          >
+            <DialogHeader>
+              <DialogTitle>Input PyTorch Code</DialogTitle>
+              <DialogDescription>
+                Paste your PyTorch model code below and we'll recreate it visually in the canvas
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 flex flex-col gap-4">
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-2 block">PyTorch Model Code:</label>
+                <textarea
+                  value={inputCode}
+                  onChange={(e) => setInputCode(e.target.value)}
+                  placeholder={`import torch
 import torch.nn as nn
 
 class MyModel(nn.Module):
@@ -2355,58 +2213,50 @@ class MyModel(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.fc1(x)
         return x`}
-                className="w-full h-full p-3 border rounded-md font-mono text-sm resize-none"
-              />
-            </div>
-
-            {parseErrors.length > 0 && (
-              <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3">
-                <h4 className="font-medium text-destructive mb-2">Parsing Issues:</h4>
-                <ul className="text-sm text-destructive space-y-1">
-                  {parseErrors.map((error, index) => (
-                    <li key={index}>• {error}</li>
-                  ))}
-                </ul>
+                  className="w-full h-full p-3 border rounded-md font-mono text-sm resize-none"
+                ></textarea>
               </div>
-            )}
-
-            {parseWarnings.length > 0 && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                <h4 className="font-medium text-yellow-800 mb-2">Warnings & Suggestions:</h4>
-                <ul className="text-sm text-yellow-700 space-y-1">
-                  {parseWarnings.map((warning, index) => (
-                    <li key={index}>• {warning}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {unsupportedModules.length > 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                <h4 className="font-medium text-blue-800 mb-2">Unsupported Modules Found:</h4>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {[...new Set(unsupportedModules)].map((module, index) => (
-                    <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-mono">
-                      nn.{module}
-                    </span>
-                  ))}
+              {parseErrors.length > 0 && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                  <strong className="font-bold">Parsing Errors:</strong>
+                  <ul className="mt-1 list-disc list-inside">
+                    {parseErrors.map((error, index) => (
+                      <li key={index}>{error}</li>
+                    ))}
+                  </ul>
                 </div>
-                <p className="text-sm text-blue-700">
-                  These PyTorch modules are not yet available for visualization. Consider requesting support for these
-                  features.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowCodeInputDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCodeInput} disabled={!inputCode.trim()}>
-              Import Model
-            </Button>
-          </div>
+              )}
+              {parseWarnings.length > 0 && (
+                <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">
+                  <strong className="font-bold">Parsing Warnings:</strong>
+                  <ul className="mt-1 list-disc list-inside">
+                    {parseWarnings.map((warning, index) => (
+                      <li key={index}>{warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {unsupportedModules.length > 0 && (
+                <div className="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-3 rounded relative" role="alert">
+                  <strong className="font-bold">Unsupported Modules:</strong>
+                  <ul className="mt-1 list-disc list-inside">
+                    {unsupportedModules.map((module, index) => (
+                      <li key={index}>{module}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowCodeInputDialog(false)}>
+                Close
+              </Button>
+              <Button onClick={() => parsePyTorchCode(inputCode)}>
+                <Zap className="h-4 w-4 mr-2" />
+                Parse Code
+              </Button>
+            </div>
+          </ResizableBox>
         </DialogContent>
       </Dialog>
 
@@ -2625,68 +2475,7 @@ class MyModel(nn.Module):
         </DialogContent>
       </Dialog>
 
-      {/* Model Validation Dialog */}
-      <Dialog open={showValidationDialog} onOpenChange={setShowValidationDialog}>
-        <DialogContent className="w-[65%] max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Model Validation Results</DialogTitle>
-            <DialogDescription>
-              {validationResult?.isValid ? "Model is valid!" : "Model has issues that need attention."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {validationResult?.errors && validationResult.errors.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="font-semibold text-red-600">Errors ({validationResult.errors.length})</h4>
-                <div className="space-y-1">
-                  {validationResult.errors.map((error: string, index: number) => (
-                    <div key={index} className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                      {error}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {validationResult?.warnings && validationResult.warnings.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="font-semibold text-yellow-600">Warnings ({validationResult.warnings.length})</h4>
-                <div className="space-y-1">
-                  {validationResult.warnings.map((warning: string, index: number) => (
-                    <div key={index} className="p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-700">
-                      {warning}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {validationResult?.isValid && (!validationResult?.warnings || validationResult.warnings.length === 0) && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded text-green-700">
-                ✅ Your model is valid and ready to use!
-              </div>
-            )}
-          </div>
-          <div className="flex justify-end pt-4 border-t">
-            <Button onClick={() => setShowValidationDialog(false)}>Close</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Auto-save indicator */}
-      {lastSaveTimeDisplay > 0 && (
-        <div className="fixed bottom-4 right-4 bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs">
-          Auto-saved {new Date(lastSaveTimeDisplay).toLocaleTimeString()}
-        </div>
-      )}
-
       {/* Feedback dialog removed */}
     </div>
-  )
-}
-
-export default function NeuralNetworkDesignerWithErrorBoundary() {
-  return (
-    <ErrorBoundary>
-      <NeuralNetworkDesigner />
-    </ErrorBoundary>
   )
 }

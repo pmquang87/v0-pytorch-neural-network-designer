@@ -125,8 +125,6 @@ export function useAutoSave() {
 
     const handleAutoSaveRequest = (event: CustomEvent) => {
       // This will be handled by the main component
-      // We need to create an event with nodes and edges data
-      const saveEvent = new CustomEvent("auto-save-request-data")
       window.dispatchEvent(saveEvent)
     }
 
@@ -142,15 +140,12 @@ export function useAutoSave() {
     if (typeof window === "undefined") return
 
     const handleSaveTrigger = (event: CustomEvent) => {
-      // Add null check before destructuring
-      if (event.detail) {
         const { nodes, edges } = event.detail
         if (nodes && edges) {
           autoSaveManager.save(nodes, edges)
           setLastSaveTime(Date.now())
         }
       }
-    }
 
     window.addEventListener("auto-save-trigger", handleSaveTrigger as EventListener)
 

@@ -3,38 +3,15 @@ import { ValidationResult } from "./types"
 import type { Node, Edge } from "@xyflow/react"
 
 export class ModelValidator {
-  // Cache for validation results to avoid re-validating unchanged models
-  private validationCache: Map<string, ValidationResult> = new Map()
   // Validate entire model
   validateModel(nodes: Node[], edges: Edge[]): ValidationResult {
-    // Generate a cache key based on a simplified version of the model
-    const cacheKey = this.generateCacheKey(nodes, edges)
-
-    // Check if we have a cached result
-    if (this.validationCache.has(cacheKey)) {
-      console.log("[ModelValidator] Using cached validation result")
-      return this.validationCache.get(cacheKey)!
-    }
-
-    console.log("[ModelValidator] Validating model with", nodes.length, "nodes and", edges.length, "edges")
-
     const errors: string[] = []
     const warnings: string[] = []
 
     // Check for empty model
     if (nodes.length === 0) {
       warnings.push("Model is empty")
-      const result = { isValid: true, errors, warnings }
-      this.validationCache.set(cacheKey, result)
-      return result
     }
-
-    // First, ensure shapes are propagated correctly through the network
-    this.propagateShapes(nodes, edges)
-
-    // Check for input/output structure
-    const ioErrors = this.checkInputOutputStructure(nodes, edges)
-    errors.push(...ioErrors)
 
     // Check for cycles
     const cycleErrors = this.checkForCycles(nodes, edges)
@@ -64,17 +41,10 @@ export class ModelValidator {
     const performanceWarnings = this.checkPerformanceIssues(nodes, edges)
     warnings.push(...performanceWarnings)
 
-    // Create and cache the validation result
-    const result = {
       isValid: errors.length === 0,
       errors,
       warnings
     }
-
-    // Store in cache
-    this.validationCache.set(cacheKey, result)
-
-    return result
   }
 
   // Check for cycles in the graph
@@ -147,66 +117,6 @@ export class ModelValidator {
     return errors
   }
 
-  // Check for model completeness
-  private checkModelCompleteness(nodes: Node[]): string[] {
-    const warnings: string[] = []
-
-    // Check if model has at least one input node
-    const inputNodes = nodes.filter(node => node.type === "inputNode")
-    if (inputNodes.length === 0) {
-      warnings.push("Model does not have an input node. Add an input node to define input tensor dimensions.")
-    }
-
-    // Check if model has essential components for common neural networks
-    const hasActivation = nodes.some(node => 
-      node.type === "reluNode" || 
-      node.type === "sigmoidNode" || 
-      node.type === "tanhNode" || 
-      node.type === "leakyreluNode" || 
-      node.type === "geluNode" ||
-      node.type === "softmaxNode"
-    )
-
-    if (!hasActivation && nodes.length > 2) {
-      warnings.push("Model does not have any activation functions, which may limit its ability to learn non-linear patterns.")
-    }
-
-    return warnings
-  }
-
-  // Check input/output structure
-  private checkInputOutputStructure(nodes: Node[], edges: Edge[]): string[] {
-    const errors: string[] = []
-
-    // Skip if no nodes
-    if (nodes.length === 0) return errors
-
-    // Find nodes with no incoming edges (sources)
-    const sourceNodeIds = new Set(nodes.map(node => node.id))
-    edges.forEach(edge => sourceNodeIds.delete(edge.target))
-
-    // Sources that aren't input nodes
-    const nonInputSources = nodes
-      .filter(node => sourceNodeIds.has(node.id) && node.type !== "inputNode")
-
-    if (nonInputSources.length > 0 && nodes.length > 1) {
-      nonInputSources.forEach(node => {
-        errors.push(`Node ${node.id} (${node.type}) has no input connections but is not an input node`)
-      })
-    }
-
-    // Find nodes with no outgoing edges (sinks)
-    const sinkNodeIds = new Set(nodes.map(node => node.id))
-    edges.forEach(edge => sinkNodeIds.delete(edge.source))
-
-    // Check if there are too many sinks (possible unconnected outputs)
-    if (sinkNodeIds.size > 1 && nodes.length > 2) {
-      errors.push(`Found ${sinkNodeIds.size} nodes with no output connections. Your model may have unintended termination points.`)
-    }
-
-    return errors
-  }
-
   // Check for invalid connections
   private checkInvalidConnections(nodes: Node[], edges: Edge[]): string[] {
     const errors: string[] = []
@@ -229,109 +139,23 @@ export class ModelValidator {
     const errors: string[] = []
     const nodeMap = new Map(nodes.map(node => [node.id, node]))
 
-    // First check edges for shape compatibility
     for (const edge of edges) {
       const sourceNode = nodeMap.get(edge.source)
       const targetNode = nodeMap.get(edge.target)
 
       if (sourceNode && targetNode) {
         const sourceOutputShape = sourceNode.data?.outputShape
-        const targetInputShape = targetNode.data?.inputShape
 
-        if (sourceOutputShape && targetInputShape) {
-          // Basic shape compatibility check
-          if (!this.shapesCompatible(sourceOutputShape, targetInputShape)) {
-            const sourceType = sourceNode.type?.replace('Node', '') || 'unknown'
-            const targetType = targetNode.type?.replace('Node', '') || 'unknown'
-            errors.push(`Shape mismatch between ${sourceType}-${sourceNode.id} output and ${targetType}-${targetNode.id} input`)
-          }
-        }
       }
     }
 
-    // Then check individual nodes for internal shape consistency
-    for (const node of nodes) {
-      // For linear layers, check if in_features matches the input shape features
-      if (node.type === "linearNode" && node.data) {
-        const { in_features, inputShape } = node.data
-
-        if (in_features !== undefined && inputShape?.features !== undefined && 
-            inputShape.features !== "dynamic" && in_features !== inputShape.features) {
-          errors.push(`Shape mismatch in ${node.id}: in_features (${in_features}) doesn't match input shape features (${inputShape.features})`)
         }
       }
-
-      // For convolutional layers, check if in_channels matches the input shape channels
-      if ((node.type === "conv1dNode" || node.type === "conv2dNode" || node.type === "conv3dNode") && node.data) {
-        const { in_channels, inputShape } = node.data
-
-        if (in_channels !== undefined && inputShape?.channels !== undefined && 
-            inputShape.channels !== "dynamic" && in_channels !== inputShape.channels) {
-          errors.push(`Shape mismatch in ${node.id}: in_channels (${in_channels}) doesn't match input shape channels (${inputShape.channels})`)
         }
       }
     }
 
     return errors
-  }
-
-  // Check if two shapes are compatible
-  private shapesCompatible(shape1: any, shape2: any): boolean {
-    // Handle undefined cases
-    if (!shape1 || !shape2) return true;
-
-    // Extract common dimensions that should match
-    const commonDimensions = [
-      'batch', 'channels', 'height', 'width', 'depth', 'features'
-    ];
-
-    // Check each common dimension
-    for (const dim of commonDimensions) {
-      // Skip if either doesn't have this dimension defined
-      if (shape1[dim] === undefined || shape2[dim] === undefined) continue;
-
-      const val1 = shape1[dim];
-      const val2 = shape2[dim];
-
-      // Dynamic dimensions are compatible with anything
-      if (val1 === 'dynamic' || val2 === 'dynamic') continue;
-
-      // For numerical values, they must match
-      if (val1 !== val2) {
-        console.log(`[ModelValidator] Shape mismatch: ${dim} dimension ${val1} ≠ ${val2}`);
-        return false;
-      }
-    }
-
-    // Special handling for linear layers: check if features matches in_features
-    if (shape1.features && shape2.in_features && 
-        shape1.features !== 'dynamic' && shape1.features !== shape2.in_features) {
-      console.log(`[ModelValidator] Linear layer shape mismatch: features ${shape1.features} ≠ in_features ${shape2.in_features}`);
-      return false;
-    }
-
-    // Also check the other direction
-    if (shape1.in_features && shape2.features && 
-        shape2.features !== 'dynamic' && shape1.in_features !== shape2.features) {
-      console.log(`[ModelValidator] Linear layer shape mismatch: in_features ${shape1.in_features} ≠ features ${shape2.features}`);
-      return false;
-    }
-
-    // Special handling for convolutional layers: check if channels matches in_channels
-    if (shape1.channels && shape2.in_channels && 
-        shape1.channels !== 'dynamic' && shape1.channels !== shape2.in_channels) {
-      console.log(`[ModelValidator] Conv layer shape mismatch: channels ${shape1.channels} ≠ in_channels ${shape2.in_channels}`);
-      return false;
-    }
-
-    // Also check the other direction
-    if (shape1.in_channels && shape2.channels && 
-        shape2.channels !== 'dynamic' && shape1.in_channels !== shape2.channels) {
-      console.log(`[ModelValidator] Conv layer shape mismatch: in_channels ${shape1.in_channels} ≠ channels ${shape2.channels}`);
-      return false;
-    }
-
-    return true;
   }
 
   // Check for missing required parameters
@@ -475,278 +299,6 @@ export class ModelValidator {
       warnings
     }
   }
-
-  // Generate a cache key for a model
-  private generateCacheKey(nodes: Node[], edges: Edge[]): string {
-    // Create a simplified representation of the model for caching
-    const simplifiedNodes = nodes.map(node => ({
-      id: node.id,
-      type: node.type,
-      data: JSON.stringify(node.data)
-    }));
-
-    const simplifiedEdges = edges.map(edge => ({
-      source: edge.source,
-      target: edge.target
-    }));
-
-    return JSON.stringify({ nodes: simplifiedNodes, edges: simplifiedEdges });
-  }
-
-  // Propagate shape information through the network
-  private propagateShapes(nodes: Node[], edges: Edge[]): void {
-    console.log("[ModelValidator] Propagating shapes")
-    const nodeMap = new Map(nodes.map(node => [node.id, node]))
-
-    // Find all input nodes to start propagation
-    const inputNodes = nodes.filter(node => node.type === "inputNode")
-    const visited = new Set<string>()
-
-    // First, ensure all input nodes have proper output shapes based on their parameters
-    for (const inputNode of inputNodes) {
-      if (!inputNode.data) inputNode.data = {}
-
-      // Set output shape based on input node parameters
-      inputNode.data.outputShape = {
-        batch: inputNode.data.batch_size || "dynamic",
-        features: inputNode.data.features,
-        channels: inputNode.data.channels,
-        height: inputNode.data.height,
-        width: inputNode.data.width
-      }
-    }
-
-    // Perform topological sort for processing nodes in order
-    const topologicalOrder = this.topologicalSort(nodes, edges)
-
-    // Process nodes in topological order to propagate shapes
-    for (const nodeId of topologicalOrder) {
-      const node = nodeMap.get(nodeId)
-      if (!node || visited.has(nodeId)) continue
-
-      // For each node, first get the input shape from incoming edges
-      const incomingEdges = edges.filter(edge => edge.target === nodeId)
-
-      if (incomingEdges.length > 0) {
-        // Get source node of the first incoming edge (for simplicity, we'll just use the first one)
-        const sourceNode = nodeMap.get(incomingEdges[0].source)
-
-        if (sourceNode?.data?.outputShape) {
-          // Copy output shape from source to target's input shape
-          if (!node.data) node.data = {}
-          node.data.inputShape = { ...sourceNode.data.outputShape }
-
-          // Check if in_features matches features from the input shape for linear layers
-          if (node.type === "linearNode" && 
-              node.data.inputShape.features !== undefined &&
-              node.data.in_features !== undefined &&
-              node.data.inputShape.features !== "dynamic" &&
-              node.data.in_features !== node.data.inputShape.features) {
-            console.log(`[ModelValidator] Linear layer ${nodeId} has mismatched in_features: ` +
-                        `expected ${node.data.inputShape.features}, got ${node.data.in_features}`)
-          }
-        }
-      }
-
-      // Now compute the output shape based on node type and parameters
-      this.computeOutputShape(node)
-
-      visited.add(nodeId)
-    }
-  }
-
-  // Compute the output shape for a node based on its type and parameters
-  private computeOutputShape(node: Node): void {
-    if (!node.data) return
-
-    switch (node.type) {
-      case "linearNode":
-        // For linear layer, output features = out_features
-        node.data.outputShape = {
-          ...node.data.inputShape,
-          features: node.data.out_features
-        }
-        break
-
-      case "conv2dNode":
-        // For conv2d layers, output shape changes based on parameters
-        if (node.data.inputShape && node.data.out_channels) {
-          const inputHeight = node.data.inputShape.height
-          const inputWidth = node.data.inputShape.width
-
-          // Parse parameters with defaults
-          const kernelSize = Array.isArray(node.data.kernel_size) ? 
-            node.data.kernel_size : [node.data.kernel_size, node.data.kernel_size]
-
-          const stride = Array.isArray(node.data.stride) ? 
-            node.data.stride : [node.data.stride || 1, node.data.stride || 1]
-
-          const padding = Array.isArray(node.data.padding) ? 
-            node.data.padding : [node.data.padding || 0, node.data.padding || 0]
-
-          // Calculate output dimensions
-          let outputHeight = inputHeight
-          let outputWidth = inputWidth
-
-          if (inputHeight !== "dynamic" && inputWidth !== "dynamic") {
-            outputHeight = Math.floor((inputHeight + 2 * padding[0] - kernelSize[0]) / stride[0] + 1)
-            outputWidth = Math.floor((inputWidth + 2 * padding[1] - kernelSize[1]) / stride[1] + 1)
-          }
-
-          node.data.outputShape = {
-            ...node.data.inputShape,
-            channels: node.data.out_channels,
-            height: outputHeight,
-            width: outputWidth
-          }
-        }
-        break
-
-      case "maxPool2dNode":
-      case "avgPool2dNode":
-        // For pooling layers, output shape changes based on parameters
-        if (node.data.inputShape) {
-          const inputHeight = node.data.inputShape.height
-          const inputWidth = node.data.inputShape.width
-
-          // Parse parameters with defaults
-          const kernelSize = Array.isArray(node.data.kernel_size) ? 
-            node.data.kernel_size : [node.data.kernel_size, node.data.kernel_size]
-
-          const stride = Array.isArray(node.data.stride) ? 
-            node.data.stride : [node.data.stride || kernelSize[0], node.data.stride || kernelSize[1]]
-
-          const padding = Array.isArray(node.data.padding) ? 
-            node.data.padding : [node.data.padding || 0, node.data.padding || 0]
-
-          // Calculate output dimensions
-          let outputHeight = inputHeight
-          let outputWidth = inputWidth
-
-          if (inputHeight !== "dynamic" && inputWidth !== "dynamic") {
-            outputHeight = Math.floor((inputHeight + 2 * padding[0] - kernelSize[0]) / stride[0] + 1)
-            outputWidth = Math.floor((inputWidth + 2 * padding[1] - kernelSize[1]) / stride[1] + 1)
-          }
-
-          node.data.outputShape = {
-            ...node.data.inputShape,
-            height: outputHeight,
-            width: outputWidth
-          }
-        }
-        break
-
-      case "flattenNode":
-        // Flatten layer combines spatial dimensions into features
-        if (node.data.inputShape) {
-          const { batch, channels, height, width } = node.data.inputShape
-
-          // If all spatial dimensions are defined and numeric, calculate features
-          let features = "dynamic"
-          if (channels !== undefined && height !== undefined && width !== undefined &&
-              channels !== "dynamic" && height !== "dynamic" && width !== "dynamic") {
-            features = channels * height * width
-          }
-
-          node.data.outputShape = {
-            batch,
-            features
-          }
-        }
-        break
-
-      // For activation functions and dropout, shape is preserved
-      case "reluNode":
-      case "leakyReluNode":
-      case "sigmoidNode":
-      case "tanhNode":
-      case "eluNode":
-      case "geluNode":
-      case "softmaxNode":
-      case "dropoutNode":
-      case "batchNorm1dNode":
-      case "batchNorm2dNode":
-      case "layerNormNode":
-        if (node.data.inputShape) {
-          node.data.outputShape = { ...node.data.inputShape }
-        }
-        break
-
-      // For nodes without specific handling, preserve shape
-      default:
-        if (node.data.inputShape && !node.data.outputShape) {
-          node.data.outputShape = { ...node.data.inputShape }
-        }
-    }
-  }
-
-  // Perform topological sort of the graph to process nodes in dependency order
-  private topologicalSort(nodes: Node[], edges: Edge[]): string[] {
-    const result: string[] = []
-    const visited = new Set<string>()
-    const temporaryMarks = new Set<string>()
-
-    // Build adjacency list
-    const adjacencyList = new Map<string, string[]>()
-
-    // Initialize adjacency list for all nodes
-    for (const node of nodes) {
-      adjacencyList.set(node.id, [])
-    }
-
-    // Add edges to adjacency list
-    for (const edge of edges) {
-      const adjacentNodes = adjacencyList.get(edge.source) || []
-      adjacentNodes.push(edge.target)
-      adjacencyList.set(edge.source, adjacentNodes)
-    }
-
-    // Visit function for DFS
-    const visit = (nodeId: string) => {
-      // Check for cycles
-      if (temporaryMarks.has(nodeId)) {
-        // We have a cycle, but we'll just skip it for shape propagation
-        return
-      }
-
-      // Skip if already visited
-      if (visited.has(nodeId)) return
-
-      // Mark node as being processed
-      temporaryMarks.add(nodeId)
-
-      // Visit all adjacent nodes
-      const adjacentNodes = adjacencyList.get(nodeId) || []
-      for (const adjacentId of adjacentNodes) {
-        visit(adjacentId)
-      }
-
-      // Mark as visited and add to result
-      visited.add(nodeId)
-      temporaryMarks.delete(nodeId)
-      result.unshift(nodeId) // Add to front to get topological order
-    }
-
-    // Visit all nodes
-    for (const node of nodes) {
-      if (!visited.has(node.id)) {
-        visit(node.id)
-      }
-    }
-
-    return result
-  }
-
-  // Clear the validation cache
-  clearCache(): void {
-    this.validationCache.clear();
-    console.log("[ModelValidator] Cache cleared");
-  }
-
-  // Test shape compatibility for debugging
-  testShapeCompatibility(shape1: any, shape2: any): boolean {
-    return this.shapesCompatible(shape1, shape2);
-  }
 }
 
 // React hook for model validation
@@ -765,14 +317,8 @@ export function useModelValidation() {
     return validator.validateEdge(edge, nodes)
   }, [validator])
 
-  const clearValidationCache = React.useCallback(() => {
-    validator.clearCache()
-  }, [validator])
-
   return {
     validateModel,
     validateNode,
-    validateEdge,
-    clearValidationCache
   }
 }
