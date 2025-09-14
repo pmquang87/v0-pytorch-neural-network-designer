@@ -38,21 +38,21 @@ This application provides a powerful drag-and-drop interface that allows users t
 To run the project locally, follow these steps:
 
 1.  **Clone the repository:**
-    ```bash
+    \`\`\`bash
     git clone https://github.com/pmquang87/v0-pytorch-neural-network-designer.git
     cd v0-pytorch-neural-network-designer
-    ```
+    \`\`\`
 
 2.  **Install dependencies:**
     This project uses `pnpm` as its package manager.
-    ```bash
+    \`\`\`bash
     pnpm install
-    ```
+    \`\`\`
 
 3.  **Run the development server:**
-    ```bash
+    \`\`\`bash
     pnpm run dev
-    ```
+    \`\`\`
 
 4.  **Open the application:**
     Open [http://localhost:3000](http://localhost:3000) in your browser to see the application running.

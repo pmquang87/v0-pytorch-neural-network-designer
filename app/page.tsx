@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useCallback, useEffect, useRef, useMemo } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -47,7 +47,6 @@ import {
   Layers,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { ResizableBox } from "react-resizable"
 
 import { EXAMPLE_NETWORKS } from "@/lib/example-networks"
 import { calculateOutputShape as calcOutputShape, type TensorShape } from "@/lib/tensor-shape-calculator"
@@ -545,10 +544,10 @@ export default function NeuralNetworkDesigner() {
 
       // Step 1: Find PyTorch model class with proper regex
       const classPatterns = [
-        /class\s+(\w+)\s*\(\s*nn\.Module\s*\):/,
-        /class\s+(\w+)\s*\(\s*torch\.nn\.Module\s*\):/,
-        /class\s+(\w+)\s*\([^)]*nn\.Module[^)]*\):/,
-        /class\s+(\w+)\s*\([^)]*torch\.nn\.Module[^)]*\):/,
+        /class\s+(\w+)\s*$$\s*nn\.Module\s*$$:/,
+        /class\s+(\w+)\s*$$\s*torch\.nn\.Module\s*$$:/,
+        /class\s+(\w+)\s*$$[^)]*nn\.Module[^)]*$$:/,
+        /class\s+(\w+)\s*$$[^)]*torch\.nn\.Module[^)]*$$:/,
       ]
 
       let className = ""
@@ -572,7 +571,7 @@ export default function NeuralNetworkDesigner() {
       }
 
       // Step 2: Extract __init__ method content
-      const initPattern = /def\s+__init__\s*\([^)]*\)\s*:([\s\S]*?)(?=\n\s*def\s+\w+|\n\s*class\s+\w+|$)/
+      const initPattern = /def\s+__init__\s*$$[^)]*$$\s*:([\s\S]*?)(?=\n\s*def\s+\w+|\n\s*class\s+\w+|$)/
       const initMatch = code.match(initPattern)
 
       if (!initMatch) {
@@ -585,8 +584,8 @@ export default function NeuralNetworkDesigner() {
 
       // Step 3: Find all layer definitions with improved patterns
       const layerPatterns = [
-        /self\.(\w+)\s*=\s*nn\.(\w+)\s*\(([^)]*)\)/g,
-        /self\.(\w+)\s*=\s*torch\.nn\.(\w+)\s*\(([^)]*)\)/g,
+        /self\.(\w+)\s*=\s*nn\.(\w+)\s*$$([^)]*)$$/g,
+        /self\.(\w+)\s*=\s*torch\.nn\.(\w+)\s*$$([^)]*)$$/g,
       ]
 
       const allLayerMatches: RegExpMatchArray[] = []
@@ -823,8 +822,8 @@ export default function NeuralNetworkDesigner() {
     if (/^\d*\.\d+$/.test(trimmedValue)) return Number.parseFloat(trimmedValue)
 
     // Handle tuples like (3, 3)
-    if (/^\([^)]+\)$/.test(trimmedValue)) {
-      const tupleMatch = trimmedValue.match(/\(([^)]+)\)/)
+    if (/^$$[^)]+$$$/.test(trimmedValue)) {
+      const tupleMatch = trimmedValue.match(/$$([^)]+)$$/)
       if (tupleMatch) {
         const tupleValues = tupleMatch[1].split(",").map((v) => {
           const num = Number.parseInt(v.trim())
@@ -1506,8 +1505,8 @@ export default function NeuralNetworkDesigner() {
                         onUpdate={(value) => updateNodeData(selectedNode.id, { width: value })}
                       />
                       <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
-                        Shape: [{(selectedNode.data.batch_size ?? 1)}, {(selectedNode.data.channels ?? 3)},
-                        {(selectedNode.data.height ?? 28)}, {(selectedNode.data.width ?? 28)}].join(", ")]
+                        Shape: [{selectedNode.data.batch_size ?? 1}, {selectedNode.data.channels ?? 3},
+                        {selectedNode.data.height ?? 28}, {selectedNode.data.width ?? 28}].join(", ")]
                       </div>
                     </>
                   )}
@@ -1567,7 +1566,7 @@ export default function NeuralNetworkDesigner() {
                         <label className="text-sm font-medium text-sidebar-foreground">Dropout Probability (p)</label>
                         <input
                           type="number"
-                          value={selectedNode.data.p as number ?? 0.5}
+                          value={(selectedNode.data.p as number) ?? 0.5}
                           onChange={(e) =>
                             updateNodeData(selectedNode.id, { p: Number.parseFloat(e.target.value) ?? 0.5 })
                           }
@@ -1658,27 +1657,39 @@ export default function NeuralNetworkDesigner() {
                     <>
                       <EditableNumberInput
                         label="Output Height"
-                        value={selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size) ? (selectedNode.data.output_size[0] as number | undefined) ?? 1 : 1}
+                        value={
+                          selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size)
+                            ? ((selectedNode.data.output_size[0] as number | undefined) ?? 1)
+                            : 1
+                        }
                         defaultValue={1}
                         min={1}
                         onUpdate={(value) =>
                           updateNodeData(selectedNode.id, {
                             output_size: [
                               value,
-                              selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size) ? (selectedNode.data.output_size[1] as number | undefined) ?? 1 : 1,
+                              selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size)
+                                ? ((selectedNode.data.output_size[1] as number | undefined) ?? 1)
+                                : 1,
                             ],
                           })
                         }
                       />
                       <EditableNumberInput
                         label="Output Width"
-                        value={selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size) ? (selectedNode.data.output_size[1] as number | undefined) ?? 1 : 1}
+                        value={
+                          selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size)
+                            ? ((selectedNode.data.output_size[1] as number | undefined) ?? 1)
+                            : 1
+                        }
                         defaultValue={1}
                         min={1}
                         onUpdate={(value) =>
                           updateNodeData(selectedNode.id, {
                             output_size: [
-                              selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size) ? (selectedNode.data.output_size[0] as number | undefined) ?? 1 : 1,
+                              selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size)
+                                ? ((selectedNode.data.output_size[0] as number | undefined) ?? 1)
+                                : 1,
                               value,
                             ],
                           })
@@ -1922,17 +1933,8 @@ export default function NeuralNetworkDesigner() {
 
       {/* Code Generation Dialog */}
       <Dialog open={showCodeDialog} onOpenChange={setShowCodeDialog}>
-        <DialogContent className="w-[3500px] h-[80vh] flex flex-col">
-          <ResizableBox
-            width={1000} // Initial width
-            height={600} // Initial height
-            minConstraints={[400, 300]} // Minimum size
-            maxConstraints={[3500, 1200]} // Maximum size (adjust as needed)
-            resizeHandles={["se", "s", "e"]}
-            className="flex-1 flex flex-col overflow-hidden resize-x"
-            // You might need to adjust these styles to fit your existing dialog styling
-            style={{ overflow: "auto" }} // Allow content to scroll if it exceeds ResizableBox size
-          >
+        <DialogContent className="max-w-6xl w-full h-[80vh] flex flex-col">
+          <div className="flex-1 flex flex-col overflow-hidden">
             <DialogHeader>
               <DialogTitle>Generated PyTorch Model</DialogTitle>
               <DialogDescription>
@@ -1942,16 +1944,21 @@ export default function NeuralNetworkDesigner() {
             <div className="flex-1 flex flex-col gap-4 overflow-hidden">
               <div className="flex-1 relative">
                 <ScrollArea className="h-full w-full rounded-md border p-4 font-mono text-sm">
-                  <pre className="whitespace-pre-wrap">{
-                    selectedNode
+                  <pre className="whitespace-pre-wrap">
+                    {selectedNode
                       ? `// Code for ${selectedNode.data.label || selectedNode.type} (getNodeCode not yet implemented)
 `
-                      : generatedCode
-                  }</pre>
+                      : generatedCode}
+                  </pre>
                 </ScrollArea>
                 {generatedCode && (
                   <div className="absolute bottom-2 right-2 flex gap-2">
-                    <Button variant="outline" size="sm" onClick={copyCode} className={copySuccess ? "bg-green-500 text-white" : ""}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={copyCode}
+                      className={copySuccess ? "bg-green-500 text-white" : ""}
+                    >
                       {copySuccess ? "Copied!" : <Copy className="h-4 w-4" />}
                     </Button>
                     <Button variant="outline" size="sm" onClick={downloadCode}>
@@ -1966,7 +1973,7 @@ export default function NeuralNetworkDesigner() {
                 Close
               </Button>
             </div>
-          </ResizableBox>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -2098,16 +2105,8 @@ export default function NeuralNetworkDesigner() {
       </Dialog>
 
       <Dialog open={showCodeInputDialog} onOpenChange={setShowCodeInputDialog}>
-        <DialogContent className="w-[3500px] h-[80vh] flex flex-col">
-          <ResizableBox
-            width={1000} // Initial width
-            height={600} // Initial height
-            minConstraints={[400, 300]} // Minimum size
-            maxConstraints={[3500, 1200]} // Maximum size (adjust as needed)
-            resizeHandles={["se", "s", "e"]}
-            className="flex-1 flex flex-col overflow-hidden resize-x"
-            style={{ overflow: "auto" }} // Allow content to scroll if it exceeds ResizableBox size
-          >
+        <DialogContent className="max-w-6xl w-full h-[80vh] flex flex-col">
+          <div className="flex-1 flex flex-col overflow-hidden">
             <DialogHeader>
               <DialogTitle>Input PyTorch Code</DialogTitle>
               <DialogDescription>
@@ -2152,7 +2151,10 @@ class MyModel(nn.Module):
                 </div>
               )}
               {parseWarnings.length > 0 && (
-                <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">
+                <div
+                  className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative"
+                  role="alert"
+                >
                   <strong className="font-bold">Parsing Warnings:</strong>
                   <ul className="mt-1 list-disc list-inside">
                     {parseWarnings.map((warning, index) => (
@@ -2162,7 +2164,10 @@ class MyModel(nn.Module):
                 </div>
               )}
               {unsupportedModules.length > 0 && (
-                <div className="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-3 rounded relative" role="alert">
+                <div
+                  className="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-3 rounded relative"
+                  role="alert"
+                >
                   <strong className="font-bold">Unsupported Modules:</strong>
                   <ul className="mt-1 list-disc list-inside">
                     {unsupportedModules.map((module, index) => (
@@ -2181,7 +2186,7 @@ class MyModel(nn.Module):
                 Parse Code
               </Button>
             </div>
-          </ResizableBox>
+          </div>
         </DialogContent>
       </Dialog>
 

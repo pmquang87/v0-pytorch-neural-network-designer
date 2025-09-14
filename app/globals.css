@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "react-resizable/css/styles.css";
+/* Removed react-resizable CSS import that was causing MIME type errors */
 
 @custom-variant dark (&:is(.dark *));
 

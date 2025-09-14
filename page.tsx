@@ -1,4 +1,4 @@
-      {/* Model Validation Warning Banner */}
+{/* Model Validation Warning Banner */}
       <div className="p-4 bg-amber-50 border-amber-200 border rounded-md mb-4 mx-4">
         <div className="flex items-start">
           <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 mr-3 flex-shrink-0" />

@@ -32,6 +32,20 @@ export interface GenerateModelResponse {
   error?: string
 }
 
+// NetworkState interface for auto-save functionality
+export interface NetworkState {
+  nodes: any[]
+  edges: any[]
+  timestamp: number
+}
+
+// ValidationResult interface for model validation
+export interface ValidationResult {
+  isValid: boolean
+  errors: string[]
+  warnings: string[]
+}
+
 // PyTorch layer manifest - maps node types to PyTorch classes
 export const PYTORCH_LAYER_MANIFEST = {
   inputNode: {
