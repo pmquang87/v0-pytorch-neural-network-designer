@@ -5,7 +5,7 @@ import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib
 
 export function TanhNode({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, features: 128 }
-  const outputShape = calculateOutputShape("tanhNode", inputShape, data)
+  const outputShape = calculateOutputShape("tanhNode", [inputShape], data)
 
   return (
     <Card className="min-w-[120px] border-2 border-indigo-500/50 bg-card">

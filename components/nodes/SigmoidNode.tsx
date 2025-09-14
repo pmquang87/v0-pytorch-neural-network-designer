@@ -5,7 +5,7 @@ import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib
 
 export function SigmoidNode({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, features: 128 }
-  const outputShape = calculateOutputShape("sigmoidNode", inputShape, data)
+  const outputShape = calculateOutputShape("sigmoidNode", [inputShape], data)
 
   return (
     <Card className="min-w-[120px] border-2 border-pink-500/50 bg-card">

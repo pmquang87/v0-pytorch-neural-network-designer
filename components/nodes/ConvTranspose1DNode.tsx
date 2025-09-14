@@ -5,7 +5,7 @@ import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib
 
 export function ConvTranspose1DNode({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, channels: 32, length: 50 }
-  const outputShape = calculateOutputShape("convTranspose1dNode", inputShape, data)
+  const outputShape = calculateOutputShape("convtranspose1dNode", [inputShape], data)
 
   return (
     <Card className="min-w-[150px] border-2 border-purple-500/50 bg-card">

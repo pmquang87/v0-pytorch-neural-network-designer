@@ -5,7 +5,7 @@ import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib
 
 export function MaxPool2DNode({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, channels: 32, height: 28, width: 28 }
-  const outputShape = calculateOutputShape("maxPool2dNode", inputShape, data)
+  const outputShape = calculateOutputShape("maxpool2dNode", [inputShape], data)
 
   return (
     <Card className="min-w-[150px] border-2 border-teal-500/50 bg-card">
@@ -18,6 +18,7 @@ export function MaxPool2DNode({ data }: { data: any }) {
         <div className="text-xs text-muted-foreground space-y-1">
           <div>Kernel: {data.kernel_size || "?"}</div>
           <div>Stride: {data.stride || "?"}</div>
+          <div>Padding: {data.padding || "0"}</div>
         </div>
         <div className="mt-2 pt-2 border-t border-border">
           <div className="text-xs text-muted-foreground">

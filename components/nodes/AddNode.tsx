@@ -5,7 +5,7 @@ import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib
 
 export function AddNode({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, features: 128 }
-  const outputShape = calculateOutputShape("addNode", inputShape, data)
+  const outputShape = calculateOutputShape("addNode", [inputShape], data)
 
   const numInputs = data.num_inputs || 2
 

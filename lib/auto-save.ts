@@ -50,12 +50,12 @@ export class AutoSaveManager {
       const state: NetworkState = {
         nodes: JSON.parse(JSON.stringify(nodes)), // Deep clone
         edges: JSON.parse(JSON.stringify(edges)), // Deep clone
-        timestamp: Date.now()
+        timestamp: Date.now(),
       }
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
       this.lastSaveTime = Date.now()
-      
+
       console.log("Model auto-saved to localStorage")
     } catch (error) {
       console.error("Failed to auto-save model:", error)
@@ -119,33 +119,17 @@ export function useAutoSave() {
   const [autoSaveManager] = React.useState(() => new AutoSaveManager())
   const [lastSaveTime, setLastSaveTime] = React.useState<number>(0)
 
-  // Listen for auto-save requests
-  React.useEffect(() => {
-    if (typeof window === "undefined") return
-
-    const handleAutoSaveRequest = (event: CustomEvent) => {
-      // This will be handled by the main component
-      window.dispatchEvent(saveEvent)
-    }
-
-    window.addEventListener("auto-save-request", handleAutoSaveRequest as EventListener)
-
-    return () => {
-      window.removeEventListener("auto-save-request", handleAutoSaveRequest as EventListener)
-    }
-  }, [])
-
   // Listen for save triggers
   React.useEffect(() => {
     if (typeof window === "undefined") return
 
     const handleSaveTrigger = (event: CustomEvent) => {
-        const { nodes, edges } = event.detail
-        if (nodes && edges) {
-          autoSaveManager.save(nodes, edges)
-          setLastSaveTime(Date.now())
-        }
+      const { nodes, edges } = event.detail
+      if (nodes && edges) {
+        autoSaveManager.save(nodes, edges)
+        setLastSaveTime(Date.now())
       }
+    }
 
     window.addEventListener("auto-save-trigger", handleSaveTrigger as EventListener)
 
@@ -166,20 +150,21 @@ export function useAutoSave() {
     clear: autoSaveManager.clear.bind(autoSaveManager),
     hasSavedData: autoSaveManager.hasSavedData.bind(autoSaveManager),
     setEnabled: autoSaveManager.setEnabled.bind(autoSaveManager),
-    lastSaveTime
+    lastSaveTime,
   }
 }
 
 // Utility functions for localStorage
 export const StorageUtils = {
   // Save model with custom key
-  saveModel: (key: string, nodes: any[], edges: any[]): void => {
+  saveModel: (name: string, nodes: any[], edges: any[]): void => {
     try {
       const state: NetworkState = {
         nodes: JSON.parse(JSON.stringify(nodes)),
         edges: JSON.parse(JSON.stringify(edges)),
-        timestamp: Date.now()
+        timestamp: Date.now(),
       }
+      const key = `nn-model-${name}`
       localStorage.setItem(key, JSON.stringify(state))
     } catch (error) {
       console.error("Failed to save model:", error)
@@ -202,7 +187,7 @@ export const StorageUtils = {
   // Get all saved models
   getAllModels: (): Array<{ key: string; name: string; timestamp: number }> => {
     const models: Array<{ key: string; name: string; timestamp: number }> = []
-    
+
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
       if (key && key.startsWith("nn-model-")) {
@@ -213,7 +198,7 @@ export const StorageUtils = {
             models.push({
               key,
               name: key.replace("nn-model-", ""),
-              timestamp: state.timestamp
+              timestamp: state.timestamp,
             })
           }
         } catch (error) {
@@ -221,7 +206,7 @@ export const StorageUtils = {
         }
       }
     }
-    
+
     return models.sort((a, b) => b.timestamp - a.timestamp)
   },
 
@@ -235,7 +220,7 @@ export const StorageUtils = {
     const state: NetworkState = {
       nodes: JSON.parse(JSON.stringify(nodes)),
       edges: JSON.parse(JSON.stringify(edges)),
-      timestamp: Date.now()
+      timestamp: Date.now(),
     }
     return JSON.stringify(state, null, 2)
   },
@@ -248,5 +233,5 @@ export const StorageUtils = {
       console.error("Failed to import model:", error)
       return null
     }
-  }
+  },
 }

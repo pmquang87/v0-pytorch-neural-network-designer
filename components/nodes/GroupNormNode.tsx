@@ -1,6 +1,7 @@
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { BarChart3 } from "lucide-react"
+import { formatTensorShape } from "@/lib/tensor-shape-calculator"
 
 export function GroupNormNode({ data }: { data: any }) {
   return (
@@ -16,6 +17,12 @@ export function GroupNormNode({ data }: { data: any }) {
           groups: {data.num_groups ?? 32}
           <br />
           channels: {data.num_channels ?? 128}
+        </div>
+        <div className="text-xs text-muted-foreground mt-1">
+          In: {formatTensorShape(data.inputShape)}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          Out: {formatTensorShape(data.outputShape)}
         </div>
       </div>
 

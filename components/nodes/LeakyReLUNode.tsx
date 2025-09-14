@@ -5,7 +5,7 @@ import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib
 
 export function LeakyReLUNode({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, features: 128 }
-  const outputShape = calculateOutputShape("leakyReluNode", inputShape, data)
+  const outputShape = calculateOutputShape("leakyreluNode", [inputShape], data)
 
   return (
     <Card className="min-w-[160px] bg-card border-2 border-orange-500/50 shadow-sm">

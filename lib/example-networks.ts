@@ -10,99 +10,72 @@ export interface ExampleNetwork {
 export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
   {
     name: "Simple MLP",
-    description: "Basic Multi-Layer Perceptron with 3 hidden layers",
+    description: "Basic Multi-Layer Perceptron with a flatten layer for image-like input.",
     nodes: [
       {
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 200 },
-        data: {
-          batch_size: 32,
-          features: 784,
-          inputShape: { batch: 32, features: 784 },
-          outputShape: { batch: 32, features: 784 },
-        },
+        data: { channels: 1, height: 28, width: 28 },
+      },
+      {
+        id: "flatten-1",
+        type: "flattenNode",
+        position: { x: 300, y: 200 },
+        data: {},
       },
       {
         id: "linear-1",
         type: "linearNode",
-        position: { x: 300, y: 200 },
-        data: {
-          in_features: 784,
-          out_features: 256,
-          inputShape: { batch: 32, features: 784 },
-          outputShape: { batch: 32, features: 256 },
-        },
+        position: { x: 500, y: 200 },
+        data: { in_features: 784, out_features: 256 },
       },
       {
         id: "relu-1",
         type: "reluNode",
-        position: { x: 500, y: 200 },
-        data: {
-          inputShape: { batch: 32, features: 256 },
-          outputShape: { batch: 32, features: 256 },
-        },
+        position: { x: 700, y: 200 },
+        data: {},
       },
       {
         id: "linear-2",
         type: "linearNode",
-        position: { x: 700, y: 200 },
-        data: {
-          in_features: 256,
-          out_features: 128,
-          inputShape: { batch: 32, features: 256 },
-          outputShape: { batch: 32, features: 128 },
-        },
+        position: { x: 900, y: 200 },
+        data: { in_features: 256, out_features: 128 },
       },
       {
         id: "relu-2",
         type: "reluNode",
-        position: { x: 900, y: 200 },
-        data: {
-          inputShape: { batch: 32, features: 128 },
-          outputShape: { batch: 32, features: 128 },
-        },
+        position: { x: 1100, y: 200 },
+        data: {},
       },
       {
         id: "linear-3",
         type: "linearNode",
-        position: { x: 1100, y: 200 },
-        data: {
-          in_features: 128,
-          out_features: 64,
-          inputShape: { batch: 32, features: 128 },
-          outputShape: { batch: 32, features: 64 },
-        },
+        position: { x: 1300, y: 200 },
+        data: { in_features: 128, out_features: 64 },
       },
       {
         id: "relu-3",
         type: "reluNode",
-        position: { x: 1300, y: 200 },
-        data: {
-          inputShape: { batch: 32, features: 64 },
-          outputShape: { batch: 32, features: 64 },
-        },
+        position: { x: 1500, y: 200 },
+        data: {},
       },
       {
         id: "linear-4",
         type: "linearNode",
-        position: { x: 1500, y: 200 },
-        data: {
-          in_features: 64,
-          out_features: 10,
-          inputShape: { batch: 32, features: 64 },
-          outputShape: { batch: 32, features: 10 },
-        },
+        position: { x: 1700, y: 200 },
+        data: { in_features: 64, out_features: 10 },
       },
     ],
     edges: [
-      { id: "e1-2", source: "input-1", target: "linear-1" },
-      { id: "e2-3", source: "linear-1", target: "relu-1" },
-      { id: "e3-4", source: "relu-1", target: "linear-2" },
-      { id: "e4-5", source: "linear-2", target: "relu-2" },
-      { id: "e5-6", source: "relu-2", target: "linear-3" },
-      { id: "e6-7", source: "linear-3", target: "relu-3" },
-      { id: "e7-8", source: "relu-3", target: "linear-4" },
+      { id: "e1-f1", source: "input-1", target: "flatten-1" },
+      { id: "ef1-l1", source: "flatten-1", target: "linear-1" },
+      { id: "el1-r1", source: "linear-1", target: "relu-1" },
+      { id: "er1-l2", source: "relu-1", target: "linear-2" },
+      { id: "el2-r2", source: "linear-2", target: "relu-2" },
+      { id: "er2-l3", source: "relu-2", target: "linear-3" },
+      { id: "el3-r3", source: "linear-3", target: "relu-3" },
+      { id: "er3-l4", source: "relu-3", target: "linear-4" },
     ],
   },
   {
@@ -113,7 +86,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 300 },
-        data: { batch_size: 1, channels: 1, height: 32, width: 32 },
+        data: { channels: 1, height: 32, width: 32 },
       },
       {
         id: "conv1-2",
@@ -211,7 +184,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 400 },
-        data: { batch_size: 1, channels: 3, height: 224, width: 224 },
+        data: { channels: 3, height: 224, width: 224 },
       },
       {
         id: "conv1-2",
@@ -295,7 +268,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "adaptive-15",
         type: "adaptiveavgpool2dNode",
         position: { x: 2900, y: 200 },
-        data: { output_size: 6 },
+        data: { output_size: [6, 6] },
       },
       {
         id: "flatten-16",
@@ -379,7 +352,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 300 },
-        data: { batch_size: 1, channels: 64, height: 56, width: 56, shape: [1, 64, 56, 56] },
+        data: { channels: 64, height: 56, width: 56 },
       },
       {
         id: "conv1-2",
@@ -443,7 +416,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 400 },
-        data: { batch_size: 1, channels: 1, height: 256, width: 256 },
+        data: { channels: 1, height: 256, width: 256 },
       },
       {
         id: "conv1-2",
@@ -556,7 +529,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 300 },
-        data: { batch_size: 1, channels: 3, height: 416, width: 416 },
+        data: { channels: 3, height: 416, width: 416 },
       },
       {
         id: "conv1-2",
@@ -675,7 +648,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 400 },
-        data: { batch_size: 1, channels: 64, height: 32, width: 32 },
+        data: { channels: 64, height: 32, width: 32 },
       },
       {
         id: "bn1-2",
@@ -776,7 +749,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 300 },
-        data: { batch_size: 1, channels: 3, height: 224, width: 224 },
+        data: { channels: 3, height: 224, width: 224 },
       },
       {
         id: "conv1-2",
@@ -888,7 +861,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 400 },
-        data: { batch_size: 1, channels: 192, height: 28, width: 28 },
+        data: { channels: 192, height: 28, width: 28 },
       },
       // 1x1 branch
       {
@@ -966,7 +939,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 300 },
-        data: { batch_size: 1, channels: 32, height: 112, width: 112 },
+        data: { channels: 32, height: 112, width: 112 },
       },
       {
         id: "depthwise-2",
@@ -1023,7 +996,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 100 },
-        data: { batch_size: 1, channels: 3, height: 224, width: 224 },
+        data: { channels: 3, height: 224, width: 224 },
       },
       {
         id: "conv1-2",
@@ -1143,7 +1116,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 300 },
-        data: { batch_size: 1, channels: 32, height: 56, width: 56 },
+        data: { channels: 32, height: 56, width: 56 },
       },
       {
         id: "expand-2",
@@ -1216,13 +1189,13 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
 
   {
     name: "Transformer Block",
-    description: "Self-attention transformer block",
+    description: "Self-attention transformer block (conceptual representation, attention mechanism is simplified).",
     nodes: [
       {
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 400 },
-        data: { batch_size: 1, channels: 512, height: 1, width: 100 },
+        data: { channels: 512, height: 1, width: 100 },
       },
       {
         id: "layernorm1-2",
@@ -1315,7 +1288,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 300 },
-        data: { batch_size: 1, channels: 100, height: 1, width: 50 },
+        data: { channels: 100, height: 1, width: 50 },
       },
       {
         id: "lstm1-2",
@@ -1372,14 +1345,21 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
   },
   {
     name: "GAN Generator",
-    description: "Simple GAN generator with transposed convolutions",
+    description: "Simple GAN generator with transposed convolutions. Note: The reshape operation is represented by a flatten node.",
     nodes: [
       {
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 300 },
-        data: { batch_size: 1, channels: 100, height: 1, width: 1 },
+        data: { channels: 100, height: 1, width: 1 },
       },
+      {
+        id: "flatten-pre-linear",
+        type: "flattenNode",
+        position: { x: 200, y: 200 },
+        data: {},
+      },
+      // Encoder
       {
         id: "linear-2",
         type: "linearNode",
@@ -1466,7 +1446,8 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
       },
     ],
     edges: [
-      { id: "e1-2", source: "input-1", target: "linear-2" },
+      { id: "e1-pre", source: "input-1", target: "flatten-pre-linear" },
+      { id: "epre-2", source: "flatten-pre-linear", target: "linear-2" },
       { id: "e2-3", source: "linear-2", target: "relu1-3" },
       { id: "e3-4", source: "relu1-3", target: "reshape-4" },
       { id: "e4-5", source: "reshape-4", target: "convt1-5" },
@@ -1490,7 +1471,13 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 400 },
-        data: { batch_size: 1, channels: 784, height: 1, width: 1 },
+        data: { channels: 784, height: 1, width: 1 },
+      },
+      {
+        id: "flatten-pre-enc",
+        type: "flattenNode",
+        position: { x: 200, y: 300 },
+        data: {},
       },
       // Encoder
       {
@@ -1587,7 +1574,8 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
       },
     ],
     edges: [
-      { id: "e1-2", source: "input-1", target: "enc1-2" },
+      { id: "e1-pre", source: "input-1", target: "flatten-pre-enc" },
+      { id: "epre-2", source: "flatten-pre-enc", target: "enc1-2" },
       { id: "e2-3", source: "enc1-2", target: "relu1-3" },
       { id: "e3-4", source: "relu1-3", target: "enc2-4" },
       { id: "e4-5", source: "enc2-4", target: "relu2-5" },
@@ -1612,13 +1600,13 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input1-1",
         type: "inputNode",
         position: { x: 100, y: 200 },
-        data: { batch_size: 1, channels: 1, height: 28, width: 28 },
+        data: { channels: 1, height: 28, width: 28 },
       },
       {
         id: "input2-2",
         type: "inputNode",
         position: { x: 100, y: 600 },
-        data: { batch_size: 1, channels: 1, height: 28, width: 28 },
+        data: { channels: 1, height: 28, width: 28 },
       },
       // Shared feature extractor branch 1
       {
@@ -1720,15 +1708,21 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
       },
       // Distance computation
       {
-        id: "distance-19",
-        type: "linearNode",
+        id: "concat-19",
+        type: "concatenateNode",
         position: { x: 2000, y: 400 },
+        data: { dim: 1 },
+      },
+      {
+        id: "distance-20",
+        type: "linearNode",
+        position: { x: 2200, y: 400 },
         data: { in_features: 256, out_features: 1 },
       },
       {
-        id: "sigmoid-20",
+        id: "sigmoid-21",
         type: "sigmoidNode",
-        position: { x: 2200, y: 400 },
+        position: { x: 2400, y: 400 },
         data: {},
       },
     ],
@@ -1752,9 +1746,10 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
       { id: "e16-17", source: "pool2b-16", target: "flatten2-17" },
       { id: "e17-18", source: "flatten2-17", target: "fc1b-18" },
       // Distance computation (concatenate then compute distance)
-      { id: "e10-19", source: "fc1a-10", target: "distance-19" },
-      { id: "e18-19", source: "fc1b-18", target: "distance-19" },
-      { id: "e19-20", source: "distance-19", target: "sigmoid-20" },
+      { id: "e10-19", source: "fc1a-10", target: "concat-19", targetHandle: "input1" },
+      { id: "e18-19", source: "fc1b-18", target: "concat-19", targetHandle: "input2" },
+      { id: "e19-20", source: "concat-19", target: "distance-20" },
+      { id: "e20-21", source: "distance-20", target: "sigmoid-21" },
     ],
   },
   {
@@ -1766,7 +1761,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 400 },
-        data: { batch_size: 1, channels: 1, height: 256, width: 256 },
+        data: { channels: 1, height: 256, width: 256 },
       },
       // Encoder Path (Contracting)
       {
@@ -1889,7 +1884,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "upconv1-21",
         type: "convtranspose2dNode",
         position: { x: 4100, y: 700 },
-        data: { in_channels: 512, out_channels: 256, kernel_size: 2, stride: 2, padding: 0, output_padding: 1 },
+        data: { in_channels: 512, out_channels: 256, kernel_size: 2, stride: 2, padding: 0, output_padding: 0 },
       },
       {
         id: "concat1-22",
@@ -1925,7 +1920,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "upconv2-27",
         type: "convtranspose2dNode",
         position: { x: 5300, y: 575 },
-        data: { in_channels: 256, out_channels: 128, kernel_size: 2, stride: 2, padding: 0, output_padding: 1 },
+        data: { in_channels: 256, out_channels: 128, kernel_size: 2, stride: 2, padding: 0, output_padding: 0 },
       },
       {
         id: "concat2-28",
@@ -1961,7 +1956,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "upconv3-33",
         type: "convtranspose2dNode",
         position: { x: 6500, y: 425 },
-        data: { in_channels: 128, out_channels: 64, kernel_size: 2, stride: 2, padding: 0, output_padding: 1 },
+        data: { in_channels: 128, out_channels: 64, kernel_size: 2, stride: 2, padding: 0, output_padding: 0 },
       },
       {
         id: "concat3-34",
@@ -2056,7 +2051,13 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 300 },
-        data: { batch_size: 1, channels: 512, height: 1, width: 1 },
+        data: { channels: 512, height: 1, width: 1 },
+      },
+      {
+        id: "flatten-pre-linear",
+        type: "flattenNode",
+        position: { x: 200, y: 200 },
+        data: {},
       },
       // Mapping Network
       {
@@ -2112,7 +2113,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "const-10",
         type: "constantNode",
         position: { x: 300, y: 400 },
-        data: { batch_size: 1, channels: 512, height: 4, width: 4 },
+        data: { channels: 512, height: 4, width: 4 },
       },
       {
         id: "adain1-11",
@@ -2130,7 +2131,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "noise1-13",
         type: "noiseNode",
         position: { x: 900, y: 400 },
-        data: { batch_size: 1, channels: 512, height: 4, width: 4 },
+        data: { channels: 512, height: 4, width: 4 },
       },
       {
         id: "adain2-14",
@@ -2159,7 +2160,8 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
     ],
     edges: [
       // Mapping Network
-      { id: "e1-2", source: "input-1", target: "linear1-2" },
+      { id: "e1-pre", source: "input-1", target: "flatten-pre-linear" },
+      { id: "epre-2", source: "flatten-pre-linear", target: "linear1-2" },
       { id: "e2-3", source: "linear1-2", target: "relu1-3" },
       { id: "e3-4", source: "relu1-3", target: "linear2-4" },
       { id: "e4-5", source: "linear2-4", target: "relu2-5" },
@@ -2187,7 +2189,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 300 },
-        data: { batch_size: 1, channels: 3, height: 448, width: 448 },
+        data: { channels: 3, height: 448, width: 448 },
       },
       {
         id: "conv1-2",
@@ -2418,7 +2420,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 400 },
-        data: { batch_size: 1, channels: 3, height: 416, width: 416 },
+        data: { channels: 3, height: 416, width: 416 },
       },
       {
         id: "conv1-2",
@@ -2540,13 +2542,13 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
   },
   {
     name: "YOLOv5s",
-    description: "YOLOv5 Small - Focus module and CSP bottleneck",
+    description: "YOLOv5 Small - Focus module and CSP bottleneck. Note: The focus layer is represented by a Conv2D layer assuming pre-processed input.",
     nodes: [
       {
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 400 },
-        data: { batch_size: 1, channels: 3, height: 640, width: 640 },
+        data: { channels: 3, height: 640, width: 640 },
       },
       {
         id: "focus-2",
@@ -2606,7 +2608,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "concat1-11",
         type: "concatenateNode",
         position: { x: 2100, y: 300 },
-        data: {},
+        data: { dim: 1 },
       },
       {
         id: "conv4-12",
@@ -2659,7 +2661,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 400 },
-        data: { batch_size: 1, channels: 3, height: 640, width: 640 },
+        data: { channels: 3, height: 640, width: 640 },
       },
       {
         id: "conv1-2",
@@ -2719,7 +2721,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
         id: "concat1-11",
         type: "concatenateNode",
         position: { x: 2100, y: 300 },
-        data: {},
+        data: { dim: 1 },
       },
       {
         id: "conv3-12",
@@ -2766,13 +2768,13 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
   },
   {
     name: "YOLO-NAS",
-    description: "YOLO-NAS with attention mechanisms and advanced blocks",
+    description: "YOLO-NAS with attention mechanisms and advanced blocks. Note: The multiplication operation is represented by an add node.",
     nodes: [
       {
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 400 },
-        data: { batch_size: 1, channels: 3, height: 640, width: 640 },
+        data: { channels: 3, height: 640, width: 640 },
       },
       {
         id: "stem-2",
@@ -2865,12 +2867,13 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
   },
   {
     name: "Vision Transformer (ViT-Base/16)",
+    description: "Vision Transformer (ViT) model. Note: Positional embedding is represented conceptually.",
     nodes: [
       {
         id: "input-1",
         type: "inputNode",
         position: { x: 100, y: 100 },
-        data: { batch_size: 32, channels: 3, height: 224, width: 224 },
+        data: { channels: 3, height: 224, width: 224 },
       },
       {
         id: "patch_embed-2",

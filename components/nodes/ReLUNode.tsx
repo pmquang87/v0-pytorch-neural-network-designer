@@ -4,8 +4,8 @@ import { Zap } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
 export function ReLUNode({ data }: { data: any }) {
-  const inputShape: TensorShape = data.inputShape || { batch: 1, channels: 32, height: 28, width: 28 }
-  const outputShape = calculateOutputShape("reluNode", inputShape, data)
+  const inputShape: TensorShape = data.inputShape
+  const outputShape = calculateOutputShape("reluNode", [inputShape], data)
 
   return (
     <Card className="min-w-[120px] border-2 border-amber-500/50 bg-card">

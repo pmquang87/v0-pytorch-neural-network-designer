@@ -5,7 +5,7 @@ import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib
 
 export function DropoutNode({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, features: 128 }
-  const outputShape = calculateOutputShape("dropoutNode", inputShape, data)
+  const outputShape = calculateOutputShape("dropoutNode", [inputShape], data)
 
   return (
     <Card className="min-w-[120px] border-2 border-red-500/50 bg-card">

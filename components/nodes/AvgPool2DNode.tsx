@@ -5,7 +5,7 @@ import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib
 
 export function AvgPool2DNode({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, channels: 32, height: 28, width: 28 }
-  const outputShape = calculateOutputShape("avgPool2dNode", inputShape, data)
+  const outputShape = calculateOutputShape("avgpool2dNode", [inputShape], data)
 
   return (
     <Card className="min-w-[160px] bg-card border-2 border-teal-500/50 shadow-sm">
@@ -17,9 +17,11 @@ export function AvgPool2DNode({ data }: { data: any }) {
           <span className="font-medium text-sm">AvgPool2D</span>
         </div>
         <div className="text-xs text-muted-foreground">
-          kernel: {data.kernel_size ?? 2}×{data.kernel_size ?? 2}
+          kernel: {data.kernel_size ?? 2}
           <br />
           stride: {data.stride ?? 2}
+          <br />
+          padding: {data.padding ?? 0}
         </div>
         <div className="mt-2 pt-2 border-t border-border">
           <div className="text-xs text-muted-foreground">

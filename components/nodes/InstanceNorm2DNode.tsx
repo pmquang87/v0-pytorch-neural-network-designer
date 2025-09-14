@@ -1,5 +1,6 @@
 import { Handle, Position } from "@xyflow/react"
 import type { NodeData } from "@/lib/types"
+import { formatTensorShape } from "@/lib/tensor-shape-calculator"
 
 interface InstanceNorm2DNodeProps {
   data: NodeData
@@ -13,10 +14,10 @@ export function InstanceNorm2DNode({ data }: InstanceNorm2DNodeProps) {
         <div className="font-semibold text-cyan-800">InstanceNorm2D</div>
         <div className="text-xs text-cyan-600 mt-1">Features: {data.num_features || 32}</div>
         <div className="text-xs text-cyan-600 mt-1">
-          In: {data.inputShape ? `[${Object.values(data.inputShape).join(",")}]` : "[?]"}
+          In: {formatTensorShape(data.inputShape)}
         </div>
         <div className="text-xs text-cyan-600">
-          Out: {data.outputShape ? `[${Object.values(data.outputShape).join(",")}]` : "[?]"}
+          Out: {formatTensorShape(data.outputShape)}
         </div>
       </div>
       <Handle type="source" position={Position.Right} />

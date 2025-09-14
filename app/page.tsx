@@ -2,16 +2,16 @@
 
 import type React from "react"
 
-import { useState, useCallback, useEffect, useRef, useMemo } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import {
   ReactFlow,
   ReactFlowProvider,
   MiniMap,
   Controls,
   Background,
-  useNodesState,
-  useEdgesState,
   addEdge,
+  applyNodeChanges,
+  applyEdgeChanges,
   type Connection,
   type Edge,
   type Node,
@@ -24,13 +24,15 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/hooks/use-toast"
 import {
   Brain,
   Code,
   RotateCcw,
+  Undo2,
+  Redo2,
   Network,
   HelpCircle,
   BarChart3,
@@ -44,15 +46,28 @@ import {
   GitBranch,
   Database,
   Layers,
+  AlertTriangle,
+  Save,
+  FolderOpen,
+  Trash2,
+  CheckCircle,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ResizableBox } from "react-resizable"
 import "react-resizable/css/styles.css"
 
 import { EXAMPLE_NETWORKS } from "@/lib/example-networks"
-import { calculateOutputShape as calcOutputShape, type TensorShape } from "@/lib/tensor-shape-calculator"
+import {
+  calculateOutputShape as calcOutputShape,
+  formatTensorShape,
+  type TensorShape,
+} from "@/lib/tensor-shape-calculator"
 
 import { analyzeModel, formatNumber, type ModelAnalysis } from "@/lib/model-analyzer"
+import { useAutoSave, StorageUtils } from "@/lib/auto-save"
+import { useModelValidation } from "@/lib/model-validator"
+import { useUndoRedo } from "@/lib/undo-redo"
+import { Input } from "@/components/ui/input"
 
 // Custom Node Components
 import { InputNode } from "@/components/nodes/InputNode"
@@ -102,7 +117,7 @@ const initialNodes: Node[] = [
     id: "input-1",
     type: "inputNode",
     position: { x: 100, y: 100 },
-    data: { batch_size: 1, channels: 3, height: 28, width: 28 },
+    data: { channels: 3, height: 28, width: 28 },
   },
 ]
 
@@ -153,8 +168,25 @@ const nodeTypes: NodeTypes = {
 }
 
 export default function NeuralNetworkDesigner() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+  const {
+    nodes,
+    setNodes,
+    edges,
+    setEdges,
+    undo,
+    redo,
+    takeSnapshot,
+    canUndo,
+    canRedo,
+  } = useUndoRedo(initialNodes, initialEdges)
+  const onNodesChange = useCallback(
+    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    [setNodes]
+  );
+  const onEdgesChange = useCallback(
+    (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+    [setEdges]
+  );
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const [showCodeDialog, setShowCodeDialog] = useState(false)
   const [generatedCode, setGeneratedCode] = useState("")
@@ -169,17 +201,60 @@ export default function NeuralNetworkDesigner() {
   const [showHelpDialog, setShowHelpDialog] = useState(false)
 
   const [showCodeInputDialog, setShowCodeInputDialog] = useState(false)
-  const [generatedModel, setShowGeneratedModel] = useState(false)
   const [inputCode, setInputCode] = useState("")
   const [parseErrors, setParseErrors] = useState<string[]>([])
   const [parseWarnings, setParseWarnings] = useState<string[]>([])
   const [unsupportedModules, setUnsupportedModules] = useState<string[]>([])
 
-  const reactFlowInstanceRef = useRef<any>(null)
+  const [validationResults, setValidationResults] = useState<{ errors: string[]; warnings: string[] } | null>(null)
+  const [liveValidationResults, setLiveValidationResults] = useState<{ errors: string[]; warnings: string[] } | null>(
+    null,
+  )
+  const [showValidationPanel, setShowValidationPanel] = useState(false)
 
-  // const [showFeedbackDialog, setShowFeedbackDialog] = useState(false)
-  // const [feedbackMessage, setFeedbackMessage] = useState("")
-  // const [feedbackEmail, setFeedbackEmail] = useState("")
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [showLoadDialog, setShowLoadDialog] = useState(false)
+  const [modelName, setModelName] = useState("")
+  const [currentModelName, setCurrentModelName] = useState<string | null>(null)
+  const [savedModels, setSavedModels] = useState<Array<{ key: string; name: string; timestamp: number }>>([])
+
+  const reactFlowInstanceRef = useRef<any>(null)
+  const autoSave = useAutoSave()
+  const { validateModel } = useModelValidation()
+
+  useEffect(() => {
+    const handleAutoSaveRequest = () => {
+      if (typeof window !== "undefined") {
+        const event = new CustomEvent("auto-save-trigger", { detail: { nodes, edges } })
+        window.dispatchEvent(event)
+      }
+    }
+
+    window.addEventListener("auto-save-request", handleAutoSaveRequest)
+
+    return () => {
+      window.removeEventListener("auto-save-request", handleAutoSaveRequest)
+    }
+  }, [nodes, edges])
+
+  useEffect(() => {
+    if (autoSave.hasSavedData()) {
+      const loadedState = autoSave.load()
+      if (loadedState) {
+        setNodes(loadedState.nodes)
+        setEdges(loadedState.edges)
+        toast({
+          title: "Session Restored",
+          description: "Your previous session has been loaded.",
+        })
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const results = validateModel(nodes, edges)
+    setLiveValidationResults(results)
+  }, [nodes, edges, validateModel])
 
   const EditableNumberInput = ({
     label,
@@ -199,7 +274,7 @@ export default function NeuralNetworkDesigner() {
     onUpdate: (newValue: number) => void
   }) => {
     const [inputValue, setInputValue] = useState(
-      value !== undefined && value !== null ? value.toString() : defaultValue.toString()
+      value !== undefined && value !== null ? value.toString() : defaultValue.toString(),
     )
     const [isEditing, setIsEditing] = useState(false)
 
@@ -256,91 +331,118 @@ export default function NeuralNetworkDesigner() {
   }
 
   const propagateTensorShapes = useCallback(() => {
-    if (isUpdatingShapes.current) return // Prevent recursive calls
-
+    if (isUpdatingShapes.current) return
     isUpdatingShapes.current = true
 
     setNodes((currentNodes) => {
-      const updatedNodes = currentNodes.map((node) => ({
-        ...node,
-        data: { ...node.data },
-      }))
+      const updatedNodes = currentNodes.map((node) => ({ ...node, data: { ...node.data } }))
       const nodeMap = new Map(updatedNodes.map((node) => [node.id, node]))
 
-      // Topological sort to process nodes in correct order
       const visited = new Set<string>()
       const processing = new Set<string>()
       const sorted: string[] = []
 
       const visit = (nodeId: string) => {
-        if (processing.has(nodeId)) return // Cycle detected
+        if (processing.has(nodeId)) return
         if (visited.has(nodeId)) return
-
         processing.add(nodeId)
-
-        // Find all nodes that this node connects to
         const outgoingEdges = edges.filter((edge) => edge.source === nodeId)
         for (const edge of outgoingEdges) {
           visit(edge.target)
         }
-
         processing.delete(nodeId)
         visited.add(nodeId)
         sorted.unshift(nodeId)
       }
 
-      // Visit all nodes
       for (const node of updatedNodes) {
         visit(node.id)
       }
 
-      // Propagate shapes in topological order
       for (const nodeId of sorted) {
         const node = nodeMap.get(nodeId)
         if (!node) continue
 
         if (node.type === "inputNode") {
           const inputShape: TensorShape = {
-            batch: (node.data as any).batch_size ?? 1,
             channels: (node.data as any).channels ?? 3,
             height: (node.data as any).height ?? 28,
             width: (node.data as any).width ?? 28,
           }
-          node.data = {
-            ...(node.data as any),
-            inputShape,
-            outputShape: inputShape,
-          }
+          node.data = { ...node.data, inputShape, outputShape: inputShape }
           continue
         }
 
-        // Find input edges
         const inputEdges = edges.filter((edge) => edge.target === nodeId)
+        let allInputShapes: (TensorShape | undefined)[] = []
 
-        let inputShape: TensorShape
-        if (inputEdges.length > 0) {
-          // Get input shape from the first connected node
-          const sourceNode = nodeMap.get(inputEdges[0].source)
-          if (sourceNode && sourceNode.data.outputShape) {
-            inputShape = {
-              batch: (sourceNode.data.outputShape as any).batch ?? 1,
-              channels: (sourceNode.data.outputShape as any).channels ?? 3,
-              height: (sourceNode.data.outputShape as any).height ?? 28,
-              width: (sourceNode.data.outputShape as any).width ?? 28,
+        if (node.type === "concatenateNode" || node.type === "addNode") {
+          const numInputs = node.data.num_inputs || 2
+          for (let i = 1; i <= numInputs; i++) {
+            const handleId = `input${i}`
+            const edge = inputEdges.find((e) => e.targetHandle === handleId)
+            if (edge) {
+              const sourceNode = nodeMap.get(edge.source)
+              allInputShapes.push(sourceNode?.data.outputShape)
+            } else {
+              allInputShapes.push(undefined)
             }
-          } else {
-            inputShape = { batch: 1, channels: 3, height: 28, width: 28 }
           }
         } else {
-          inputShape = { batch: 1, channels: 3, height: 28, width: 28 }
+          allInputShapes = inputEdges.map((edge) => {
+            const sourceNode = nodeMap.get(edge.source)
+            return sourceNode?.data.outputShape
+          })
         }
 
-        // Calculate output shape using the imported function
-        const outputShape = calcOutputShape(node.type || "", inputShape, node.data)
+        const cleanInputShapes = allInputShapes.filter((s): s is TensorShape => !!s)
+
+        const data = { ...node.data }
+        const firstInputShape = cleanInputShapes[0]
+
+        if (firstInputShape && firstInputShape.channels) {
+          if (
+            node.type === "conv1dNode" ||
+            node.type === "conv2dNode" ||
+            node.type === "conv3dNode" ||
+            node.type === "convtranspose1dNode" ||
+            node.type === "convtranspose2dNode" ||
+            node.type === "convtranspose3dNode" ||
+            node.type === "depthwiseconv2dNode" ||
+            node.type === "separableconv2dNode"
+          ) {
+            data.in_channels = firstInputShape.channels
+          } else if (
+            node.type === "batchnorm1dNode" ||
+            node.type === "batchnorm2dNode" ||
+            node.type === "instancenorm1dNode" ||
+            node.type === "instancenorm2dNode" ||
+            node.type === "instancenorm3dNode"
+          ) {
+            data.num_features = firstInputShape.channels
+          } else if (node.type === "groupnormNode") {
+            data.num_channels = firstInputShape.channels
+          }
+        }
+
+        if (node.type === "linearNode" && firstInputShape) {
+          if (typeof firstInputShape.features === "number") {
+            data.in_features = firstInputShape.features
+          } else if (firstInputShape.features === undefined) {
+            const flattenedSize =
+              (firstInputShape.channels || 1) * (firstInputShape.height || 1) * (firstInputShape.width || 1)
+            data.in_features = flattenedSize
+          }
+        }
+
+        const outputShape = calcOutputShape(node.type || "", cleanInputShapes, data)
+
+        const displayInputShape =
+          node.type === "concatenateNode" || node.type === "addNode" ? allInputShapes : cleanInputShapes[0]
 
         node.data = {
-          ...node.data,
-          inputShape,
+          ...data,
+          inputShape: displayInputShape,
           outputShape,
         }
       }
@@ -348,67 +450,58 @@ export default function NeuralNetworkDesigner() {
       isUpdatingShapes.current = false
       return updatedNodes
     })
-  }, [edges, setNodes]) // Only depend on edges, not nodes
+  }, [edges, setNodes])
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
       if (event.key === "Delete" || event.key === "Backspace") {
         if (selectedNode) {
+          takeSnapshot()
           setNodes((nodes) => nodes.filter((node) => node.id !== selectedNode.id))
           setEdges((edges) =>
             edges.filter((edge) => edge.source !== selectedNode.id && edge.target !== selectedNode.id),
           )
           setSelectedNode(null)
-
-          // Trigger tensor shape propagation after deletion
-          setTimeout(() => {
-            propagateTensorShapes()
-          }, 10)
         }
       }
     },
-    [selectedNode, setNodes, setEdges, propagateTensorShapes],
+    [selectedNode, setNodes, setEdges, takeSnapshot],
   )
 
   const onConnect = useCallback(
     (params: Connection) => {
-      console.log("[v0] Connection created:", params)
+      takeSnapshot()
       setEdges((eds) => addEdge(params, eds))
       toast({
         title: "Connection Created",
         description: "Successfully connected layers",
       })
-      setTimeout(() => {
-        propagateTensorShapes()
-      }, 0)
     },
-    [setEdges, toast, propagateTensorShapes],
+    [setEdges, toast, takeSnapshot],
   )
 
   const addNode = useCallback(
     (type: string, data: any = {}) => {
+      takeSnapshot()
       const newNode: Node = {
         id: `${type}_${Date.now()}`,
         type,
         position: { x: Math.random() * 400 + 100, y: Math.random() * 400 + 100 },
         data,
       }
-      console.log("[v0] Adding node:", newNode)
       setNodes((nds) => [...nds, newNode])
     },
-    [setNodes],
+    [setNodes, takeSnapshot],
   )
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
-      // Find the current node data from nodes state to avoid stale data
       setNodes((currentNodes) => {
         const currentNode = currentNodes.find((n) => n.id === node.id)
         if (currentNode) {
-          console.log("[v0] Node selected:", currentNode)
           setSelectedNode(currentNode)
         }
-        return currentNodes // Don't modify nodes, just use this to access current state
+        return currentNodes
       })
     },
     [setNodes],
@@ -416,7 +509,7 @@ export default function NeuralNetworkDesigner() {
 
   const updateNodeData = useCallback(
     (nodeId: string, newData: any) => {
-      console.log("[v0] Updating node data:", nodeId, newData)
+      takeSnapshot()
       setNodes((nodes) => {
         const updatedNodes = nodes.map((node) => {
           if (node.id === nodeId) {
@@ -424,7 +517,6 @@ export default function NeuralNetworkDesigner() {
               ...node,
               data: { ...node.data, ...newData },
             }
-            // Update selectedNode if it's the same node
             if (selectedNode && selectedNode.id === nodeId) {
               setSelectedNode(updatedNode)
             }
@@ -434,30 +526,20 @@ export default function NeuralNetworkDesigner() {
         })
         return updatedNodes
       })
-      setTimeout(() => {
-        propagateTensorShapes()
-      }, 10)
     },
-    [setNodes, propagateTensorShapes, selectedNode],
+    [setNodes, selectedNode, takeSnapshot],
   )
 
   useEffect(() => {
-    propagateTensorShapes()
-  }, [edges, propagateTensorShapes])
+    const timer = setTimeout(() => propagateTensorShapes(), 50)
+    return () => clearTimeout(timer)
+  }, [nodes, edges, propagateTensorShapes])
 
   const loadExample = useCallback(
     (example: any) => {
-      console.log("[v0] Loading example:", example.name)
-
       try {
-        console.log("[v0] Validating node types...")
-        // Validate that all node types exist in nodeTypes mapping
         const invalidNodeTypes = example.nodes.filter((node: any) => !nodeTypes[node.type])
         if (invalidNodeTypes.length > 0) {
-          console.error(
-            "[v0] Invalid node types found:",
-            invalidNodeTypes.map((n: any) => n.type),
-          )
           toast({
             title: "Loading Failed",
             description: `Example contains unsupported node types: ${invalidNodeTypes.map((n: any) => n.type).join(", ")}`,
@@ -465,14 +547,10 @@ export default function NeuralNetworkDesigner() {
           })
           return
         }
-        console.log("[v0] Node types validated successfully.")
 
-        console.log("[v0] Validating edges...")
-        // Validate edges reference existing nodes
         const nodeIds = new Set(example.nodes.map((node: any) => node.id))
         const invalidEdges = example.edges.filter((edge: any) => !nodeIds.has(edge.source) || !nodeIds.has(edge.target))
         if (invalidEdges.length > 0) {
-          console.error("[v0] Invalid edges found:", invalidEdges)
           toast({
             title: "Loading Failed",
             description: "Example contains invalid connections",
@@ -480,29 +558,24 @@ export default function NeuralNetworkDesigner() {
           })
           return
         }
-        console.log("[v0] Edges validated successfully.")
 
-        console.log("[v0] Setting nodes and edges...")
+        takeSnapshot()
         setNodes(example.nodes)
         setEdges(example.edges)
         setSelectedNode(null)
+        setCurrentModelName(example.name)
 
         toast({
           title: "Example Loaded",
           description: `Successfully loaded ${example.name}`,
         })
 
-        // Trigger tensor shape propagation and fit view after loading example
         setTimeout(() => {
-          console.log("[v0] Triggering tensor shape propagation")
-          propagateTensorShapes()
-
           if (reactFlowInstanceRef.current) {
             reactFlowInstanceRef.current.fitView({ padding: 0.1, duration: 800 })
           }
         }, 100)
       } catch (error) {
-        console.error("[v0] Error loading example:", error)
         toast({
           title: "Loading Failed",
           description: `Failed to load ${example.name}: ${error}`,
@@ -510,30 +583,74 @@ export default function NeuralNetworkDesigner() {
         })
       }
     },
-    [setNodes, setEdges, toast, propagateTensorShapes, nodeTypes],
+    [setNodes, setEdges, toast, nodeTypes, setCurrentModelName, takeSnapshot],
   )
 
   const resetCanvas = useCallback(() => {
+    takeSnapshot()
     setNodes(initialNodes)
     setEdges(initialEdges)
     setSelectedNode(null)
+    setCurrentModelName(null)
     toast({
       title: "Canvas Reset",
       description: "Canvas has been reset to initial state",
     })
-    // Trigger tensor shape propagation after reset
-    setTimeout(() => {
-      propagateTensorShapes()
-    }, 0)
-  }, [setNodes, setEdges, toast, propagateTensorShapes])
+  }, [setNodes, setEdges, toast, setCurrentModelName, takeSnapshot])
 
   const analyzeCurrentModel = useCallback(() => {
     if (nodes.length === 0) return
-
     const analysis = analyzeModel(nodes, edges)
     setModelAnalysis(analysis)
     setShowAnalysisPanel(true)
   }, [nodes, edges])
+
+  const handleValidateModel = useCallback(() => {
+    const results = validateModel(nodes, edges)
+    setValidationResults(results)
+    setShowValidationPanel(true)
+  }, [nodes, edges, validateModel])
+
+  const handleSaveModel = useCallback(() => {
+    if (!modelName) {
+      toast({ title: "Error", description: "Model name cannot be empty.", variant: "destructive" })
+      return
+    }
+    StorageUtils.saveModel(modelName, nodes, edges)
+    setCurrentModelName(modelName)
+    toast({ title: "Model Saved", description: `Model \"${modelName}\" has been saved.` })
+    setShowSaveDialog(false)
+    setModelName("")
+  }, [modelName, nodes, edges, toast, setCurrentModelName])
+
+  const handleOpenLoadDialog = useCallback(() => {
+    setSavedModels(StorageUtils.getAllModels())
+    setShowLoadDialog(true)
+  }, [])
+
+  const handleLoadModel = useCallback(
+    (key: string) => {
+      const loadedState = StorageUtils.loadModel(key)
+      if (loadedState) {
+        const model = savedModels.find((m) => m.key === key)
+        if (model) {
+          setCurrentModelName(model.name)
+        }
+        takeSnapshot()
+        setNodes(loadedState.nodes)
+        setEdges(loadedState.edges)
+        toast({ title: "Model Loaded", description: `Model has been loaded successfully.` })
+        setShowLoadDialog(false)
+      }
+    },
+    [setNodes, setEdges, toast, savedModels, setCurrentModelName, takeSnapshot],
+  )
+
+  const handleDeleteModel = useCallback((key: string) => {
+    StorageUtils.deleteModel(key)
+    setSavedModels(StorageUtils.getAllModels())
+    toast({ title: "Model Deleted", description: "The model has been deleted." })
+  }, [])
 
   const generateModel = useCallback(async () => {
     setIsGenerating(true)
@@ -596,7 +713,6 @@ export default function NeuralNetworkDesigner() {
         title: "Code Copied",
         description: "Generated code copied to clipboard",
       })
-      // Reset color after 2 seconds
       setTimeout(() => setCopySuccess(false), 2000)
     } catch (error) {
       toast({
@@ -607,248 +723,231 @@ export default function NeuralNetworkDesigner() {
     }
   }, [generatedCode, toast])
 
-  const parsePyTorchCode = useCallback((code: string) => {
-    const errors: string[] = []
-    const warnings: string[] = []
-    const unsupportedModules: string[] = []
-    const newNodes: Node[] = []
-    const newEdges: Edge[] = []
+  const parsePyTorchCode = useCallback(
+    (code: string) => {
+      const errors: string[] = []
+      const warnings: string[] = []
+      const unsupportedModules: string[] = []
+      const newNodes: Node[] = []
+      const newEdges: Edge[] = []
 
-    try {
-      console.log("[v0] Starting PyTorch code parsing...")
+      try {
+        const classPatterns = [
+          /class\s+(\w+)\s*\(\s*nn\.Module\s*\):/,
+          /class\s+(\w+)\s*\(\s*torch\.nn\.Module\s*\):/,
+          /class\s+(\w+)\s*\([^)]*nn\.Module[^)]*\):/,
+          /class\s+(\w+)\s*\([^)]*torch\.nn\.Module[^)]*\):/,
+        ]
 
-      // Fixed regex patterns by replacing $$ with proper parentheses escaping $$ and $$
-      // Step 1: Find PyTorch model class with proper regex
-      const classPatterns = [
-        /class\s+(\w+)\s*$$\s*nn\.Module\s*$$\s*:/,
-        /class\s+(\w+)\s*$$\s*torch\.nn\.Module\s*$$\s*:/,
-        /class\s+(\w+)\s*$$[^)]*nn\.Module[^)]*$$\s*:/,
-        /class\s+(\w+)\s*$$[^)]*torch\.nn\.Module[^)]*$$\s*:/,
-      ]
+        let className = ""
+        let classFound = false
 
-      let className = ""
-      let classFound = false
-
-      for (const pattern of classPatterns) {
-        const match = code.match(pattern)
-        if (match) {
-          className = match[1]
-          classFound = true
-          console.log(`[v0] Found PyTorch model class: ${className}`)
-          break
-        }
-      }
-
-      if (!classFound) {
-        errors.push(
-          "No PyTorch model class found. Expected 'class YourModelName(nn.Module):' or similar inheritance from nn.Module",
-        )
-        return { nodes: [], edges: [], errors, warnings, unsupportedModules }
-      }
-
-      // Step 2: Extract __init__ method content
-      const initPattern = /def\s+__init__\s*$$[^)]*$$\s*:([\s\S]*?)(?=\n\s*def\s+\w+|\n\s*class\s+\w+|$)/
-      const initMatch = code.match(initPattern)
-
-      if (!initMatch) {
-        errors.push("No __init__ method found in the model class")
-        return { nodes: [], edges: [], errors, warnings, unsupportedModules }
-      }
-
-      const initContent = initMatch[1]
-      console.log("[v0] Found __init__ method content")
-
-      // Step 3: Find all layer definitions with improved patterns
-      const layerPatterns = [
-        /self\.(\w+)\s*=\s*nn\.(\w+)\s*$$([^)]*)$$/g,
-        /self\.(\w+)\s*=\s*torch\.nn\.(\w+)\s*$$([^)]*)$$/g,
-      ]
-
-      const allLayerMatches: RegExpMatchArray[] = []
-
-      for (const pattern of layerPatterns) {
-        let match
-        while ((match = pattern.exec(initContent)) !== null) {
-          allLayerMatches.push(match)
-        }
-      }
-
-      if (allLayerMatches.length === 0) {
-        errors.push(
-          "No PyTorch layers found in __init__ method. Make sure layers are defined as 'self.layer_name = nn.LayerType(...)'",
-        )
-        return { nodes: [], edges: [], errors, warnings, unsupportedModules }
-      }
-
-      console.log(`[v0] Found ${allLayerMatches.length} layer definitions`)
-
-      // Step 4: Node type mapping
-      const nodeTypeMap: Record<string, string> = {
-        Linear: "linearNode",
-        Conv1d: "conv1dNode",
-        Conv2d: "conv2dNode",
-        Conv3d: "conv3dNode",
-        ConvTranspose1d: "convtranspose1dNode",
-        ConvTranspose2d: "convtranspose2dNode",
-        ConvTranspose3d: "convtranspose3dNode",
-        BatchNorm1d: "batchnorm1dNode",
-        BatchNorm2d: "batchnorm2dNode",
-        BatchNorm3d: "batchnorm3dNode",
-        LayerNorm: "layernormNode",
-        GroupNorm: "groupnormNode",
-        InstanceNorm1d: "instancenorm1dNode",
-        InstanceNorm2d: "instancenorm2dNode",
-        InstanceNorm3d: "instancenorm3dNode",
-        ReLU: "reluNode",
-        LeakyReLU: "leakyreluNode",
-        ELU: "eluNode",
-        GELU: "geluNode",
-        SiLU: "siluNode",
-        Mish: "mishNode",
-        Hardswish: "hardswishNode",
-        Hardsigmoid: "hardsigmoidNode",
-        Tanh: "tanhNode",
-        Sigmoid: "sigmoidNode",
-        Softmax: "softmaxNode",
-        LogSoftmax: "logsoftmaxNode",
-        MaxPool1d: "maxpool1dNode",
-        MaxPool2d: "maxpool2dNode",
-        MaxPool3d: "maxpool3dNode",
-        AvgPool1d: "avgpool1dNode",
-        AvgPool2d: "avgpool2dNode",
-        AvgPool3d: "avgpool3dNode",
-        AdaptiveAvgPool1d: "adaptiveavgpool1dNode",
-        AdaptiveAvgPool2d: "adaptiveavgpool2dNode",
-        AdaptiveAvgPool3d: "adaptiveavgpool3dNode",
-        AdaptiveMaxPool1d: "adaptivemaxpool1dNode",
-        AdaptiveMaxPool2d: "adaptivemaxpool2dNode",
-        Dropout: "dropoutNode",
-        Dropout2d: "dropout2dNode",
-        Dropout3d: "dropout3dNode",
-        LSTM: "lstmNode",
-        GRU: "gruNode",
-        MultiheadAttention: "multiheadattentionNode",
-        TransformerEncoderLayer: "transformerencoderlayerNode",
-        TransformerDecoderLayer: "transformerdecoderlayerNode",
-        Flatten: "flattenNode",
-        Unflatten: "unflattenNode",
-        Transpose: "transposeNode",
-        Add: "addNode",
-        Concatenate: "concatenateNode",
-      }
-
-      // Step 5: Create nodes from layer definitions
-      let yPosition = 100
-      const layerMap = new Map<string, string>()
-
-      allLayerMatches.forEach((match, index) => {
-        const [, layerName, layerType, params] = match
-        const nodeId = `${layerName}-${Date.now()}-${index}`
-        layerMap.set(layerName, nodeId)
-
-        const nodeType = nodeTypeMap[layerType]
-        if (!nodeType) {
-          unsupportedModules.push(layerType)
-          warnings.push(`Unsupported layer type: ${layerType}. This layer will be skipped in visualization.`)
-          return
-        }
-
-        const nodeData: any = { label: layerName }
-
-        // Parse parameters if they exist
-        if (params && params.trim()) {
-          try {
-            const paramPairs = parseParameters(params)
-            paramPairs.forEach((param) => {
-              if (!param) return
-
-              if (param.includes("=")) {
-                const [key, value] = param.split("=").map((s) => s.trim())
-                if (key && value) {
-                  nodeData[key] = parseParameterValue(value)
-                }
-              } else {
-                // Handle positional arguments
-                const numValue = Number.parseInt(param.trim())
-                if (!isNaN(numValue)) {
-                  mapPositionalParameter(layerType, nodeData, numValue)
-                }
-              }
-            })
-          } catch (paramError) {
-            warnings.push(`Could not parse parameters for ${layerName}: ${params}`)
+        for (const pattern of classPatterns) {
+          const match = code.match(pattern)
+          if (match) {
+            className = match[1]
+            classFound = true
+            break
           }
         }
 
-        const newNode: Node = {
-          id: nodeId,
-          type: nodeType,
-          position: { x: 300, y: yPosition },
-          data: nodeData,
-          draggable: true,
-          selectable: true,
-          deletable: true,
+        if (!classFound) {
+          errors.push(
+            "No PyTorch model class found. Expected 'class YourModelName(nn.Module):' or similar inheritance from nn.Module",
+          )
+          return { nodes: [], edges: [], errors, warnings, unsupportedModules }
         }
 
-        newNodes.push(newNode)
-        yPosition += 120
-      })
+        const initPattern = /def\s+__init__\s*\([^)]*\)\s*:([\s\S]*?)(?=\n\s*def\s+\w+|\n\s*class\s+\w+|$)/
+        const initMatch = code.match(initPattern)
 
-      // Step 6: Create sequential connections
-      for (let i = 0; i < newNodes.length - 1; i++) {
-        const edgeId = `e-${newNodes[i].id}-${newNodes[i + 1].id}`
-        newEdges.push({
-          id: edgeId,
-          source: newNodes[i].id,
-          target: newNodes[i + 1].id,
-          type: "default",
-          animated: false,
-          deletable: true,
-        })
-      }
-
-      // Step 7: Add input node
-      if (newNodes.length > 0) {
-        const inputNode: Node = {
-          id: `input-${Date.now()}`,
-          type: "inputNode",
-          position: { x: 300, y: 20 },
-          data: { batch_size: 1, channels: 3, height: 224, width: 224 },
-          draggable: true,
-          selectable: true,
-          deletable: true,
+        if (!initMatch) {
+          errors.push("No __init__ method found in the model class")
+          return { nodes: [], edges: [], errors, warnings, unsupportedModules }
         }
 
-        newNodes.unshift(inputNode)
+        const initContent = initMatch[1]
 
-        const inputEdgeId = `e-${inputNode.id}-${newNodes[1].id}`
-        newEdges.unshift({
-          id: inputEdgeId,
-          source: inputNode.id,
-          target: newNodes[1].id,
-          type: "default",
-          animated: false,
-          deletable: true,
+        const layerPatterns = [
+          /self\.(\w+)\s*=\s*nn\.(\w+)\s*\(([^)]*)\)/g,
+          /self\.(\w+)\s*=\s*torch\.nn\.(\w+)\s*\(([^)]*)\)/g,
+        ]
+
+        const allLayerMatches: RegExpMatchArray[] = []
+
+        for (const pattern of layerPatterns) {
+          let match
+          while ((match = pattern.exec(initContent)) !== null) {
+            allLayerMatches.push(match)
+          }
+        }
+
+        if (allLayerMatches.length === 0) {
+          errors.push(
+            "No PyTorch layers found in __init__ method. Make sure layers are defined as 'self.layer_name = nn.LayerType(...)'",
+          )
+          return { nodes: [], edges: [], errors, warnings, unsupportedModules }
+        }
+
+        const nodeTypeMap: Record<string, string> = {
+          Linear: "linearNode",
+          Conv1d: "conv1dNode",
+          Conv2d: "conv2dNode",
+          Conv3d: "conv3dNode",
+          ConvTranspose1d: "convtranspose1dNode",
+          ConvTranspose2d: "convtranspose2dNode",
+          ConvTranspose3d: "convtranspose3dNode",
+          BatchNorm1d: "batchnorm1dNode",
+          BatchNorm2d: "batchnorm2dNode",
+          BatchNorm3d: "batchnorm3dNode",
+          LayerNorm: "layernormNode",
+          GroupNorm: "groupnormNode",
+          InstanceNorm1d: "instancenorm1dNode",
+          InstanceNorm2d: "instancenorm2dNode",
+          InstanceNorm3d: "instancenorm3dNode",
+          ReLU: "reluNode",
+          LeakyReLU: "leakyreluNode",
+          ELU: "eluNode",
+          GELU: "geluNode",
+          SiLU: "siluNode",
+          Mish: "mishNode",
+          Hardswish: "hardswishNode",
+          Hardsigmoid: "hardsigmoidNode",
+          Tanh: "tanhNode",
+          Sigmoid: "sigmoidNode",
+          Softmax: "softmaxNode",
+          LogSoftmax: "logsoftmaxNode",
+          MaxPool1d: "maxpool1dNode",
+          MaxPool2d: "maxpool2dNode",
+          MaxPool3d: "maxpool3dNode",
+          AvgPool1d: "avgpool1dNode",
+          AvgPool2d: "avgpool2dNode",
+          AvgPool3d: "avgpool3dNode",
+          AdaptiveAvgPool1d: "adaptiveavgpool1dNode",
+          AdaptiveAvgPool2d: "adaptiveavgpool2dNode",
+          AdaptiveAvgPool3d: "adaptiveavgpool3dNode",
+          AdaptiveMaxPool1d: "adaptivemaxpool1dNode",
+          AdaptiveMaxPool2d: "adaptivemaxpool2dNode",
+          Dropout: "dropoutNode",
+          Dropout2d: "dropout2dNode",
+          Dropout3d: "dropout3dNode",
+          LSTM: "lstmNode",
+          GRU: "gruNode",
+          MultiheadAttention: "multiheadattentionNode",
+          TransformerEncoderLayer: "transformerencoderlayerNode",
+          TransformerDecoderLayer: "transformerdecoderlayerNode",
+          Flatten: "flattenNode",
+          Unflatten: "unflattenNode",
+          Transpose: "transposeNode",
+          Add: "addNode",
+          Concatenate: "concatenateNode",
+        }
+
+        let yPosition = 100
+        const layerMap = new Map<string, string>()
+
+        allLayerMatches.forEach((match, index) => {
+          const [, layerName, layerType, params] = match
+          const nodeId = `${layerName}-${Date.now()}-${index}`
+          layerMap.set(layerName, nodeId)
+
+          const nodeType = nodeTypeMap[layerType]
+          if (!nodeType) {
+            unsupportedModules.push(layerType)
+            warnings.push(`Unsupported layer type: ${layerType}. This layer will be skipped in visualization.`)
+            return
+          }
+
+          const nodeData: any = { label: layerName }
+
+          if (params && params.trim()) {
+            try {
+              const paramPairs = parseParameters(params)
+              paramPairs.forEach((param) => {
+                if (!param) return
+
+                if (param.includes("=")) {
+                  const [key, value] = param.split("=").map((s) => s.trim())
+                  if (key && value) {
+                    nodeData[key] = parseParameterValue(value)
+                  }
+                } else {
+                  const numValue = Number.parseInt(param.trim())
+                  if (!isNaN(numValue)) {
+                    mapPositionalParameter(layerType, nodeData, numValue)
+                  }
+                }
+              })
+            } catch (paramError) {
+              warnings.push(`Could not parse parameters for ${layerName}: ${params}`)
+            }
+          }
+
+          const newNode: Node = {
+            id: nodeId,
+            type: nodeType,
+            position: { x: 300, y: yPosition },
+            data: nodeData,
+            draggable: true,
+            selectable: true,
+            deletable: true,
+          }
+
+          newNodes.push(newNode)
+          yPosition += 120
         })
+
+        for (let i = 0; i < newNodes.length - 1; i++) {
+          const edgeId = `e-${newNodes[i].id}-${newNodes[i + 1].id}`
+          newEdges.push({
+            id: edgeId,
+            source: newNodes[i].id,
+            target: newNodes[i + 1].id,
+            type: "default",
+            animated: false,
+            deletable: true,
+          })
+        }
+
+        if (newNodes.length > 0) {
+          const inputNode: Node = {
+            id: `input-${Date.now()}`,
+            type: "inputNode",
+            position: { x: 300, y: 20 },
+            data: { channels: 3, height: 224, width: 224 },
+            draggable: true,
+            selectable: true,
+            deletable: true,
+          }
+
+          newNodes.unshift(inputNode)
+
+          const inputEdgeId = `e-${inputNode.id}-${newNodes[1].id}`
+          newEdges.unshift({
+            id: inputEdgeId,
+            source: inputNode.id,
+            target: newNodes[1].id,
+            type: "default",
+            animated: false,
+            deletable: true,
+          })
+        }
+
+        if (unsupportedModules.length > 0) {
+          const uniqueUnsupported = [...new Set(unsupportedModules)]
+          warnings.push(`Found ${uniqueUnsupported.length} unsupported module types: ${uniqueUnsupported.join(", ")}`)
+          warnings.push("Consider requesting support for these modules in future updates.")
+        }
+
+        return { nodes: newNodes, edges: newEdges, errors, warnings, unsupportedModules }
+      } catch (error) {
+        errors.push(`Parsing error: ${error instanceof Error ? error.message : "Unknown error"}`)
+        return { nodes: [], edges: [], errors, warnings, unsupportedModules }
       }
+    },
+    [],
+  )
 
-      // Step 8: Handle unsupported modules
-      if (unsupportedModules.length > 0) {
-        const uniqueUnsupported = [...new Set(unsupportedModules)]
-        warnings.push(`Found ${uniqueUnsupported.length} unsupported module types: ${uniqueUnsupported.join(", ")}`)
-        warnings.push("Consider requesting support for these modules in future updates.")
-      }
-
-      console.log(`[v0] Successfully parsed ${newNodes.length} nodes and ${newEdges.length} edges`)
-      return { nodes: newNodes, edges: newEdges, errors, warnings, unsupportedModules }
-    } catch (error) {
-      console.error("[v0] PyTorch parsing error:", error)
-      errors.push(`Parsing error: ${error instanceof Error ? error.message : "Unknown error"}`)
-      return { nodes: [], edges: [], errors, warnings, unsupportedModules }
-    }
-  }, [])
-
-  // Helper function to parse parameters with proper parentheses handling
   const parseParameters = (params: string): string[] => {
     const result: string[] = []
     let current = ""
@@ -859,7 +958,7 @@ export default function NeuralNetworkDesigner() {
     for (let i = 0; i < params.length; i++) {
       const char = params[i]
 
-      if (!inQuotes && (char === '"' || char === "'")) {
+      if (!inQuotes && (char === "'" || char === '"')) {
         inQuotes = true
         quoteChar = char
       } else if (inQuotes && char === quoteChar) {
@@ -887,7 +986,6 @@ export default function NeuralNetworkDesigner() {
     return result
   }
 
-  // Helper function to parse parameter values
   const parseParameterValue = (value: string): any => {
     const trimmedValue = value.trim()
 
@@ -897,25 +995,29 @@ export default function NeuralNetworkDesigner() {
     if (/^\d+$/.test(trimmedValue)) return Number.parseInt(trimmedValue)
     if (/^\d*\.\d+$/.test(trimmedValue)) return Number.parseFloat(trimmedValue)
 
-    // Handle tuples like (3, 3)
-    if (/^$$[^)]+$$$/.test(trimmedValue)) {
-      const tupleMatch = trimmedValue.match(/$$([^)]+)$$/)
-      if (tupleMatch) {
-        const tupleValues = tupleMatch[1].split(",").map((v) => {
-          const num = Number.parseInt(v.trim())
-          return isNaN(num) ? v.trim() : num
-        })
-        return tupleValues.length === 1 ? tupleValues[0] : tupleValues
+    if (trimmedValue.startsWith("(") && trimmedValue.endsWith(")")) {
+      let tupleContent = trimmedValue.slice(1, -1)
+      if (tupleContent.endsWith(",")) {
+        tupleContent = tupleContent.slice(0, -1)
       }
+      const tupleValues = tupleContent.split(",").map((v) => {
+        const tv = v.trim()
+        if (tv === "") return null
+        const num = Number.parseInt(tv)
+        return isNaN(num) ? parseParameterValue(tv) : num
+      })
+      return tupleValues.length === 1 ? tupleValues[0] : tupleValues
     }
 
-    // String value, remove quotes
-    return trimmedValue.replace(/^['"]|['"]$/g, "")
+    if ((trimmedValue.startsWith("'") && trimmedValue.endsWith("'")) || (trimmedValue.startsWith('"') && trimmedValue.endsWith('"'))) {
+      return trimmedValue.slice(1, -1)
+    }
+
+    return trimmedValue
   }
 
-  // Helper function to map positional parameters
   const mapPositionalParameter = (layerType: string, nodeData: any, numValue: number): void => {
-    const paramCount = Object.keys(nodeData).length - 1 // Subtract 1 for label
+    const paramCount = Object.keys(nodeData).length - 1
 
     if (layerType === "Linear") {
       if (paramCount === 0) nodeData.in_features = numValue
@@ -928,11 +1030,9 @@ export default function NeuralNetworkDesigner() {
   }
 
   const handleCodeInput = useCallback(() => {
-    console.log("[v0] Parsing PyTorch code...")
     const result = parsePyTorchCode(inputCode)
 
     if (result.errors.length > 0) {
-      console.log("[v0] Parse errors:", result.errors)
       setParseErrors(result.errors)
       setParseWarnings([])
       setUnsupportedModules([])
@@ -946,59 +1046,38 @@ export default function NeuralNetworkDesigner() {
       return
     }
 
-    console.log("[v0] Successfully parsed", result.nodes.length, "nodes and", result.edges.length, "edges")
-
-    const feedbackMessages: string[] = []
-
-    if (result.warnings.length > 0) {
-      feedbackMessages.push(...result.warnings)
-    }
-
-    if (result.unsupportedModules.length > 0) {
-      const uniqueUnsupported = [...new Set(result.unsupportedModules)]
-      feedbackMessages.push(
-        `Missing modules for visualization: ${uniqueUnsupported.join(", ")}. ` +
-          `Consider requesting these layer types to be added to the designer.`,
-      )
-    }
-
-    // Clear existing nodes and edges
-    setNodes([])
-    setEdges([])
+    takeSnapshot()
+    setNodes(result.nodes)
+    setEdges(result.edges)
     setParseErrors([])
     setParseWarnings(result.warnings)
     setUnsupportedModules(result.unsupportedModules)
+    setShowCodeInputDialog(false)
+    setInputCode("")
 
-    // Add parsed nodes and edges
-    setTimeout(() => {
-      setNodes(result.nodes)
-      setEdges(result.edges)
-      setShowCodeInputDialog(false)
-      setInputCode("")
+    if (result.nodes.length > 0) {
+      const supportedCount = result.nodes.length - 1
+      const totalLayers = supportedCount + result.unsupportedModules.length
 
-      // Show success message with module analysis
-      if (result.nodes.length > 0) {
-        const supportedCount = result.nodes.length - 1 // Exclude input node
-        const totalLayers = supportedCount + result.unsupportedModules.length
+      toast({
+        title: "PyTorch Code Imported",
+        description: `Successfully imported ${supportedCount} / ${totalLayers} layers. ${
+          result.unsupportedModules.length > 0
+            ? `${result.unsupportedModules.length} unsupported modules were skipped.`
+            : "All modules are supported!"
+        }`,
+        duration: 5000,
+      })
+    }
+  }, [inputCode, parsePyTorchCode, toast, setNodes, setEdges, takeSnapshot])
 
-        toast({
-          title: "PyTorch Code Imported",
-          description: `Successfully imported ${supportedCount}/${totalLayers} layers. ${
-            result.unsupportedModules.length > 0
-              ? `${result.unsupportedModules.length} unsupported modules were skipped.`
-              : "All modules are supported!"
-          }`,
-          duration: 5000,
-        })
-      }
-
-      // Trigger tensor shape propagation
-      setTimeout(() => {
-        console.log("[v0] Triggering tensor shape propagation after code import")
-        propagateTensorShapes()
-      }, 100)
-    }, 50)
-  }, [inputCode, parsePyTorchCode, propagateTensorShapes, toast])
+  const keyboardShortcuts = [
+    { key: "Ctrl + S", description: "Save model" },
+    { key: "Ctrl + O", description: "Open model" },
+    { key: "Ctrl + G", description: "Generate PyTorch code" },
+    { key: "Ctrl + R", description: "Reset canvas" },
+    { key: "Delete", description: "Delete selected nodes" },
+  ]
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -1006,7 +1085,7 @@ export default function NeuralNetworkDesigner() {
         <div className="flex items-center gap-3">
           <Brain className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Neural Network Designer</h1>
+            <h1 className="text-2xl font-bold text-foreground">{currentModelName || "Neural Network Designer"}</h1>
             <p className="text-sm text-muted-foreground">Build PyTorch models visually</p>
           </div>
         </div>
@@ -1014,6 +1093,14 @@ export default function NeuralNetworkDesigner() {
           <Button variant="outline" size="sm" onClick={() => setShowHelpDialog(true)}>
             <HelpCircle className="h-4 w-4 mr-2" />
             Help
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(true)}>
+            <Save className="h-4 w-4 mr-2" />
+            Save
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleOpenLoadDialog}>
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Open
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -1033,6 +1120,14 @@ export default function NeuralNetworkDesigner() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button variant="outline" size="sm" onClick={undo} disabled={!canUndo}>
+            <Undo2 className="h-4 w-4 mr-2" />
+            Undo
+          </Button>
+          <Button variant="outline" size="sm" onClick={redo} disabled={!canRedo}>
+            <Redo2 className="h-4 w-4 mr-2" />
+            Redo
+          </Button>
           <Button variant="outline" size="sm" onClick={resetCanvas}>
             <RotateCcw className="h-4 w-4 mr-2" />
             Reset
@@ -1050,17 +1145,17 @@ export default function NeuralNetworkDesigner() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <div className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
-          <div className="p-4 border-b border-sidebar-border overflow-y-auto">
-            <h2 className="font-semibold text-sidebar-foreground mb-3">Layer Library</h2>
-            <div className="space-y-4">
+        <div className="w-64 bg-sidebar border-r border-sidebar-border">
+          <ScrollArea className="h-full">
+            <div className="p-4 space-y-4">
+              <h2 className="font-semibold text-sidebar-foreground mb-3">Layer Library</h2>
               {/* Input Section */}
               <div>
                 <div className="text-sm text-sidebar-foreground/70 font-medium mb-2">Input</div>
                 <div className="space-y-2">
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("inputNode", { batch_size: 1, channels: 3, height: 28, width: 28 })}
+                    onClick={() => addNode("inputNode", { channels: 3, height: 28, width: 28 })}
                   >
                     <div className="flex items-center gap-2">
                       <Database className="h-4 w-4 text-purple-500" />
@@ -1285,7 +1380,7 @@ export default function NeuralNetworkDesigner() {
                 <div className="space-y-2">
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("maxpool2dNode", { kernel_size: 2, stride: 2 })}
+                    onClick={() => addNode("maxpool2dNode", { kernel_size: 2, stride: 2, padding: 0 })}
                   >
                     <div className="flex items-center gap-2">
                       <Shrink className="h-4 w-4 text-red-500" />
@@ -1294,7 +1389,7 @@ export default function NeuralNetworkDesigner() {
                   </Card>
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("avgpool2dNode", { kernel_size: 2, stride: 2 })}
+                    onClick={() => addNode("avgpool2dNode", { kernel_size: 2, stride: 2, padding: 0 })}
                   >
                     <div className="flex items-center gap-2">
                       <Shrink className="h-4 w-4 text-red-500" />
@@ -1439,7 +1534,7 @@ export default function NeuralNetworkDesigner() {
                   </Card>
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("concatenateNode", { dim: 1 })}
+                    onClick={() => addNode("concatenateNode", { dim: 1, num_inputs: 2 })}
                   >
                     <div className="flex items-center gap-2">
                       <GitBranch className="h-4 w-4 text-indigo-500" />
@@ -1507,38 +1602,39 @@ export default function NeuralNetworkDesigner() {
                 </div>
               </div>
             </div>
-          </div>
+          </ScrollArea>
         </div>
 
         {/* Main Canvas Area */}
-        <div className="flex flex-1 flex">
-          <div className="flex-1 h-full w-full">
-            <ReactFlowProvider>
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                onNodeClick={onNodeClick}
-                nodeTypes={nodeTypes}
-                className="h-full w-full"
-                fitView
-                onKeyDown={onKeyDown}
-                tabIndex={0}
-                onInit={(reactFlowInstance) => {
-                  reactFlowInstanceRef.current = reactFlowInstance
-                }}
-              >
-                <Controls />
-                <MiniMap />
-                <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
-              </ReactFlow>
-            </ReactFlowProvider>
-          </div>
+        <div className="flex-1 h-full w-full">
+          <ReactFlowProvider>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onNodeClick={onNodeClick}
+              nodeTypes={nodeTypes}
+              className="h-full w-full"
+              fitView
+              onKeyDown={onKeyDown}
+              tabIndex={0}
+              onInit={(reactFlowInstance) => {
+                reactFlowInstanceRef.current = reactFlowInstance
+              }}
+            >
+              <Controls />
+              <MiniMap />
+              <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
+            </ReactFlow>
+          </ReactFlowProvider>
+        </div>
 
+        {/* Right Panel: Properties & Live Validation */}
+        <div className="w-80 bg-sidebar border-l border-sidebar-border flex flex-col">
           {/* Properties Panel */}
-          <div className="w-64 bg-sidebar border-l border-sidebar-border p-4">
+          <div className="p-4 flex-shrink-0 overflow-y-auto">
             <h3 className="font-semibold text-sidebar-foreground mb-4">Properties</h3>
             {selectedNode ? (
               <div className="space-y-4">
@@ -1552,13 +1648,6 @@ export default function NeuralNetworkDesigner() {
                 <div className="space-y-3">
                   {selectedNode.type === "inputNode" && (
                     <>
-                      <EditableNumberInput
-                        label="Batch Size"
-                        value={selectedNode.data.batch_size as number | undefined}
-                        defaultValue={1}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { batch_size: value })}
-                      />
                       <EditableNumberInput
                         label="Channels"
                         value={selectedNode.data.channels as number | undefined}
@@ -1581,8 +1670,7 @@ export default function NeuralNetworkDesigner() {
                         onUpdate={(value) => updateNodeData(selectedNode.id, { width: value })}
                       />
                       <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
-                        Shape: [{(selectedNode.data.batch_size ?? 1)}, {(selectedNode.data.channels ?? 3)},
-                        {(selectedNode.data.height ?? 28)}, {(selectedNode.data.width ?? 28)}].join(", ")]
+                        Shape: {formatTensorShape(selectedNode.data.outputShape)}
                       </div>
                     </>
                   )}
@@ -1727,33 +1815,102 @@ export default function NeuralNetworkDesigner() {
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { stride: value })}
                       />
+                      <EditableNumberInput
+                        label="Padding"
+                        value={selectedNode.data.padding as number | undefined}
+                        defaultValue={0}
+                        min={0}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { padding: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "avgpool2dNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Kernel Size"
+                        value={selectedNode.data.kernel_size as number | undefined}
+                        defaultValue={2}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { kernel_size: value })}
+                      />
+                      <EditableNumberInput
+                        label="Stride"
+                        value={selectedNode.data.stride as number | undefined}
+                        defaultValue={2}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { stride: value })}
+                      />
+                      <EditableNumberInput
+                        label="Padding"
+                        value={selectedNode.data.padding as number | undefined}
+                        defaultValue={0}
+                        min={0}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { padding: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "concatenateNode" && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium text-sidebar-foreground">Dimension (dim)</label>
+                        <select
+                          value={selectedNode.data.dim ?? 1}
+                          onChange={(e) =>
+                            updateNodeData(selectedNode.id, { dim: parseInt(e.target.value, 10) })
+                          }
+                          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-black"
+                        >
+                          <option value={0}>0</option>
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
+                        </select>
+                      </div>
+                      <EditableNumberInput
+                        label="Number of Inputs"
+                        value={selectedNode.data.num_inputs as number | undefined}
+                        defaultValue={2}
+                        min={2}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_inputs: value })}
+                      />
                     </>
                   )}
                   {selectedNode.type === "adaptiveavgpool2dNode" && (
                     <>
                       <EditableNumberInput
                         label="Output Height"
-                        value={selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size) ? (selectedNode.data.output_size[0] as number | undefined) ?? 1 : 1}
+                        value={
+                          selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size)
+                            ? (selectedNode.data.output_size[0] as number | undefined) ?? 1
+                            : 1
+                        }
                         defaultValue={1}
                         min={1}
                         onUpdate={(value) =>
                           updateNodeData(selectedNode.id, {
                             output_size: [
                               value,
-                              selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size) ? (selectedNode.data.output_size[1] as number | undefined) ?? 1 : 1,
+                              selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size)
+                                ? (selectedNode.data.output_size[1] as number | undefined) ?? 1
+                                : 1,
                             ],
                           })
                         }
                       />
                       <EditableNumberInput
                         label="Output Width"
-                        value={selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size) ? (selectedNode.data.output_size[1] as number | undefined) ?? 1 : 1}
+                        value={
+                          selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size)
+                            ? (selectedNode.data.output_size[1] as number | undefined) ?? 1
+                            : 1
+                        }
                         defaultValue={1}
                         min={1}
                         onUpdate={(value) =>
                           updateNodeData(selectedNode.id, {
                             output_size: [
-                              selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size) ? (selectedNode.data.output_size[0] as number | undefined) ?? 1 : 1,
+                              selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size)
+                                ? (selectedNode.data.output_size[0] as number | undefined) ?? 1
+                                : 1,
                               value,
                             ],
                           })
@@ -1992,61 +2149,107 @@ export default function NeuralNetworkDesigner() {
               </div>
             )}
           </div>
+
+          {/* Live Validation Panel */}
+          <div className="flex-grow flex flex-col mt-4 border-t border-sidebar-border pt-4 overflow-y-auto">
+            <h3 className="font-semibold text-sidebar-foreground mb-2 px-4">Live Validation</h3>
+            <ScrollArea className="flex-grow">
+              <div className="space-y-2 px-4 pb-4">
+                {liveValidationResults && liveValidationResults.errors.length > 0 && (
+                  <div>
+                    <h4 className="font-bold flex items-center text-red-500">
+                      <AlertTriangle className="h-4 w-4 mr-2 flex-shrink-0" />
+                      Errors ({liveValidationResults.errors.length})
+                    </h4>
+                    <ul className="mt-1 space-y-1 text-xs text-red-400">
+                      {liveValidationResults.errors.map((error, index) => (
+                        <li key={`error-${index}`} className="flex">
+                          <span className="mr-1">-</span>
+                          <span>{error}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {liveValidationResults && liveValidationResults.warnings.length > 0 && (
+                  <div className="mt-3">
+                    <h4 className="font-bold flex items-center text-yellow-500">
+                      <AlertTriangle className="h-4 w-4 mr-2 flex-shrink-0" />
+                      Warnings ({liveValidationResults.warnings.length})
+                    </h4>
+                    <ul className="mt-1 space-y-1 text-xs text-yellow-400">
+                      {liveValidationResults.warnings.map((warning, index) => (
+                        <li key={`warning-${index}`} className="flex">
+                          <span className="mr-1">-</span>
+                          <span>{warning}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {liveValidationResults &&
+                  liveValidationResults.errors.length === 0 &&
+                  liveValidationResults.warnings.length === 0 && (
+                    <div className="text-green-500 text-sm flex items-center">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      <p>No issues found. Your model is looking good!</p>
+                    </div>
+                  )}
+              </div>
+            </ScrollArea>
+          </div>
         </div>
       </div>
 
       {/* Code Generation Dialog */}
       <Dialog open={showCodeDialog} onOpenChange={setShowCodeDialog}>
-        <DialogContent className="w-[3500px] h-[80vh] flex flex-col">
-          <ResizableBox
-            width={1000} // Initial width
-            height={600} // Initial height
-            minConstraints={[400, 300]} // Minimum size
-            maxConstraints={[3500, 1200]} // Maximum size (adjust as needed)
-            resizeHandles={["se", "s", "e"]}
-            className="flex-1 flex flex-col overflow-hidden resize-x"
-            // You might need to adjust these styles to fit your existing dialog styling
-            style={{ overflow: "auto" }} // Allow content to scroll if it exceeds ResizableBox size
-          >
-            <DialogHeader>
-              <DialogTitle>Generated PyTorch Model</DialogTitle>
-              <DialogDescription>
-                Here's the PyTorch code for your model. Click a node to view its specific code.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-              <div className="flex-1 relative">
-                <ScrollArea className="h-full w-full rounded-md border p-4 font-mono text-sm">
-                  <pre className="whitespace-pre-wrap">{
-                    selectedNode
-                      ? `// Code for ${selectedNode.data.label || selectedNode.type} (getNodeCode not yet implemented)
-`
-                      : generatedCode
-                  }</pre>
-                </ScrollArea>
-                {generatedCode && (
-                  <div className="absolute bottom-2 right-2 flex gap-2">
-                    <Button variant="outline" size="sm" onClick={copyCode} className={copySuccess ? "bg-green-500 text-white" : ""}>
-                      {copySuccess ? "Copied!" : <Copy className="h-4 w-4" />}
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={downloadCode}>
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
+        <DialogContent className="w-[65vw] h-[80vh] flex flex-col bg-gray-200 text-gray-900">
+          <DialogHeader>
+            <DialogTitle>Generated PyTorch Code</DialogTitle>
+            <DialogDescription>
+              Here is the PyTorch code for your model. You can copy it or download it as a Python file.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 relative my-4 min-h-0">
+            <ScrollArea className="h-full rounded-md border">
+              <pre className="p-4 font-mono text-sm whitespace-pre-wrap">{generatedCode}</pre>
+            </ScrollArea>
+            {generatedCode && (
+              <div className="absolute top-3 right-3 flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={copyCode}
+                  className={`transition-colors ${
+                    copySuccess ? "bg-green-100 text-green-900" : ""
+                  }`}
+                >
+                  {copySuccess ? (
+                    "Copied!"
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5 mr-1.5" />
+                      Copy
+                    </>
+                  )}
+                </Button>
+                <Button variant="secondary" size="sm" onClick={downloadCode}>
+                  <Download className="h-3.5 w-3.5 mr-1.5" />
+                  Download
+                </Button>
               </div>
-            </div>
-            <div className="flex justify-end pt-4 border-t">
-              <Button variant="outline" onClick={() => setShowCodeDialog(false)}>
-                Close
-              </Button>
-            </div>
-          </ResizableBox>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="default" onClick={() => setShowCodeDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={showAnalysisPanel} onOpenChange={setShowAnalysisPanel}>
-        <DialogContent className="max-w-6xl max-h-[90vh] w-[95vw]">
+        <DialogContent className="max-w-4xl max-h-[90vh] w-[65vw] bg-gray-200 text-gray-900">
           <DialogHeader>
             <DialogTitle>Model Analysis</DialogTitle>
           </DialogHeader>
@@ -2165,15 +2368,126 @@ export default function NeuralNetworkDesigner() {
             </div>
           )}
           <div className="flex justify-end pt-4 border-t">
-            <Button variant="outline" onClick={() => setShowAnalysisPanel(false)}>
+            <Button variant="default" onClick={() => setShowAnalysisPanel(false)}>
               Close
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
+      <Dialog open={showValidationPanel} onOpenChange={setShowValidationPanel}>
+        <DialogContent className="w-[65vw] h-[80vh] flex flex-col bg-gray-200 text-gray-900">
+          <DialogHeader>
+            <DialogTitle>Model Validation Results</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 my-4">
+            <ScrollArea className="h-full rounded-md border p-4">
+              {validationResults && (validationResults.errors.length > 0 || validationResults.warnings.length > 0) ? (
+                <div className="space-y-4">
+                  {validationResults.errors.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-red-600">Errors ({validationResults.errors.length})</h3>
+                      <ul className="list-disc list-inside mt-2 space-y-1">
+                        {validationResults.errors.map((error, index) => (
+                          <li key={index} className="text-sm">
+                            {error}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {validationResults.warnings.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-yellow-600">Warnings ({validationResults.warnings.length})</h3>
+                      <ul className="list-disc list-inside mt-2 space-y-1">
+                        {validationResults.warnings.map((warning, index) => (
+                          <li key={index} className="text-sm">
+                            {warning}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full">
+                  <p className="text-lg font-semibold">No issues found.</p>
+                  <p className="text-sm text-gray-700">Your model is looking good!</p>
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+          <div className="flex justify-end">
+            <Button variant="default" onClick={() => setShowValidationPanel(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent className="w-[50vw] bg-gray-200 text-gray-900">
+          <DialogHeader>
+            <DialogTitle>Save Model</DialogTitle>
+            <DialogDescription>Enter a name for your model to save it for later.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Input
+              id="model-name"
+              value={modelName}
+              onChange={(e) => setModelName(e.target.value)}
+              placeholder="e.g., My-CNN-Model"
+              className="bg-white text-black"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="default" onClick={handleSaveModel}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
+        <DialogContent className="w-[50vw] bg-gray-200 text-gray-900">
+          <DialogHeader>
+            <DialogTitle>Open Model</DialogTitle>
+            <DialogDescription>Select a saved model to load it onto the canvas.</DialogDescription>
+          </DialogHeader>
+          <div className="my-4">
+            <ScrollArea className="h-72 rounded-md border">
+              <div className="p-4 space-y-2">
+                {savedModels.length > 0 ? (
+                  savedModels.map((model) => (
+                    <div
+                      key={model.key}
+                      className="flex items-center justify-between rounded-lg border p-3 transition-all hover:bg-gray-100"
+                    >
+                      <div>
+                        <div className="font-semibold">{model.name}</div>
+                        <div className="text-xs text-gray-600">Saved: {new Date(model.timestamp).toLocaleString()}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => handleLoadModel(model.key)}>
+                          Load
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => handleDeleteModel(model.key)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500 py-10">No saved models found.</div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showCodeInputDialog} onOpenChange={setShowCodeInputDialog}>
-        <DialogContent className="w-[3500px] h-[80vh] flex flex-col">
+        <DialogContent className="w-[80vw] h-[80vh] flex flex-col bg-gray-200 text-gray-900">
           <ResizableBox
             width={1000} // Initial width
             height={600} // Initial height
@@ -2227,7 +2541,10 @@ class MyModel(nn.Module):
                 </div>
               )}
               {parseWarnings.length > 0 && (
-                <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">
+                <div
+                  className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative"
+                  role="alert"
+                >
                   <strong className="font-bold">Parsing Warnings:</strong>
                   <ul className="mt-1 list-disc list-inside">
                     {parseWarnings.map((warning, index) => (
@@ -2237,7 +2554,10 @@ class MyModel(nn.Module):
                 </div>
               )}
               {unsupportedModules.length > 0 && (
-                <div className="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-3 rounded relative" role="alert">
+                <div
+                  className="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-3 rounded relative"
+                  role="alert"
+                >
                   <strong className="font-bold">Unsupported Modules:</strong>
                   <ul className="mt-1 list-disc list-inside">
                     {unsupportedModules.map((module, index) => (
@@ -2248,7 +2568,7 @@ class MyModel(nn.Module):
               )}
             </div>
             <div className="flex justify-end pt-4 border-t">
-              <Button variant="outline" onClick={() => setShowCodeInputDialog(false)}>
+              <Button variant="default" onClick={() => setShowCodeInputDialog(false)}>
                 Close
               </Button>
               <Button onClick={() => parsePyTorchCode(inputCode)}>
@@ -2261,7 +2581,7 @@ class MyModel(nn.Module):
       </Dialog>
 
       <Dialog open={showHelpDialog} onOpenChange={setShowHelpDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] w-[90vw]">
+        <DialogContent className="max-w-4xl max-h-[90vh] w-[65vw] bg-gray-200 text-gray-900">
           <DialogHeader>
             <DialogTitle>Neural Network Designer - Help Guide</DialogTitle>
           </DialogHeader>
@@ -2269,8 +2589,8 @@ class MyModel(nn.Module):
             <div className="space-y-6">
               {/* Getting Started */}
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">🚀 Getting Started</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
+                <h3 className="text-lg font-semibold">🚀 Getting Started</h3>
+                <div className="space-y-2 text-sm text-gray-700">
                   <p>
                     Welcome to the Neural Network Designer! This tool helps you build PyTorch models visually by
                     connecting blocks on a canvas.
@@ -2280,8 +2600,8 @@ class MyModel(nn.Module):
 
               {/* Adding Blocks */}
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">📦 Adding Blocks</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
+                <h3 className="text-lg font-semibold">📦 Adding Blocks</h3>
+                <div className="space-y-2 text-sm text-gray-700">
                   <p>
                     <strong>1.</strong> Browse the left sidebar to find different layer types (Input, Linear,
                     Convolution, etc.)
@@ -2300,8 +2620,8 @@ class MyModel(nn.Module):
 
               {/* Connecting Blocks */}
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">🔗 Connecting Blocks</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
+                <h3 className="text-lg font-semibold">🔗 Connecting Blocks</h3>
+                <div className="space-y-2 text-sm text-gray-700">
                   <p>
                     <strong>1.</strong> Drag from the output handle (right side) of one block
                   </p>
@@ -2319,8 +2639,8 @@ class MyModel(nn.Module):
 
               {/* Configuring Parameters */}
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">⚙️ Configuring Parameters</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
+                <h3 className="text-lg font-semibold">⚙️ Configuring Parameters</h3>
+                <div className="space-y-2 text-sm text-gray-700">
                   <p>
                     <strong>1.</strong> Click on any block to select it
                   </p>
@@ -2338,8 +2658,8 @@ class MyModel(nn.Module):
 
               {/* Deleting Blocks */}
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">🗑️ Deleting Blocks</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
+                <h3 className="text-lg font-semibold">🗑️ Deleting Blocks</h3>
+                <div className="space-y-2 text-sm text-gray-700">
                   <p>
                     <strong>1.</strong> Click on a block to select it (shows selection border)
                   </p>
@@ -2353,10 +2673,23 @@ class MyModel(nn.Module):
                 </div>
               </div>
 
+              {/* Keyboard Shortcuts */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold">⌨️ Keyboard Shortcuts</h3>
+                <div className="space-y-2 text-sm text-gray-700">
+                  {keyboardShortcuts.map((shortcut, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <p>{shortcut.description}</p>
+                      <kbd className="px-2 py-1 bg-gray-300 rounded text-xs font-semibold">{shortcut.key}</kbd>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Using Examples */}
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">📚 Loading Examples</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
+                <h3 className="text-lg font-semibold">📚 Loading Examples</h3>
+                <div className="space-y-2 text-sm text-gray-700">
                   <p>
                     <strong>1.</strong> Click the "Load Example" button in the header
                   </p>
@@ -2374,8 +2707,8 @@ class MyModel(nn.Module):
 
               {/* Generating Code */}
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">🐍 Generating PyTorch Code</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
+                <h3 className="text-lg font-semibold">🐍 Generating PyTorch Code</h3>
+                <div className="space-y-2 text-sm text-gray-700">
                   <p>
                     <strong>1.</strong> Click "Generate PyTorch Code" when your network is ready
                   </p>
@@ -2393,8 +2726,8 @@ class MyModel(nn.Module):
 
               {/* Model Analysis */}
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">📊 Model Analysis</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
+                <h3 className="text-lg font-semibold">📊 Model Analysis</h3>
+                <div className="space-y-2 text-sm text-gray-700">
                   <p>
                     <strong>1.</strong> Click "Analyze Model" to get detailed insights
                   </p>
@@ -2412,8 +2745,8 @@ class MyModel(nn.Module):
 
               {/* Tips */}
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">💡 Pro Tips</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
+                <h3 className="text-lg font-semibold">💡 Pro Tips</h3>
+                <div className="space-y-2 text-sm text-gray-700">
                   <p>• Always start with an Input block to define your data dimensions</p>
                   <p>• Watch tensor shapes to ensure compatibility between layers</p>
                   <p>• Use skip connections (Add/Concatenate blocks) for advanced architectures</p>
@@ -2424,8 +2757,8 @@ class MyModel(nn.Module):
 
               {/* Available Blocks */}
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">🧱 Available Block Types</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
+                <h3 className="text-lg font-semibold">🧱 Available Block Types</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
                   <div>
                     <p>
                       <strong>Basic:</strong> Input, Linear, Dropout
@@ -2458,11 +2791,11 @@ class MyModel(nn.Module):
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">📧 Feedback & Contact</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
+                <h3 className="text-lg font-semibold">📧 Feedback & Contact</h3>
+                <div className="space-y-2 text-sm text-gray-700">
                   <p>
                     Have suggestions, found a bug, or want to request new features? Send your feedback to:{" "}
-                    <strong className="text-foreground">pmquang87@icloud.com</strong>
+                    <strong>pmquang87@icloud.com</strong>
                   </p>
                   <p>Thank you for using Neural Network Designer and for your valuable feedback!</p>
                 </div>
@@ -2470,12 +2803,12 @@ class MyModel(nn.Module):
             </div>
           </ScrollArea>
           <div className="flex justify-end pt-4 border-t">
-            <Button onClick={() => setShowHelpDialog(false)}>Got it!</Button>
+            <Button variant="default" onClick={() => setShowHelpDialog(false)}>
+              Got it!
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Feedback dialog removed */}
     </div>
   )
 }

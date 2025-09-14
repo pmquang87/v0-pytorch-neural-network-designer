@@ -225,59 +225,59 @@ export const PYTORCH_LAYER_MANIFEST = {
     className: "nn.Conv3d",
     params: ["in_channels", "out_channels", "kernel_size", "stride", "padding", "dilation", "groups", "bias"]
   },
-  maxPool1dNode: {
+  maxpool1dNode: {
     className: "nn.MaxPool1d",
     params: ["kernel_size", "stride", "padding", "dilation", "return_indices", "ceil_mode"]
   },
-  maxPool2dNode: {
+  maxpool2dNode: {
     className: "nn.MaxPool2d",
     params: ["kernel_size", "stride", "padding", "dilation", "return_indices", "ceil_mode"]
   },
-  maxPool3dNode: {
+  maxpool3dNode: {
     className: "nn.MaxPool3d",
     params: ["kernel_size", "stride", "padding", "dilation", "return_indices", "ceil_mode"]
   },
-  avgPool1dNode: {
+  avgpool1dNode: {
     className: "nn.AvgPool1d",
     params: ["kernel_size", "stride", "padding", "ceil_mode", "count_include_pad"]
   },
-  avgPool2dNode: {
+  avgpool2dNode: {
     className: "nn.AvgPool2d",
     params: ["kernel_size", "stride", "padding", "ceil_mode", "count_include_pad", "divisor_override"]
   },
-  avgPool3dNode: {
+  avgpool3dNode: {
     className: "nn.AvgPool3d",
     params: ["kernel_size", "stride", "padding", "ceil_mode", "count_include_pad", "divisor_override"]
   },
-  batchNorm1dNode: {
+  batchnorm1dNode: {
     className: "nn.BatchNorm1d",
     params: ["num_features", "eps", "momentum", "affine", "track_running_stats"]
   },
-  batchNorm2dNode: {
+  batchnorm2dNode: {
     className: "nn.BatchNorm2d",
     params: ["num_features", "eps", "momentum", "affine", "track_running_stats"]
   },
-  batchNorm3dNode: {
+  batchnorm3dNode: {
     className: "nn.BatchNorm3d",
     params: ["num_features", "eps", "momentum", "affine", "track_running_stats"]
   },
-  layerNormNode: {
+  layernormNode: {
     className: "nn.LayerNorm",
     params: ["normalized_shape", "eps", "elementwise_affine"]
   },
-  instanceNorm1dNode: {
+  instancenorm1dNode: {
     className: "nn.InstanceNorm1d",
     params: ["num_features", "eps", "momentum", "affine", "track_running_stats"]
   },
-  instanceNorm2dNode: {
+  instancenorm2dNode: {
     className: "nn.InstanceNorm2d",
     params: ["num_features", "eps", "momentum", "affine", "track_running_stats"]
   },
-  instanceNorm3dNode: {
+  instancenorm3dNode: {
     className: "nn.InstanceNorm3d",
     params: ["num_features", "eps", "momentum", "affine", "track_running_stats"]
   },
-  groupNormNode: {
+  groupnormNode: {
     className: "nn.GroupNorm",
     params: ["num_groups", "num_channels", "eps", "affine"]
   },
@@ -285,7 +285,7 @@ export const PYTORCH_LAYER_MANIFEST = {
     className: "nn.ReLU",
     params: ["inplace"]
   },
-  leakyReluNode: {
+  leakyreluNode: {
     className: "nn.LeakyReLU",
     params: ["negative_slope", "inplace"]
   },
@@ -337,15 +337,15 @@ export const PYTORCH_LAYER_MANIFEST = {
     className: "nn.RNN",
     params: ["input_size", "hidden_size", "num_layers", "nonlinearity", "bias", "batch_first", "dropout", "bidirectional"]
   },
-  multiheadAttentionNode: {
+  multiheadattentionNode: {
     className: "nn.MultiheadAttention",
     params: ["embed_dim", "num_heads", "dropout", "bias", "add_bias_kv", "add_zero_attn", "kdim", "vdim"]
   },
-  transformerEncoderLayerNode: {
+  transformerencoderlayerNode: {
     className: "nn.TransformerEncoderLayer",
     params: ["d_model", "nhead", "dim_feedforward", "dropout", "activation", "layer_norm_eps", "batch_first", "norm_first"]
   },
-  transformerDecoderLayerNode: {
+  transformerdecoderlayerNode: {
     className: "nn.TransformerDecoderLayer",
     params: ["d_model", "nhead", "dim_feedforward", "dropout", "activation", "layer_norm_eps", "batch_first", "norm_first"]
   },
@@ -357,15 +357,15 @@ export const PYTORCH_LAYER_MANIFEST = {
     className: "nn.Upsample",
     params: ["size", "scale_factor", "mode", "align_corners"]
   },
-  convTranspose1dNode: {
+  convtranspose1dNode: {
     className: "nn.ConvTranspose1d",
     params: ["in_channels", "out_channels", "kernel_size", "stride", "padding", "output_padding", "groups", "bias", "dilation"]
   },
-  convTranspose2dNode: {
+  convtranspose2dNode: {
     className: "nn.ConvTranspose2d",
     params: ["in_channels", "out_channels", "kernel_size", "stride", "padding", "output_padding", "groups", "bias", "dilation"]
   },
-  convTranspose3dNode: {
+  convtranspose3dNode: {
     className: "nn.ConvTranspose3d",
     params: ["in_channels", "out_channels", "kernel_size", "stride", "padding", "output_padding", "groups", "bias", "dilation"]
   },

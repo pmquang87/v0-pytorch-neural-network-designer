@@ -183,7 +183,9 @@ class GeneratedModel(nn.Module):
     for (const paramName of paramNames) {
       const value = node.data[paramName]
       if (value !== undefined && value !== null) {
-        if (typeof value === "string") {
+        if (Array.isArray(value)) {
+          params.push(`${paramName}=${JSON.stringify(value)}`)
+        } else if (typeof value === "string") {
           params.push(`${paramName}="${value}"`)
         } else {
           params.push(`${paramName}=${value}`)

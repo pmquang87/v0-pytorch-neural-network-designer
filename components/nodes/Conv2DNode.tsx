@@ -5,7 +5,7 @@ import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib
 
 export function Conv2DNode({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, channels: 3, height: 28, width: 28 }
-  const outputShape = calculateOutputShape("conv2dNode", inputShape, data)
+  const outputShape = calculateOutputShape("conv2dNode", [inputShape], data)
 
   return (
     <Card className="min-w-[150px] border-2 border-green-500/50 bg-card">
@@ -16,7 +16,7 @@ export function Conv2DNode({ data }: { data: any }) {
           <span className="font-medium text-sm">Conv2D</span>
         </div>
         <div className="text-xs text-muted-foreground space-y-1">
-          <div>In: {data.in_channels || "?"}</div>
+          <div>In: {inputShape.channels || "?"}</div>
           <div>Out: {data.out_channels || "?"}</div>
           <div>Kernel: {data.kernel_size || "?"}</div>
           <div>Padding: {data.padding || 0}</div>
