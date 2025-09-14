@@ -168,6 +168,7 @@ const nodeTypes: NodeTypes = {
 }
 
 export default function NeuralNetworkDesigner() {
+  const propertiesPanelRef = useRef<HTMLDivElement>(null)
   const {
     nodes,
     setNodes,
@@ -222,6 +223,8 @@ export default function NeuralNetworkDesigner() {
   const autoSave = useAutoSave()
   const { validateModel } = useModelValidation()
 
+  const isInputConnected = selectedNode ? edges.some((edge) => edge.target === selectedNode.id) : false
+
   useEffect(() => {
     const handleAutoSaveRequest = () => {
       if (typeof window !== "undefined") {
@@ -264,6 +267,7 @@ export default function NeuralNetworkDesigner() {
     step = 1,
     max,
     onUpdate,
+    disabled = false,
   }: {
     label: string
     value: number | undefined
@@ -272,25 +276,23 @@ export default function NeuralNetworkDesigner() {
     step?: number
     max?: number
     onUpdate: (newValue: number) => void
+    disabled?: boolean
   }) => {
     const [inputValue, setInputValue] = useState(
       value !== undefined && value !== null ? value.toString() : defaultValue.toString(),
     )
     const [isEditing, setIsEditing] = useState(false)
+    const inputId = `editable-input-${label.replace(/\s+/g, "-").toLowerCase()}`
 
     useEffect(() => {
-      setInputValue(value !== undefined && value !== null ? value.toString() : defaultValue.toString())
-    }, [value, defaultValue])
-
-    useEffect(() => {
-      if (!isEditing && value !== undefined && value !== null) {
-        setInputValue(value.toString())
+      if (!isEditing) {
+        setInputValue(value !== undefined && value !== null ? value.toString() : defaultValue.toString())
       }
-    }, [isEditing, value])
+    }, [value, defaultValue, isEditing])
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
       if (e.key === "Enter") {
-        const numValue = Number.parseInt(inputValue) || defaultValue
+        const numValue = Number.parseFloat(inputValue) || defaultValue
         onUpdate(numValue)
         setIsEditing(false)
         ;(e.currentTarget as HTMLInputElement).blur()
@@ -298,12 +300,13 @@ export default function NeuralNetworkDesigner() {
     }
 
     const handleBlur = () => {
-      const numValue = Number.parseInt(inputValue) || defaultValue
+      const numValue = Number.parseFloat(inputValue) || defaultValue
       onUpdate(numValue)
       setIsEditing(false)
     }
 
     const handleFocus = () => {
+      if (disabled) return
       setIsEditing(true)
     }
 
@@ -313,8 +316,14 @@ export default function NeuralNetworkDesigner() {
 
     return (
       <div>
-        <label className="text-sm font-medium text-sidebar-foreground">{label}</label>
+        <label
+          htmlFor={inputId}
+          className={`text-sm font-medium ${disabled ? "text-sidebar-foreground/50" : "text-sidebar-foreground"}`}
+        >
+          {label}
+        </label>
         <input
+          id={inputId}
           type="number"
           value={inputValue}
           onChange={handleChange}
@@ -324,7 +333,10 @@ export default function NeuralNetworkDesigner() {
           min={min}
           step={step}
           max={max}
-          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+          disabled={disabled}
+          className={`w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+            disabled ? "bg-sidebar-accent/30 text-sidebar-foreground/50 cursor-not-allowed" : "bg-white text-black"
+          }`}
         />
       </div>
     )
@@ -454,6 +466,10 @@ export default function NeuralNetworkDesigner() {
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
+      if (propertiesPanelRef.current?.contains(event.target as HTMLElement)) {
+        return
+      }
+
       if (event.key === "Delete" || event.key === "Backspace") {
         if (selectedNode) {
           takeSnapshot()
@@ -958,7 +974,7 @@ export default function NeuralNetworkDesigner() {
     for (let i = 0; i < params.length; i++) {
       const char = params[i]
 
-      if (!inQuotes && (char === "'" || char === '"')) {
+      if (!inQuotes && (char === "'" || char === '\"')) {
         inQuotes = true
         quoteChar = char
       } else if (inQuotes && char === quoteChar) {
@@ -1009,7 +1025,7 @@ export default function NeuralNetworkDesigner() {
       return tupleValues.length === 1 ? tupleValues[0] : tupleValues
     }
 
-    if ((trimmedValue.startsWith("'") && trimmedValue.endsWith("'")) || (trimmedValue.startsWith('"') && trimmedValue.endsWith('"'))) {
+    if ((trimmedValue.startsWith("'") && trimmedValue.endsWith("'")) || (trimmedValue.startsWith('\"') && trimmedValue.endsWith('\"'))) {
       return trimmedValue.slice(1, -1)
     }
 
@@ -1634,7 +1650,7 @@ export default function NeuralNetworkDesigner() {
         {/* Right Panel: Properties & Live Validation */}
         <div className="w-80 bg-sidebar border-l border-sidebar-border flex flex-col">
           {/* Properties Panel */}
-          <div className="p-4 flex-shrink-0 overflow-y-auto">
+          <div ref={propertiesPanelRef} className="p-4 flex-shrink-0 overflow-y-auto">
             <h3 className="font-semibold text-sidebar-foreground mb-4">Properties</h3>
             {selectedNode ? (
               <div className="space-y-4">
@@ -1682,6 +1698,7 @@ export default function NeuralNetworkDesigner() {
                         defaultValue={128}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { in_features: value })}
+                        disabled={isInputConnected}
                       />
                       <EditableNumberInput
                         label="Output Features"
@@ -1700,6 +1717,7 @@ export default function NeuralNetworkDesigner() {
                         defaultValue={3}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { in_channels: value })}
+                        disabled={isInputConnected}
                       />
                       <EditableNumberInput
                         label="Output Channels"
@@ -1726,20 +1744,15 @@ export default function NeuralNetworkDesigner() {
                   )}
                   {selectedNode.type === "dropoutNode" && (
                     <>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Dropout Probability (p)</label>
-                        <input
-                          type="number"
-                          value={selectedNode.data.p as number ?? 0.5}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { p: Number.parseFloat(e.target.value) ?? 0.5 })
-                          }
-                          step={0.01}
-                          min={0}
-                          max={1}
-                          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
+                      <EditableNumberInput
+                        label="Dropout Probability (p)"
+                        value={selectedNode.data.p as number | undefined}
+                        defaultValue={0.5}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { p: value })}
+                      />
                     </>
                   )}
                   {selectedNode.type === "batchnorm2dNode" && (
@@ -1750,6 +1763,7 @@ export default function NeuralNetworkDesigner() {
                         defaultValue={32}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { num_features: value })}
+                        disabled={isInputConnected}
                       />
                     </>
                   )}
@@ -1761,6 +1775,7 @@ export default function NeuralNetworkDesigner() {
                         defaultValue={32}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { in_channels: value })}
+                        disabled={isInputConnected}
                       />
                       <EditableNumberInput
                         label="Output Channels"
@@ -1952,6 +1967,7 @@ export default function NeuralNetworkDesigner() {
                         defaultValue={1}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { num_channels: value })}
+                        disabled={isInputConnected}
                       />
                       <EditableNumberInput
                         label="Epsilon (eps)"
@@ -1971,6 +1987,7 @@ export default function NeuralNetworkDesigner() {
                         defaultValue={1}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { input_size: value })}
+                        disabled={isInputConnected}
                       />
                       <EditableNumberInput
                         label="Hidden Size"
@@ -1996,6 +2013,7 @@ export default function NeuralNetworkDesigner() {
                         defaultValue={1}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { input_size: value })}
+                        disabled={isInputConnected}
                       />
                       <EditableNumberInput
                         label="Hidden Size"
@@ -2021,6 +2039,7 @@ export default function NeuralNetworkDesigner() {
                         defaultValue={128}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { embed_dim: value })}
+                        disabled={isInputConnected}
                       />
                       <EditableNumberInput
                         label="Number of Heads"
@@ -2048,6 +2067,7 @@ export default function NeuralNetworkDesigner() {
                         defaultValue={512}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { d_model: value })}
+                        disabled={isInputConnected}
                       />
                       <EditableNumberInput
                         label="Nhead"
@@ -2082,6 +2102,7 @@ export default function NeuralNetworkDesigner() {
                         defaultValue={512}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { d_model: value })}
+                        disabled={isInputConnected}
                       />
                       <EditableNumberInput
                         label="Nhead"
