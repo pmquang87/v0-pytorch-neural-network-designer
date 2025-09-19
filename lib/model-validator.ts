@@ -154,7 +154,7 @@ export class ModelValidator {
       let inputShapes: (TensorShape | undefined)[] = []
 
       if (node.type === "concatenateNode" || node.type === "addNode") {
-        const numInputs = node.data.num_inputs || 2
+        const numInputs = node.data.num_inputs || node.data.inputs || 2
         for (let i = 1; i <= numInputs; i++) {
           const handleId = `input${i}`
           const edge = inputEdges.find((e) => e.targetHandle === handleId)

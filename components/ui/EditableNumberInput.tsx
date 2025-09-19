@@ -11,6 +11,7 @@ export const EditableNumberInput = ({
   step = 1,
   max,
   onUpdate,
+  disabled = false,
 }: {
   label: string
   value: number | undefined
@@ -19,25 +20,23 @@ export const EditableNumberInput = ({
   step?: number
   max?: number
   onUpdate: (newValue: number) => void
+  disabled?: boolean
 }) => {
   const [inputValue, setInputValue] = useState(
     value !== undefined && value !== null ? value.toString() : defaultValue.toString()
   )
   const [isEditing, setIsEditing] = useState(false)
+  const inputId = `editable-input-${label.replace(/\s+/g, "-").toLowerCase()}`
 
   useEffect(() => {
-    setInputValue(value !== undefined && value !== null ? value.toString() : defaultValue.toString())
-  }, [value, defaultValue])
-
-  useEffect(() => {
-    if (!isEditing && value !== undefined && value !== null) {
-      setInputValue(value.toString())
+    if (!isEditing) {
+      setInputValue(value !== undefined && value !== null ? value.toString() : defaultValue.toString())
     }
-  }, [isEditing, value])
+  }, [value, defaultValue, isEditing])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      const numValue = Number.parseInt(inputValue) || defaultValue
+      const numValue = Number.parseFloat(inputValue) || defaultValue
       onUpdate(numValue)
       setIsEditing(false)
       ;(e.currentTarget as HTMLInputElement).blur()
@@ -45,12 +44,13 @@ export const EditableNumberInput = ({
   }
 
   const handleBlur = () => {
-    const numValue = Number.parseInt(inputValue) || defaultValue
+    const numValue = Number.parseFloat(inputValue) || defaultValue
     onUpdate(numValue)
     setIsEditing(false)
   }
 
   const handleFocus = () => {
+    if (disabled) return
     setIsEditing(true)
   }
 
@@ -60,8 +60,14 @@ export const EditableNumberInput = ({
 
   return (
     <div>
-      <label className="text-sm font-medium text-sidebar-foreground">{label}</label>
+      <label
+        htmlFor={inputId}
+        className={`text-sm font-medium ${disabled ? "text-sidebar-foreground/50" : "text-sidebar-foreground"}`}
+      >
+        {label}
+      </label>
       <input
+        id={inputId}
         type="number"
         value={inputValue}
         onChange={handleChange}
@@ -71,7 +77,10 @@ export const EditableNumberInput = ({
         min={min}
         step={step}
         max={max}
-        className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+        disabled={disabled}
+        className={`w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+          disabled ? "bg-sidebar-accent/30 text-sidebar-foreground/50 cursor-not-allowed" : "bg-white text-black"
+        }`}
       />
     </div>
   )

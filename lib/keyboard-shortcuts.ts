@@ -167,24 +167,6 @@ export const DEFAULT_SHORTCUTS: KeyboardShortcut[] = [
     description: "Reset canvas"
   },
   {
-    key: "Delete",
-    action: () => {
-      // Delete selected nodes
-      const event = new CustomEvent("delete-selected")
-      window.dispatchEvent(event)
-    },
-    description: "Delete selected nodes"
-  },
-  {
-    key: "Backspace",
-    action: () => {
-      // Delete selected nodes
-      const event = new CustomEvent("delete-selected")
-      window.dispatchEvent(event)
-    },
-    description: "Delete selected nodes"
-  },
-  {
     key: "a",
     ctrlKey: true,
     action: () => {

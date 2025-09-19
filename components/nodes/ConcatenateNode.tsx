@@ -4,7 +4,7 @@ import { Merge } from "lucide-react"
 import { formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
 export function ConcatenateNode({ data }: { data: any }) {
-  const numInputs = data.num_inputs || 2
+  const numInputs = data.inputs || data.num_inputs || 2
 
   // data.inputShape is now guaranteed to be an array of shapes (or undefined) by propagateTensorShapes
   const inputShapes: (TensorShape | undefined)[] = Array.isArray(data.inputShape) ? data.inputShape : []

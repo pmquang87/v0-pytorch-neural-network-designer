@@ -1,27 +1,32 @@
 import { Handle, Position } from "@xyflow/react"
-import type { NodeData } from "@/lib/types"
+import { Card } from "@/components/ui/card"
+import { Layers } from "lucide-react"
+import { formatTensorShape } from "@/lib/tensor-shape-calculator"
 
-interface TransformerEncoderLayerNodeProps {
-  data: NodeData
-}
-
-export function TransformerEncoderLayerNode({ data }: TransformerEncoderLayerNodeProps) {
+export function TransformerEncoderLayerNode({ data }: { data: any }) {
   return (
-    <div className="bg-indigo-100 border-2 border-indigo-300 rounded-lg p-3 min-w-[180px]">
-      <Handle type="target" position={Position.Left} />
-      <div className="text-center">
-        <div className="font-semibold text-indigo-800">TransformerEncoder</div>
-        <div className="text-xs text-indigo-600 mt-1">d_model: {data.d_model || 512}</div>
-        <div className="text-xs text-indigo-600">nhead: {data.nhead || 8}</div>
-        <div className="text-xs text-indigo-600">dim_ff: {data.dim_feedforward || 2048}</div>
-        <div className="text-xs text-indigo-600 mt-1">
-          In: {data.inputShape ? `[${Object.values(data.inputShape).join(",")}]` : "[?]"}
+    <Card className="w-64 bg-card border-purple-500/50 shadow-sm">
+      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-primary" />
+
+      <div className="p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <Layers className="h-4 w-4 text-purple-500" />
+          <span className="font-medium text-sm">Transformer Encoder Layer</span>
         </div>
-        <div className="text-xs text-indigo-600">
-          Out: {data.outputShape ? `[${Object.values(data.outputShape).join(",")}]` : "[?]"}
+        <div className="text-xs text-muted-foreground">
+          d_model: {data.d_model ?? 512}
+          <br />
+          nhead: {data.nhead ?? 8}
         </div>
+        {data.inputShape && (
+          <div className="text-xs text-gray-500 mt-1">In: {formatTensorShape(data.inputShape)}</div>
+        )}
+        {data.outputShape && (
+          <div className="text-xs text-gray-500">Out: {formatTensorShape(data.outputShape)}</div>
+        )}
       </div>
-      <Handle type="source" position={Position.Right} />
-    </div>
+
+      <Handle type="source" position={Position.Right} className="w-3 h-3 bg-primary" />
+    </Card>
   )
 }

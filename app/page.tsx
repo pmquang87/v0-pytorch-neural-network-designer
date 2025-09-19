@@ -51,6 +51,8 @@ import {
   FolderOpen,
   Trash2,
   CheckCircle,
+  Box,
+  FileUp,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ResizableBox } from "react-resizable"
@@ -68,9 +70,11 @@ import { useAutoSave, StorageUtils } from "@/lib/auto-save"
 import { useModelValidation } from "@/lib/model-validator"
 import { useUndoRedo } from "@/lib/undo-redo"
 import { Input } from "@/components/ui/input"
+import { EditableNumberInput } from "@/components/ui/EditableNumberInput"
 
 // Custom Node Components
 import { InputNode } from "@/components/nodes/InputNode"
+import { ConstantNode } from "@/components/nodes/ConstantNode"
 import { LinearNode } from "@/components/nodes/LinearNode"
 import { Conv2DNode } from "@/components/nodes/Conv2DNode"
 import { ReLUNode } from "@/components/nodes/ReLUNode"
@@ -125,6 +129,7 @@ const initialEdges: Edge[] = []
 
 const nodeTypes: NodeTypes = {
   inputNode: InputNode,
+  constantNode: ConstantNode,
   linearNode: LinearNode,
   conv2dNode: Conv2DNode,
   conv1dNode: Conv1DNode,
@@ -169,6 +174,7 @@ const nodeTypes: NodeTypes = {
 
 export default function NeuralNetworkDesigner() {
   const propertiesPanelRef = useRef<HTMLDivElement>(null)
+  const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const {
     nodes,
     setNodes,
@@ -180,15 +186,29 @@ export default function NeuralNetworkDesigner() {
     canUndo,
     canRedo,
   } = useUndoRedo(initialNodes, initialEdges)
-  const onNodesChange = useCallback(
-    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
-    [setNodes]
-  );
-  const onEdgesChange = useCallback(
-    (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
-    [setEdges]
-  );
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
+  const onNodesChange = useCallback(
+    (changes) => {
+      const removals = changes.filter((c) => c.type === "remove")
+      if (removals.length > 0) {
+        takeSnapshot()
+        if (selectedNode && removals.some((r) => r.id === selectedNode.id)) {
+          setSelectedNode(null)
+        }
+      }
+      setNodes((nds) => applyNodeChanges(changes, nds))
+    },
+    [setNodes, takeSnapshot, selectedNode, setSelectedNode],
+  )
+  const onEdgesChange = useCallback(
+    (changes) => {
+      if (changes.some((c) => c.type === "remove")) {
+        takeSnapshot()
+      }
+      setEdges((eds) => applyEdgeChanges(changes, eds))
+    },
+    [setEdges, takeSnapshot],
+  )
   const [showCodeDialog, setShowCodeDialog] = useState(false)
   const [generatedCode, setGeneratedCode] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
@@ -259,89 +279,6 @@ export default function NeuralNetworkDesigner() {
     setLiveValidationResults(results)
   }, [nodes, edges, validateModel])
 
-  const EditableNumberInput = ({
-    label,
-    value,
-    defaultValue,
-    min = 0,
-    step = 1,
-    max,
-    onUpdate,
-    disabled = false,
-  }: {
-    label: string
-    value: number | undefined
-    defaultValue: number
-    min?: number
-    step?: number
-    max?: number
-    onUpdate: (newValue: number) => void
-    disabled?: boolean
-  }) => {
-    const [inputValue, setInputValue] = useState(
-      value !== undefined && value !== null ? value.toString() : defaultValue.toString(),
-    )
-    const [isEditing, setIsEditing] = useState(false)
-    const inputId = `editable-input-${label.replace(/\s+/g, "-").toLowerCase()}`
-
-    useEffect(() => {
-      if (!isEditing) {
-        setInputValue(value !== undefined && value !== null ? value.toString() : defaultValue.toString())
-      }
-    }, [value, defaultValue, isEditing])
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
-        const numValue = Number.parseFloat(inputValue) || defaultValue
-        onUpdate(numValue)
-        setIsEditing(false)
-        ;(e.currentTarget as HTMLInputElement).blur()
-      }
-    }
-
-    const handleBlur = () => {
-      const numValue = Number.parseFloat(inputValue) || defaultValue
-      onUpdate(numValue)
-      setIsEditing(false)
-    }
-
-    const handleFocus = () => {
-      if (disabled) return
-      setIsEditing(true)
-    }
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setInputValue(e.target.value)
-    }
-
-    return (
-      <div>
-        <label
-          htmlFor={inputId}
-          className={`text-sm font-medium ${disabled ? "text-sidebar-foreground/50" : "text-sidebar-foreground"}`}
-        >
-          {label}
-        </label>
-        <input
-          id={inputId}
-          type="number"
-          value={inputValue}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-          onFocus={handleFocus}
-          min={min}
-          step={step}
-          max={max}
-          disabled={disabled}
-          className={`w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-            disabled ? "bg-sidebar-accent/30 text-sidebar-foreground/50 cursor-not-allowed" : "bg-white text-black"
-          }`}
-        />
-      </div>
-    )
-  }
-
   const propagateTensorShapes = useCallback(() => {
     if (isUpdatingShapes.current) return
     isUpdatingShapes.current = true
@@ -375,13 +312,14 @@ export default function NeuralNetworkDesigner() {
         const node = nodeMap.get(nodeId)
         if (!node) continue
 
-        if (node.type === "inputNode") {
-          const inputShape: TensorShape = {
-            channels: (node.data as any).channels ?? 3,
-            height: (node.data as any).height ?? 28,
-            width: (node.data as any).width ?? 28,
+        if (node.type === "inputNode" || node.type === "constantNode") {
+          const isInput = node.type === "inputNode"
+          const shape: TensorShape = {
+            channels: (node.data as any).channels ?? (isInput ? 3 : 1),
+            height: (node.data as any).height ?? (isInput ? 28 : 1),
+            width: (node.data as any).width ?? (isInput ? 28 : 1),
           }
-          node.data = { ...node.data, inputShape, outputShape: inputShape }
+          node.data = { ...node.data, inputShape: shape, outputShape: shape }
           continue
         }
 
@@ -449,13 +387,18 @@ export default function NeuralNetworkDesigner() {
 
         const outputShape = calcOutputShape(node.type || "", cleanInputShapes, data)
 
-        const displayInputShape =
-          node.type === "concatenateNode" || node.type === "addNode" ? allInputShapes : cleanInputShapes[0]
-
-        node.data = {
-          ...data,
-          inputShape: displayInputShape,
-          outputShape,
+        if (node.type === "concatenateNode" || node.type === "addNode") {
+          node.data = {
+            ...data,
+            inputShape: allInputShapes,
+            outputShape,
+          }
+        } else {
+          node.data = {
+            ...data,
+            inputShape: cleanInputShapes[0],
+            outputShape,
+          }
         }
       }
 
@@ -463,26 +406,6 @@ export default function NeuralNetworkDesigner() {
       return updatedNodes
     })
   }, [edges, setNodes])
-
-  const onKeyDown = useCallback(
-    (event: React.KeyboardEvent) => {
-      if (propertiesPanelRef.current?.contains(event.target as HTMLElement)) {
-        return
-      }
-
-      if (event.key === "Delete" || event.key === "Backspace") {
-        if (selectedNode) {
-          takeSnapshot()
-          setNodes((nodes) => nodes.filter((node) => node.id !== selectedNode.id))
-          setEdges((edges) =>
-            edges.filter((edge) => edge.source !== selectedNode.id && edge.target !== selectedNode.id),
-          )
-          setSelectedNode(null)
-        }
-      }
-    },
-    [selectedNode, setNodes, setEdges, takeSnapshot],
-  )
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -499,10 +422,27 @@ export default function NeuralNetworkDesigner() {
   const addNode = useCallback(
     (type: string, data: any = {}) => {
       takeSnapshot()
+      const reactFlowInstance = reactFlowInstanceRef.current;
+      let position = { x: Math.random() * 400 + 100, y: Math.random() * 400 + 100 };
+
+      if (reactFlowInstance && reactFlowWrapper.current) {
+        const rect = reactFlowWrapper.current.getBoundingClientRect();
+        const targetPosition = reactFlowInstance.screenToFlowPosition({
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        });
+
+        // Offset by half of an average node size to center the node itself
+        targetPosition.x -= 75;
+        targetPosition.y -= 25;
+
+        position = targetPosition;
+      }
+
       const newNode: Node = {
         id: `${type}_${Date.now()}`,
         type,
-        position: { x: Math.random() * 400 + 100, y: Math.random() * 400 + 100 },
+        position,
         data,
       }
       setNodes((nds) => [...nds, newNode])
@@ -639,6 +579,68 @@ export default function NeuralNetworkDesigner() {
     setModelName("")
   }, [modelName, nodes, edges, toast, setCurrentModelName])
 
+  const handleExportModel = useCallback(() => {
+    if (!modelName) {
+      toast({ title: "Error", description: "Please enter a model name to export.", variant: "destructive" });
+      return;
+    }
+    const modelData = {
+      name: modelName,
+      nodes,
+      edges,
+    };
+    const jsonString = JSON.stringify(modelData, null, 2);
+    const blob = new Blob([jsonString], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${modelName.replace(/\s+/g, '_')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ title: "Model Exported", description: `Model "${modelName}" has been exported as a JSON file.` });
+    setShowSaveDialog(false);
+  }, [modelName, nodes, edges, toast, setShowSaveDialog]);
+
+  const handleImportModel = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result;
+        if (typeof text !== 'string') {
+          throw new Error("File is not a valid text file.");
+        }
+        const importedData = JSON.parse(text);
+
+        if (importedData && Array.isArray(importedData.nodes) && Array.isArray(importedData.edges)) {
+          takeSnapshot();
+          setNodes(importedData.nodes);
+          setEdges(importedData.edges);
+          const importedModelName = importedData.name || file.name.replace('.json', '');
+          setCurrentModelName(importedModelName);
+          toast({ title: "Model Imported", description: `Successfully imported "${importedModelName}".` });
+          setShowLoadDialog(false);
+        } else {
+          throw new Error("Invalid model file format.");
+        }
+      } catch (error) {
+        toast({
+          title: "Import Failed",
+          description: error instanceof Error ? error.message : "Could not parse the model file.",
+          variant: "destructive",
+        });
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = ''; // Reset file input
+  }, [setNodes, setEdges, toast, takeSnapshot, setCurrentModelName, setShowLoadDialog]);
+
   const handleOpenLoadDialog = useCallback(() => {
     setSavedModels(StorageUtils.getAllModels())
     setShowLoadDialog(true)
@@ -657,6 +659,12 @@ export default function NeuralNetworkDesigner() {
         setEdges(loadedState.edges)
         toast({ title: "Model Loaded", description: `Model has been loaded successfully.` })
         setShowLoadDialog(false)
+
+        setTimeout(() => {
+          if (reactFlowInstanceRef.current) {
+            reactFlowInstanceRef.current.fitView({ padding: 0.1, duration: 800 })
+          }
+        }, 100)
       }
     },
     [setNodes, setEdges, toast, savedModels, setCurrentModelName, takeSnapshot],
@@ -1092,7 +1100,7 @@ export default function NeuralNetworkDesigner() {
     { key: "Ctrl + O", description: "Open model" },
     { key: "Ctrl + G", description: "Generate PyTorch code" },
     { key: "Ctrl + R", description: "Reset canvas" },
-    { key: "Delete", description: "Delete selected nodes" },
+    { key: "Delete / Backspace", description: "Delete selected nodes" },
   ]
 
   return (
@@ -1150,7 +1158,7 @@ export default function NeuralNetworkDesigner() {
           </Button>
           <Button variant="outline" size="sm" onClick={analyzeCurrentModel} disabled={nodes.length === 0}>
             <BarChart3 className="h-4 w-4 mr-2" />
-            Analyze Model
+            Model Analysis
           </Button>
           <Button onClick={generateModel} disabled={isGenerating} className="flex items-center">
             {isGenerating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Code className="h-4 w-4 mr-2" />}
@@ -1176,6 +1184,15 @@ export default function NeuralNetworkDesigner() {
                     <div className="flex items-center gap-2">
                       <Database className="h-4 w-4 text-purple-500" />
                       <span className="text-sm font-medium text-sidebar-foreground">Input</span>
+                    </div>
+                  </Card>
+                  <Card
+                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
+                    onClick={() => addNode("constantNode", { channels: 1, height: 1, width: 1 })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Box className="h-4 w-4 text-green-500" />
+                      <span className="text-sm font-medium text-sidebar-foreground">Constant</span>
                     </div>
                   </Card>
                 </div>
@@ -1622,7 +1639,7 @@ export default function NeuralNetworkDesigner() {
         </div>
 
         {/* Main Canvas Area */}
-        <div className="flex-1 h-full w-full">
+        <div className="flex-1 h-full w-full" ref={reactFlowWrapper}>
           <ReactFlowProvider>
             <ReactFlow
               nodes={nodes}
@@ -1631,10 +1648,12 @@ export default function NeuralNetworkDesigner() {
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               onNodeClick={onNodeClick}
+              onPaneClick={() => setSelectedNode(null)}
+              onEdgeClick={() => setSelectedNode(null)}
               nodeTypes={nodeTypes}
               className="h-full w-full"
               fitView
-              onKeyDown={onKeyDown}
+              deleteKeyCode={['Delete', 'Backspace']}
               tabIndex={0}
               onInit={(reactFlowInstance) => {
                 reactFlowInstanceRef.current = reactFlowInstance
@@ -1682,6 +1701,34 @@ export default function NeuralNetworkDesigner() {
                         label="Width"
                         value={selectedNode.data.width as number | undefined}
                         defaultValue={28}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { width: value })}
+                      />
+                      <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
+                        Shape: {formatTensorShape(selectedNode.data.outputShape)}
+                      </div>
+                    </>
+                  )}
+                  {selectedNode.type === "constantNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Channels"
+                        value={selectedNode.data.channels as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { channels: value })}
+                      />
+                      <EditableNumberInput
+                        label="Height"
+                        value={selectedNode.data.height as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { height: value })}
+                      />
+                      <EditableNumberInput
+                        label="Width"
+                        value={selectedNode.data.width as number | undefined}
+                        defaultValue={1}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { width: value })}
                       />
@@ -1739,6 +1786,53 @@ export default function NeuralNetworkDesigner() {
                         defaultValue={0}
                         min={0}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { padding: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "separableconv2dNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Input Channels"
+                        value={selectedNode.data.in_channels as number | undefined}
+                        defaultValue={32}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { in_channels: value })}
+                        disabled={isInputConnected}
+                      />
+                      <EditableNumberInput
+                        label="Output Channels"
+                        value={selectedNode.data.out_channels as number | undefined}
+                        defaultValue={64}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { out_channels: value })}
+                      />
+                      <EditableNumberInput
+                        label="Kernel Size"
+                        value={selectedNode.data.kernel_size as number | undefined}
+                        defaultValue={3}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { kernel_size: value })}
+                      />
+                      <EditableNumberInput
+                        label="Stride"
+                        value={selectedNode.data.stride as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { stride: value })}
+                      />
+                      <EditableNumberInput
+                        label="Padding"
+                        value={selectedNode.data.padding as number | undefined}
+                        defaultValue={1}
+                        min={0}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { padding: value })}
+                      />
+                      <EditableNumberInput
+                        label="Dilation"
+                        value={selectedNode.data.dilation as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { dilation: value })}
                       />
                     </>
                   )}
@@ -1864,8 +1958,26 @@ export default function NeuralNetworkDesigner() {
                       />
                     </>
                   )}
+                  {selectedNode.type === "addNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Number of Inputs"
+                        value={selectedNode.data.num_inputs as number | undefined}
+                        defaultValue={2}
+                        min={2}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_inputs: value })}
+                      />
+                    </>
+                  )}
                   {selectedNode.type === "concatenateNode" && (
                     <>
+                      <EditableNumberInput
+                        label="Number of Inputs"
+                        value={selectedNode.data.num_inputs as number | undefined}
+                        defaultValue={2}
+                        min={2}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_inputs: value })}
+                      />
                       <div>
                         <label className="text-sm font-medium text-sidebar-foreground">Dimension (dim)</label>
                         <select
@@ -1875,18 +1987,14 @@ export default function NeuralNetworkDesigner() {
                           }
                           className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-black"
                         >
-                          <option value={0}>0</option>
                           <option value={1}>1</option>
                           <option value={2}>2</option>
+                          <option value={3}>3</option>
                         </select>
+                        <p className="text-xs text-sidebar-foreground/70 mt-1">
+                          Note: `dim=0` is for batch size, which is not applicable in this app.
+                        </p>
                       </div>
-                      <EditableNumberInput
-                        label="Number of Inputs"
-                        value={selectedNode.data.num_inputs as number | undefined}
-                        defaultValue={2}
-                        min={2}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_inputs: value })}
-                      />
                     </>
                   )}
                   {selectedNode.type === "adaptiveavgpool2dNode" && (
@@ -2450,18 +2558,24 @@ export default function NeuralNetworkDesigner() {
         <DialogContent className="w-[50vw] bg-gray-200 text-gray-900">
           <DialogHeader>
             <DialogTitle>Save Model</DialogTitle>
-            <DialogDescription>Enter a name for your model to save it for later.</DialogDescription>
+            <DialogDescription>
+              Enter a name to save the model in the browser, or export it as a .json file.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <Input
               id="model-name"
               value={modelName}
               onChange={(e) => setModelName(e.target.value)}
-              placeholder="e.g., My-CNN-Model"
+              placeholder="My-CNN-Model"
               className="bg-white text-black"
             />
           </div>
           <DialogFooter>
+            <Button variant="secondary" onClick={handleExportModel}>
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
             <Button variant="default" onClick={handleSaveModel}>
               Save
             </Button>
@@ -2473,7 +2587,9 @@ export default function NeuralNetworkDesigner() {
         <DialogContent className="w-[50vw] bg-gray-200 text-gray-900">
           <DialogHeader>
             <DialogTitle>Open Model</DialogTitle>
-            <DialogDescription>Select a saved model to load it onto the canvas.</DialogDescription>
+            <DialogDescription>
+              Select a saved model to load it onto the canvas, or import a model from a .json file.
+            </DialogDescription>
           </DialogHeader>
           <div className="my-4">
             <ScrollArea className="h-72 rounded-md border">
@@ -2504,33 +2620,39 @@ export default function NeuralNetworkDesigner() {
               </div>
             </ScrollArea>
           </div>
+          <DialogFooter>
+            <Button asChild variant="secondary">
+              <label htmlFor="import-model-input" className="cursor-pointer flex items-center">
+                <FileUp className="h-4 w-4 mr-2" />
+                Import from File
+              </label>
+            </Button>
+            <input
+              type="file"
+              id="import-model-input"
+              accept=".json"
+              onChange={handleImportModel}
+              className="hidden"
+            />
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={showCodeInputDialog} onOpenChange={setShowCodeInputDialog}>
         <DialogContent className="w-[80vw] h-[80vh] flex flex-col bg-gray-200 text-gray-900">
-          <ResizableBox
-            width={1000} // Initial width
-            height={600} // Initial height
-            minConstraints={[400, 300]} // Minimum size
-            maxConstraints={[3500, 1200]} // Maximum size (adjust as needed)
-            resizeHandles={["se", "s", "e"]}
-            className="flex-1 flex flex-col overflow-hidden resize-x"
-            style={{ overflow: "auto" }} // Allow content to scroll if it exceeds ResizableBox size
-          >
-            <DialogHeader>
-              <DialogTitle>Input PyTorch Code</DialogTitle>
-              <DialogDescription>
-                Paste your PyTorch model code below and we'll recreate it visually in the canvas
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex-1 flex flex-col gap-4">
-              <div className="flex-1">
-                <label className="text-sm font-medium mb-2 block">PyTorch Model Code:</label>
-                <textarea
-                  value={inputCode}
-                  onChange={(e) => setInputCode(e.target.value)}
-                  placeholder={`import torch
+          <DialogHeader>
+            <DialogTitle>Input PyTorch Code</DialogTitle>
+            <DialogDescription>
+              Paste your PyTorch model code below and we'll recreate it visually in the canvas
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 flex flex-col gap-4 py-4 overflow-y-auto">
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">PyTorch Model Code:</label>
+              <textarea
+                value={inputCode}
+                onChange={(e) => setInputCode(e.target.value)}
+                placeholder={`import torch
 import torch.nn as nn
 
 class MyModel(nn.Module):
@@ -2548,56 +2670,55 @@ class MyModel(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.fc1(x)
         return x`}
-                  className="w-full h-full p-3 border rounded-md font-mono text-sm resize-none"
-                ></textarea>
+                className="w-full h-full p-3 border rounded-md font-mono text-sm resize-none"
+              ></textarea>
+            </div>
+            {parseErrors.length > 0 && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                <strong className="font-bold">Parsing Errors:</strong>
+                <ul className="mt-1 list-disc list-inside">
+                  {parseErrors.map((error, index) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                </ul>
               </div>
-              {parseErrors.length > 0 && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                  <strong className="font-bold">Parsing Errors:</strong>
-                  <ul className="mt-1 list-disc list-inside">
-                    {parseErrors.map((error, index) => (
-                      <li key={index}>{error}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {parseWarnings.length > 0 && (
-                <div
-                  className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative"
-                  role="alert"
-                >
-                  <strong className="font-bold">Parsing Warnings:</strong>
-                  <ul className="mt-1 list-disc list-inside">
-                    {parseWarnings.map((warning, index) => (
-                      <li key={index}>{warning}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {unsupportedModules.length > 0 && (
-                <div
-                  className="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-3 rounded relative"
-                  role="alert"
-                >
-                  <strong className="font-bold">Unsupported Modules:</strong>
-                  <ul className="mt-1 list-disc list-inside">
-                    {unsupportedModules.map((module, index) => (
-                      <li key={index}>{module}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-            <div className="flex justify-end pt-4 border-t">
-              <Button variant="default" onClick={() => setShowCodeInputDialog(false)}>
-                Close
-              </Button>
-              <Button onClick={() => parsePyTorchCode(inputCode)}>
-                <Zap className="h-4 w-4 mr-2" />
-                Parse Code
-              </Button>
-            </div>
-          </ResizableBox>
+            )}
+            {parseWarnings.length > 0 && (
+              <div
+                className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative"
+                role="alert"
+              >
+                <strong className="font-bold">Parsing Warnings:</strong>
+                <ul className="mt-1 list-disc list-inside">
+                  {parseWarnings.map((warning, index) => (
+                    <li key={index}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {unsupportedModules.length > 0 && (
+              <div
+                className="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-3 rounded relative"
+                role="alert"
+              >
+                <strong className="font-bold">Unsupported Modules:</strong>
+                <ul className="mt-1 list-disc list-inside">
+                  {unsupportedModules.map((module, index) => (
+                    <li key={index}>{module}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCodeInputDialog(false)}>
+              Close
+            </Button>
+            <Button onClick={handleCodeInput}>
+              <Zap className="h-4 w-4 mr-2" />
+              Parse Code
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -2704,6 +2825,25 @@ class MyModel(nn.Module):
                       <kbd className="px-2 py-1 bg-gray-300 rounded text-xs font-semibold">{shortcut.key}</kbd>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Saving, Loading, Importing & Exporting */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold">💾 Saving, Loading, Importing & Exporting</h3>
+                <div className="space-y-2 text-sm text-gray-700">
+                  <p>
+                    <strong>To Save:</strong> Click the "Save" button, enter a name, and save it to your browser's local storage.
+                  </p>
+                  <p>
+                    <strong>To Load:</strong> Click the "Open" button and select a previously saved model from the list.
+                  </p>
+                  <p>
+                    <strong>To Export:</strong> Click the "Save" button, enter a name, and click "Export" to download your model as a `.json` file.
+                  </p>
+                  <p>
+                    <strong>To Import:</strong> Click the "Open" button, then "Import from File" to load a `.json` model from your computer.
+                  </p>
                 </div>
               </div>
 

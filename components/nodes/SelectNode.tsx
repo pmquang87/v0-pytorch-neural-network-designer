@@ -1,6 +1,13 @@
 import { Handle, Position } from "@xyflow/react"
 import type { NodeData, HelpContent } from "@/lib/types"
 import { HelpCircle } from "lucide-react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { formatTensorShape } from "@/lib/tensor-shape-calculator"
 
 interface SelectNodeData extends NodeData {
   dim?: number
@@ -10,18 +17,6 @@ interface SelectNodeData extends NodeData {
 interface SelectNodeProps {
   data: SelectNodeData
 }
-
-// Simple MLP Example:
-// This is an example of a Multi-Layer Perceptron (MLP) architecture:
-// Input -> Linear -> ReLU -> Linear -> ReLU -> Linear -> Output
-// You can create this by adding:
-// 1. Input node (28x28 for MNIST)
-// 2. Linear node (in_features=784, out_features=128)
-// 3. ReLU node
-// 4. Linear node (in_features=128, out_features=64)
-// 5. ReLU node
-// 6. Linear node (in_features=64, out_features=10)
-// Connect them in sequence for a basic MNIST classifier
 
 const selectNodeHelp: HelpContent = {
   title: "Select Node",
@@ -58,17 +53,25 @@ export function SelectNode({ data }: SelectNodeProps) {
       <div className="text-center relative">
         <div className="font-semibold text-purple-800 text-sm mb-1">Select</div>
         <div className="absolute top-0 right-0">
-          <Tooltip content={selectNodeHelp}>
-            <button className="text-purple-600 hover:text-purple-800 transition-colors">
-              <HelpCircle size={16} />
-            </button>
-          </Tooltip>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="text-purple-600 hover:text-purple-800 transition-colors">
+                  <HelpCircle size={16} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="font-bold">{selectNodeHelp.title}</p>
+                <p>{selectNodeHelp.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         <div className="text-xs text-purple-600">
           dim: {data.dim ?? 0}, idx: {data.index ?? 0}
         </div>
-        {data.inputShape && <div className="text-xs text-gray-500 mt-1">In: {JSON.stringify(data.inputShape)}</div>}
-        {data.outputShape && <div className="text-xs text-gray-500">Out: {JSON.stringify(data.outputShape)}</div>}
+        {data.inputShape && <div className="text-xs text-gray-500 mt-1">In: {formatTensorShape(data.inputShape)}</div>}
+        {data.outputShape && <div className="text-xs text-gray-500">Out: {formatTensorShape(data.outputShape)}</div>}
       </div>
 
       <Handle type="source" position={Position.Right} />

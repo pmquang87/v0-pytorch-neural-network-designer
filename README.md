@@ -21,6 +21,7 @@ This application provides a powerful drag-and-drop interface that allows users t
 -   **Model Validation:** Checks for common errors such as shape mismatches, disconnected nodes, and cycles.
 -   **Code Generation:** Export your visual model to clean, readable PyTorch code.
 -   **Model Importer:** Paste existing PyTorch model code to visualize it on the canvas.
+-   **Save, Load, Import & Export:** Save models to your browser's local storage, or export/import them as `.json` files to share and back up your work.
 -   **Model Analysis:** Get insights into your model's complexity, including total parameters, FLOPs, and estimated memory usage.
 -   **Example Library:** Load and explore pre-built models like LeNet-5, ResNet, U-Net, and YOLO to learn common architectures.
 

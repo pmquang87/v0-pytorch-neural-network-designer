@@ -1,6 +1,6 @@
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
-import { RotateCcw } from "lucide-react"
+import { Layers } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
 export function ConvTranspose2DNode({ data }: { data: any }) {
@@ -12,8 +12,8 @@ export function ConvTranspose2DNode({ data }: { data: any }) {
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-purple-500 border-2 border-background" />
       <div className="p-3">
         <div className="flex items-center gap-2 mb-2">
-          <RotateCcw className="h-4 w-4 text-purple-500" />
-          <span className="font-medium text-sm">ConvT2D</span>
+          <Layers className="h-4 w-4 text-purple-500" />
+          <span className="font-medium text-sm">ConvTranspose2D</span>
         </div>
         <div className="text-xs text-muted-foreground space-y-1">
           <div>In: {data.in_channels || 32}</div>

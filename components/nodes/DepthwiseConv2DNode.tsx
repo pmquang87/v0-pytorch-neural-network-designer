@@ -1,33 +1,34 @@
 import { Handle, Position } from "@xyflow/react"
-import type { NodeProps } from "@xyflow/react"
+import { Card } from "@/components/ui/card"
+import { Layers } from "lucide-react"
+import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function DepthwiseConv2DNode({ data }: NodeProps) {
+export function DepthwiseConv2DNode({ data }: { data: any }) {
+  const inputShape: TensorShape = data.inputShape || { channels: 32, height: 28, width: 28 }
+  const outputShape = calculateOutputShape("depthwiseconv2dNode", [inputShape], data)
+
   return (
-    <div className="bg-orange-100 border-2 border-orange-300 rounded-lg p-3 min-w-[180px]">
-      <Handle type="target" position={Position.Top} />
-
-      <div className="text-center">
-        <div className="font-semibold text-orange-800 mb-1">DepthwiseConv2D</div>
-        <div className="text-xs text-orange-600 space-y-1">
-          <div>Channels: {data.in_channels || 32}</div>
-          <div>Kernel: {data.kernel_size || 3}</div>
-          <div>Stride: {data.stride || 1}</div>
-          <div>Padding: {data.padding || 1}</div>
-          {data.inputShape && (
-            <div className="text-blue-600">
-              In: [{data.inputShape.batch},{data.inputShape.channels},{data.inputShape.height},{data.inputShape.width}]
-            </div>
-          )}
-          {data.outputShape && (
-            <div className="text-green-600">
-              Out: [{data.outputShape.batch},{data.outputShape.channels},{data.outputShape.height},
-              {data.outputShape.width}]
-            </div>
-          )}
+    <Card className="min-w-[180px] border-2 border-orange-500/50 bg-card">
+      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-orange-500 border-2 border-background" />
+      <div className="p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <Layers className="h-4 w-4 text-orange-500" />
+          <span className="font-medium text-sm">DepthwiseConv2D</span>
+        </div>
+        <div className="text-xs text-muted-foreground space-y-1">
+          <div>In Channels: {data.in_channels || "?"}</div>
+          <div>Out Channels: {data.out_channels || "?"}</div>
+          <div>Kernel Size: {data.kernel_size || "?"}</div>
+          <div>Groups: {data.groups || "?"}</div>
+        </div>
+        <div className="mt-2 pt-2 border-t border-border">
+          <div className="text-xs text-muted-foreground">
+            <div className="text-green-600">In: {formatTensorShape(inputShape)}</div>
+            <div className="text-blue-600">Out: {formatTensorShape(outputShape)}</div>
+          </div>
         </div>
       </div>
-
-      <Handle type="source" position={Position.Bottom} />
-    </div>
+      <Handle type="source" position={Position.Right} className="w-3 h-3 bg-orange-500 border-2 border-background" />
+    </Card>
   )
 }

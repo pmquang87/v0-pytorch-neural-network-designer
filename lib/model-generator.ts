@@ -11,14 +11,11 @@ export class ModelGenerator {
     this.inputNode = this.nodes.find((node) => node.type === "inputNode") || null
   }
 
-  // Validate the graph structure
   validateGraph(): { valid: boolean; error?: string } {
-    // Check for input node
     if (!this.inputNode) {
       return { valid: false, error: "Graph must contain an input node" }
     }
 
-    // Check for cycles (simplified check)
     const visited = new Set<string>()
     const recursionStack = new Set<string>()
 
@@ -47,28 +44,23 @@ export class ModelGenerator {
     return { valid: true }
   }
 
-  // Topologically sort nodes for execution order
   topologicalSort(): GraphNode[] {
     const inDegree = new Map<string, number>()
     const adjList = new Map<string, string[]>()
 
-    // Initialize
     for (const node of this.nodes) {
       inDegree.set(node.id, 0)
       adjList.set(node.id, [])
     }
 
-    // Build adjacency list and calculate in-degrees
     for (const edge of this.edges) {
       adjList.get(edge.source)?.push(edge.target)
       inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1)
     }
 
-    // Kahn's algorithm
     const queue: string[] = []
     const result: GraphNode[] = []
 
-    // Start with nodes that have no incoming edges
     for (const [nodeId, degree] of inDegree.entries()) {
       if (degree === 0) {
         queue.push(nodeId)
@@ -80,7 +72,6 @@ export class ModelGenerator {
       const currentNode = this.nodes.find((n) => n.id === currentId)!
       result.push(currentNode)
 
-      // Process neighbors
       for (const neighborId of adjList.get(currentId) || []) {
         inDegree.set(neighborId, inDegree.get(neighborId)! - 1)
         if (inDegree.get(neighborId) === 0) {
@@ -92,7 +83,6 @@ export class ModelGenerator {
     return result
   }
 
-  // Generate PyTorch model code
   generateCode(): string {
     const validation = this.validateGraph()
     if (!validation.valid) {
@@ -102,12 +92,6 @@ export class ModelGenerator {
     const sortedNodes = this.topologicalSort()
     const layerNodes = sortedNodes.filter((node) => node.type !== "inputNode")
 
-    // Generate imports
-    const imports = new Set<string>()
-    imports.add("import torch")
-    imports.add("import torch.nn as nn")
-
-    // Generate class definition
     let code = `import torch
 import torch.nn as nn
 
@@ -120,39 +104,40 @@ class GeneratedModel(nn.Module):
 
     for (const node of layerNodes) {
       const manifest = PYTORCH_LAYER_MANIFEST[node.type as keyof typeof PYTORCH_LAYER_MANIFEST]
-      if (!manifest || !manifest.className) continue // Skip nodes with null className
+      const layerName = this.sanitizeLayerName(node.id)
 
-      if (node.type === "depthwiseconv2dNode") {
-        // For depthwise convolution, set groups = in_channels
-        const params = this.buildParameterString(node, manifest.params)
-        const layerName = this.sanitizeLayerName(node.id)
-        const groups = node.data.in_channels || node.data.groups || 1
-        code += `        self.${layerName} = ${manifest.className}(${params}, groups=${groups})\n`
-      } else if (node.type === "separableconv2dNode") {
-        // For separable convolution, create both depthwise and pointwise layers
-        const layerName = this.sanitizeLayerName(node.id)
-        const inChannels = node.data.in_channels || 32
-        const outChannels = node.data.out_channels || 64
-        const kernelSize = node.data.kernel_size || 3
-        const stride = node.data.stride || 1
-        const padding = node.data.padding || 1
+      if (node.type === "adaptiveavgpool2dNode") {
+        const outputSize = JSON.stringify(node.data.output_size)
+        code += `        self.${layerName} = nn.AdaptiveAvgPool2d(output_size=${outputSize})\n`
+      } else if (node.type === "flattenNode") {
+        const startDim = node.data.start_dim ?? 1
+        code += `        self.${layerName} = nn.Flatten(start_dim=${startDim})\n`
+      } else if (manifest && manifest.className) {
+        if (node.type === "depthwiseconv2dNode") {
+          const params = this.buildParameterString(node, manifest.params)
+          const groups = node.data.in_channels || node.data.groups || 1
+          code += `        self.${layerName} = ${manifest.className}(${params}, groups=${groups})\n`
+        } else if (node.type === "separableconv2dNode") {
+          const inChannels = node.data.in_channels || 32
+          const outChannels = node.data.out_channels || 64
+          const kernelSize = node.data.kernel_size || 3
+          const stride = node.data.stride || 1
+          const padding = node.data.padding || 1
 
-        code += `        # Separable convolution: depthwise + pointwise\n`
-        code += `        self.${layerName}_depthwise = nn.Conv2d(${inChannels}, ${inChannels}, kernel_size=${kernelSize}, stride=${stride}, padding=${padding}, groups=${inChannels})\n`
-        code += `        self.${layerName}_pointwise = nn.Conv2d(${inChannels}, ${outChannels}, kernel_size=1, stride=1, padding=0)\n`
-      } else {
-        const params = this.buildParameterString(node, manifest.params)
-        const layerName = this.sanitizeLayerName(node.id)
-        code += `        self.${layerName} = ${manifest.className}(${params})\n`
+          code += `        # Separable convolution: depthwise + pointwise\n`
+          code += `        self.${layerName}_depthwise = nn.Conv2d(${inChannels}, ${inChannels}, kernel_size=${kernelSize}, stride=${stride}, padding=${padding}, groups=${inChannels})\n`
+          code += `        self.${layerName}_pointwise = nn.Conv2d(${inChannels}, ${outChannels}, kernel_size=1, stride=1, padding=0)\n`
+        } else {
+          const params = this.buildParameterString(node, manifest.params)
+          code += `        self.${layerName} = ${manifest.className}(${params})\n`
+        }
       }
     }
 
-    // Generate forward method
     code += `
     def forward(self, x):
 `
 
-    // Generate forward pass logic
     const forwardLines = this.generateForwardPass(sortedNodes)
     for (const line of forwardLines) {
       code += `        ${line}\n`
@@ -161,18 +146,21 @@ class GeneratedModel(nn.Module):
     code += `        return x
 `
 
-    // Add usage example
-    if (this.inputNode?.data.shape) {
-      const shape = this.inputNode.data.shape
-      code += `
+    if (this.inputNode?.data) {
+      const { channels, height, width } = this.inputNode.data
+      const shape = [1, channels, height, width].filter(d => d !== undefined)
+      if (shape.length > 1) {
+          const shapeString = JSON.stringify(shape).slice(1, -1)
+          code += `
 
 # Usage example:
 # model = GeneratedModel()
-# input_tensor = torch.randn(${JSON.stringify(shape)})
+# input_tensor = torch.randn(1, ${shapeString})
 # output = model(input_tensor)
 # print(f"Input shape: {input_tensor.shape}")
 # print(f"Output shape: {output.shape}")
 `
+      }
     }
 
     return code
@@ -203,7 +191,6 @@ class GeneratedModel(nn.Module):
     const lines: string[] = []
     const nodeOutputs = new Map<string, string>()
 
-    // Input node starts the chain
     if (this.inputNode) {
       nodeOutputs.set(this.inputNode.id, "x")
     }
@@ -215,12 +202,10 @@ class GeneratedModel(nn.Module):
       const inputEdges = this.edges.filter((edge) => edge.target === node.id)
 
       if (inputEdges.length === 0) {
-        // No input - skip this node
         continue
       }
 
       if (node.type === "addNode") {
-        // Handle addition operation
         const inputVars = inputEdges.map((edge) => nodeOutputs.get(edge.source) || "x")
         const outputVar = `x_${layerName}`
         if (inputVars.length >= 2) {
@@ -232,10 +217,9 @@ class GeneratedModel(nn.Module):
       } else if (node.type === "concatenateNode") {
         const inputVars = inputEdges.map((edge) => nodeOutputs.get(edge.source) || "x")
         const outputVar = `x_${layerName}`
-        const dim = node.data.dim || 1 // Default to dim=1 if not specified
+        const dim = node.data.dim || 1
 
         if (inputVars.length === 2) {
-          // For U-Net skip connections, crop the second input (skip connection) to match the first input (decoder)
           const decoderVar = inputVars[0]
           const skipVar = inputVars[1]
           const croppedSkipVar = `${skipVar}_cropped`
@@ -244,7 +228,6 @@ class GeneratedModel(nn.Module):
           lines.push(`decoder_h, decoder_w = ${decoderVar}.shape[2], ${decoderVar}.shape[3]`)
           lines.push(`skip_h, skip_w = ${skipVar}.shape[2], ${skipVar}.shape[3]`)
           lines.push(`if skip_h != decoder_h or skip_w != decoder_w:`)
-          lines.push(`    # Center crop the skip connection to match decoder size`)
           lines.push(`    start_h = (skip_h - decoder_h) // 2`)
           lines.push(`    start_w = (skip_w - decoder_w) // 2`)
           lines.push(`    ${croppedSkipVar} = ${skipVar}[:, :, start_h:start_h+decoder_h, start_w:start_w+decoder_w]`)
@@ -253,7 +236,6 @@ class GeneratedModel(nn.Module):
 
           lines.push(`${outputVar} = torch.cat([${decoderVar}, ${croppedSkipVar}], dim=${dim})`)
         } else {
-          // For other concatenations, use original logic
           lines.push(`${outputVar} = torch.cat([${inputVars.join(", ")}], dim=${dim})`)
         }
 
@@ -266,13 +248,11 @@ class GeneratedModel(nn.Module):
         lines.push(`${outputVar} = self.${layerName}_pointwise(${tempVar})`)
         nodeOutputs.set(node.id, outputVar)
       } else if (inputEdges.length === 1) {
-        // Single input - regular layer
         const inputVar = nodeOutputs.get(inputEdges[0].source) || "x"
         const outputVar = `x_${layerName}`
         lines.push(`${outputVar} = self.${layerName}(${inputVar})`)
         nodeOutputs.set(node.id, outputVar)
       } else {
-        // Multiple inputs for regular layers - this shouldn't happen for most layers
         const inputVars = inputEdges.map((edge) => nodeOutputs.get(edge.source) || "x")
         const outputVar = `x_${layerName}`
         lines.push(`# Warning: Multiple inputs to regular layer - using first input`)
@@ -281,7 +261,6 @@ class GeneratedModel(nn.Module):
       }
     }
 
-    // Find the final output
     const outputNodes = sortedNodes.filter((node) => {
       return !this.edges.some((edge) => edge.source === node.id)
     })
