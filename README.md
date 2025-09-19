@@ -2,8 +2,9 @@
 
 An interactive visual tool for designing, analyzing, and exporting PyTorch neural network models directly in your browser.
 
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/projects/9eOFbjsjqhY)
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://v0-pytorch-neural-network-designer.vercel.app/)
+Built with the help of v0.app, Claude and Gemini.
+
+![img.png](img.png)
 
 ## Overview
 
