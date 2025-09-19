@@ -1,0 +1,257 @@
+{
+    "name": "U-Net",
+    "description": "Complete U-Net for semantic segmentation with encoder-decoder and skip connections",
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "inputNode",
+        "position": { "x": 100, "y": 400 },
+        "data": { "channels": 1, "height": 256, "width": 256 }
+      },
+      {
+        "id": "conv1-2",
+        "type": "conv2dNode",
+        "position": { "x": 300, "y": 350 },
+        "data": { "in_channels": 1, "out_channels": 64, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "relu1-3",
+        "type": "reluNode",
+        "position": { "x": 500, "y": 350 },
+        "data": {}
+      },
+      {
+        "id": "conv2-4",
+        "type": "conv2dNode",
+        "position": { "x": 700, "y": 350 },
+        "data": { "in_channels": 64, "out_channels": 64, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "relu2-5",
+        "type": "reluNode",
+        "position": { "x": 900, "y": 350 },
+        "data": {}
+      },
+      {
+        "id": "pool1-6",
+        "type": "maxpool2dNode",
+        "position": { "x": 1100, "y": 450 },
+        "data": { "kernel_size": 2, "stride": 2 }
+      },
+      {
+        "id": "conv3-7",
+        "type": "conv2dNode",
+        "position": { "x": 1300, "y": 500 },
+        "data": { "in_channels": 64, "out_channels": 128, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "relu3-8",
+        "type": "reluNode",
+        "position": { "x": 1500, "y": 500 },
+        "data": {}
+      },
+      {
+        "id": "conv4-9",
+        "type": "conv2dNode",
+        "position": { "x": 1700, "y": 500 },
+        "data": { "in_channels": 128, "out_channels": 128, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "relu4-10",
+        "type": "reluNode",
+        "position": { "x": 1900, "y": 500 },
+        "data": {}
+      },
+      {
+        "id": "pool2-11",
+        "type": "maxpool2dNode",
+        "position": { "x": 2100, "y": 600 },
+        "data": { "kernel_size": 2, "stride": 2 }
+      },
+      {
+        "id": "conv5-12",
+        "type": "conv2dNode",
+        "position": { "x": 2300, "y": 650 },
+        "data": { "in_channels": 128, "out_channels": 256, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "relu5-13",
+        "type": "reluNode",
+        "position": { "x": 2500, "y": 650 },
+        "data": {}
+      },
+      {
+        "id": "conv6-14",
+        "type": "conv2dNode",
+        "position": { "x": 2700, "y": 650 },
+        "data": { "in_channels": 256, "out_channels": 256, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "relu6-15",
+        "type": "reluNode",
+        "position": { "x": 2900, "y": 650 },
+        "data": {}
+      },
+      {
+        "id": "pool3-16",
+        "type": "maxpool2dNode",
+        "position": { "x": 3100, "y": 750 },
+        "data": { "kernel_size": 2, "stride": 2 }
+      },
+      {
+        "id": "conv7-17",
+        "type": "conv2dNode",
+        "position": { "x": 3300, "y": 800 },
+        "data": { "in_channels": 256, "out_channels": 512, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "relu7-18",
+        "type": "reluNode",
+        "position": { "x": 3500, "y": 800 },
+        "data": {}
+      },
+      {
+        "id": "conv8-19",
+        "type": "conv2dNode",
+        "position": { "x": 3700, "y": 800 },
+        "data": { "in_channels": 512, "out_channels": 512, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "relu8-20",
+        "type": "reluNode",
+        "position": { "x": 3900, "y": 800 },
+        "data": {}
+      },
+      {
+        "id": "upconv1-21",
+        "type": "convtranspose2dNode",
+        "position": { "x": 4100, "y": 700 },
+        "data": { "in_channels": 512, "out_channels": 256, "kernel_size": 2, "stride": 2, "padding": 0, "output_padding": 0 }
+      },
+      {
+        "id": "concat1-22",
+        "type": "concatenateNode",
+        "position": { "x": 4300, "y": 675 },
+        "data": { "dim": 1 }
+      },
+      {
+        "id": "conv9-23",
+        "type": "conv2dNode",
+        "position": { "x": 4500, "y": 675 },
+        "data": { "in_channels": 512, "out_channels": 256, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "relu9-24",
+        "type": "reluNode",
+        "position": { "x": 4700, "y": 675 },
+        "data": {}
+      },
+      {
+        "id": "conv10-25",
+        "type": "conv2dNode",
+        "position": { "x": 4900, "y": 675 },
+        "data": { "in_channels": 256, "out_channels": 256, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "relu10-26",
+        "type": "reluNode",
+        "position": { "x": 5100, "y": 675 },
+        "data": {}
+      },
+      {
+        "id": "upconv2-27",
+        "type": "convtranspose2dNode",
+        "position": { "x": 5300, "y": 575 },
+        "data": { "in_channels": 256, "out_channels": 128, "kernel_size": 2, "stride": 2, "padding": 0, "output_padding": 0 }
+      },
+      {
+        "id": "concat2-28",
+        "type": "concatenateNode",
+        "position": { "x": 5500, "y": 525 },
+        "data": { "dim": 1 }
+      },
+      {
+        "id": "conv11-29",
+        "type": "conv2dNode",
+        "position": { "x": 5700, "y": 525 },
+        "data": { "in_channels": 256, "out_channels": 128, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "relu11-30",
+        "type": "reluNode",
+        "position": { "x": 5900, "y": 525 },
+        "data": {}
+      },
+      {
+        "id": "conv12-31",
+        "type": "conv2dNode",
+        "position": { "x": 6100, "y": 525 },
+        "data": { "in_channels": 128, "out_channels": 128, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "relu12-32",
+        "type": "reluNode",
+        "position": { "x": 6300, "y": 525 },
+        "data": {}
+      },
+      {
+        "id": "upconv3-33",
+        "type": "convtranspose2dNode",
+        "position": { "x": 6500, "y": 425 },
+        "data": { "in_channels": 128, "out_channels": 64, "kernel_size": 2, "stride": 2, "padding": 0, "output_padding": 0 }
+      },
+      {
+        "id": "concat3-34",
+        "type": "concatenateNode",
+        "position": { "x": 6700, "y": 375 },
+        "data": { "dim": 1 }
+      },
+      {
+        "id": "conv13-35",
+        "type": "conv2dNode",
+        "position": { "x": 6900, "y": 375 },
+        "data": { "in_channels": 128, "out_channels": 64, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "relu13-36",
+        "type": "reluNode",
+        "position": { "x": 7100, "y": 375 },
+        "data": {}
+      },
+      {
+        "id": "conv14-37",
+        "type": "conv2dNode",
+        "position": { "x": 7300, "y": 375 },
+        "data": { "in_channels": 64, "out_channels": 64, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "relu14-38",
+        "type": "reluNode",
+        "position": { "x": 7500, "y": 375 },
+        "data": {}
+      },
+      {
+        "id": "output-39",
+        "type": "conv2dNode",
+        "position": { "x": 7700, "y": 375 },
+        "data": { "in_channels": 64, "out_channels": 1, "kernel_size": 1, "stride": 1, "padding": 0 }
+      }
+    ],
+    "edges": [
+      { "id": "e1-2", "source": "input-1", "target": "conv1-2" },
+      { "id": "e2-3", "source": "conv1-2", "target": "relu1-3" },
+      { "id": "e3-4", "source": "relu1-3", "target": "conv2-4" },
+      { "id": "e4-5", "source": "conv2-4", "target": "relu2-5" },
+      { "id": "e5-6", "source": "relu2-5", "target": "pool1-6" },
+      { "id": "e6-7", "source": "pool1-6", "target": "conv3-7" },
+      { "id": "e7-8", "source": "conv3-7", "target": "relu3-8" },
+      { "id": "e8-9", "source": "relu3-8", "target": "conv4-9" },
+      { "id": "e9-10", "source": "conv4-9", "target": "relu4-10" },
+      { "id": "e10-11", "source": "relu4-10", "target": "upconv1-11" },
+      { "id": "e11-12", "source": "upconv1-11", "target": "concat1-12", "targetHandle": "input1" },
+      { "id": "e5-12", "source": "relu2-5", "target": "concat1-12", "targetHandle": "input2" }, 
+      { "id": "e12-13", "source": "concat1-12", "target": "conv5-13" },
+      { "id": "e13-14", "source": "conv5-13", "target": "relu5-14" },
+      { "id": "e14-15", "source": "relu5-14", "target": "conv6-15" }
+    ]
+}

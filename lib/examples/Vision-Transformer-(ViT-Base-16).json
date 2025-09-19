@@ -1,0 +1,155 @@
+{
+    "name": "Vision Transformer (ViT-Base/16)",
+    "description": "Vision Transformer (ViT) model. Note: Positional embedding is represented conceptually.",
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "inputNode",
+        "position": { "x": 100, "y": 100 },
+        "data": { "channels": 3, "height": 224, "width": 224 }
+      },
+      {
+        "id": "patch_embed-2",
+        "type": "conv2dNode",
+        "position": { "x": 350, "y": 100 },
+        "data": { "in_channels": 3, "out_channels": 768, "kernel_size": 16, "stride": 16, "padding": 0 }
+      },
+      {
+        "id": "flatten-3",
+        "type": "flattenNode",
+        "position": { "x": 600, "y": 100 },
+        "data": { "start_dim": 2 }
+      },
+      {
+        "id": "transpose-4",
+        "type": "transposeNode",
+        "position": { "x": 850, "y": 100 },
+        "data": { "dim0": 1, "dim1": 2 }
+      },
+      {
+        "id": "pos_embed-5",
+        "type": "addNode",
+        "position": { "x": 1100, "y": 100 },
+        "data": {}
+      },
+      {
+        "id": "dropout1-6",
+        "type": "dropoutNode",
+        "position": { "x": 1350, "y": 100 },
+        "data": { "p": 0.1 }
+      },
+      {
+        "id": "transformer1-7",
+        "type": "transformerencoderlayerNode",
+        "position": { "x": 350, "y": 350 },
+        "data": { "d_model": 768, "nhead": 12, "dim_feedforward": 3072, "dropout": 0.1 }
+      },
+      {
+        "id": "transformer2-8",
+        "type": "transformerencoderlayerNode",
+        "position": { "x": 600, "y": 350 },
+        "data": { "d_model": 768, "nhead": 12, "dim_feedforward": 3072, "dropout": 0.1 }
+      },
+      {
+        "id": "transformer3-9",
+        "type": "transformerencoderlayerNode",
+        "position": { "x": 850, "y": 350 },
+        "data": { "d_model": 768, "nhead": 12, "dim_feedforward": 3072, "dropout": 0.1 }
+      },
+      {
+        "id": "transformer4-10",
+        "type": "transformerencoderlayerNode",
+        "position": { "x": 1100, "y": 350 },
+        "data": { "d_model": 768, "nhead": 12, "dim_feedforward": 3072, "dropout": 0.1 }
+      },
+      {
+        "id": "transformer5-11",
+        "type": "transformerencoderlayerNode",
+        "position": { "x": 1350, "y": 350 },
+        "data": { "d_model": 768, "nhead": 12, "dim_feedforward": 3072, "dropout": 0.1 }
+      },
+      {
+        "id": "transformer6-12",
+        "type": "transformerencoderlayerNode",
+        "position": { "x": 350, "y": 600 },
+        "data": { "d_model": 768, "nhead": 12, "dim_feedforward": 3072, "dropout": 0.1 }
+      },
+      {
+        "id": "transformer7-13",
+        "type": "transformerencoderlayerNode",
+        "position": { "x": 600, "y": 600 },
+        "data": { "d_model": 768, "nhead": 12, "dim_feedforward": 3072, "dropout": 0.1 }
+      },
+      {
+        "id": "transformer8-14",
+        "type": "transformerencoderlayerNode",
+        "position": { "x": 850, "y": 600 },
+        "data": { "d_model": 768, "nhead": 12, "dim_feedforward": 3072, "dropout": 0.1 }
+      },
+      {
+        "id": "transformer9-15",
+        "type": "transformerencoderlayerNode",
+        "position": { "x": 1100, "y": 600 },
+        "data": { "d_model": 768, "nhead": 12, "dim_feedforward": 3072, "dropout": 0.1 }
+      },
+      {
+        "id": "transformer10-16",
+        "type": "transformerencoderlayerNode",
+        "position": { "x": 1350, "y": 600 },
+        "data": { "d_model": 768, "nhead": 12, "dim_feedforward": 3072, "dropout": 0.1 }
+      },
+      {
+        "id": "transformer11-17",
+        "type": "transformerencoderlayerNode",
+        "position": { "x": 350, "y": 850 },
+        "data": { "d_model": 768, "nhead": 12, "dim_feedforward": 3072, "dropout": 0.1 }
+      },
+      {
+        "id": "transformer12-18",
+        "type": "transformerencoderlayerNode",
+        "position": { "x": 600, "y": 850 },
+        "data": { "d_model": 768, "nhead": 12, "dim_feedforward": 3072, "dropout": 0.1 }
+      },
+      {
+        "id": "layernorm-19",
+        "type": "layernormNode",
+        "position": { "x": 850, "y": 850 },
+        "data": { "normalized_shape": 768, "eps": 1e-6 }
+      },
+      {
+        "id": "cls_token-20",
+        "type": "selectNode",
+        "position": { "x": 1100, "y": 850 },
+        "data": { "dim": 1, "index": 0 }
+      },
+      {
+        "id": "head-21",
+        "type": "linearNode",
+        "position": { "x": 1350, "y": 850 },
+        "data": { "in_features": 768, "out_features": 1000 }
+      }
+    ],
+    "edges": [
+      { "id": "e1-2", "source": "input-1", "target": "patch_embed-2" },
+      { "id": "e2-3", "source": "patch_embed-2", "target": "flatten-3" },
+      { "id": "e3-4", "source": "flatten-3", "target": "transpose-4" },
+      { "id": "e4-5", "source": "transpose-4", "target": "pos_embed-5", "targetHandle": "input1" },
+      { "id": "e4-5-pos", "source": "transpose-4", "target": "pos_embed-5", "targetHandle": "input2" },
+      { "id": "e5-6", "source": "pos_embed-5", "target": "dropout1-6" },
+      { "id": "e6-7", "source": "dropout1-6", "target": "transformer1-7" },
+      { "id": "e7-8", "source": "transformer1-7", "target": "transformer2-8" },
+      { "id": "e8-9", "source": "transformer2-8", "target": "transformer3-9" },
+      { "id": "e9-10", "source": "transformer3-9", "target": "transformer4-10" },
+      { "id": "e10-11", "source": "transformer4-10", "target": "transformer5-11" },
+      { "id": "e11-12", "source": "transformer5-11", "target": "transformer6-12" },
+      { "id": "e12-13", "source": "transformer6-12", "target": "transformer7-13" },
+      { "id": "e13-14", "source": "transformer7-13", "target": "transformer8-14" },
+      { "id": "e14-15", "source": "transformer8-14", "target": "transformer9-15" },
+      { "id": "e15-16", "source": "transformer9-15", "target": "transformer10-16" },
+      { "id": "e16-17", "source": "transformer10-16", "target": "transformer11-17" },
+      { "id": "e17-18", "source": "transformer11-17", "target": "transformer12-18" },
+      { "id": "e18-19", "source": "transformer12-18", "target": "layernorm-19" },
+      { "id": "e19-20", "source": "layernorm-19", "target": "cls_token-20" },
+      { "id": "e20-21", "source": "cls_token-20", "target": "head-21" }
+    ]
+}

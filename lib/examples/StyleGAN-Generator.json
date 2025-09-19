@@ -1,0 +1,134 @@
+{
+    "name": "StyleGAN Generator",
+    "description": "StyleGAN generator with mapping network and style blocks",
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "inputNode",
+        "position": { "x": 100, "y": 300 },
+        "data": { "channels": 512, "height": 1, "width": 1 }
+      },
+      {
+        "id": "flatten-pre-linear",
+        "type": "flattenNode",
+        "position": { "x": 200, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "linear1-2",
+        "type": "linearNode",
+        "position": { "x": 300, "y": 200 },
+        "data": { "in_features": 512, "out_features": 512 }
+      },
+      {
+        "id": "relu1-3",
+        "type": "reluNode",
+        "position": { "x": 500, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "linear2-4",
+        "type": "linearNode",
+        "position": { "x": 700, "y": 200 },
+        "data": { "in_features": 512, "out_features": 512 }
+      },
+      {
+        "id": "relu2-5",
+        "type": "reluNode",
+        "position": { "x": 900, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "linear3-6",
+        "type": "linearNode",
+        "position": { "x": 1100, "y": 200 },
+        "data": { "in_features": 512, "out_features": 512 }
+      },
+      {
+        "id": "relu3-7",
+        "type": "reluNode",
+        "position": { "x": 1300, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "linear4-8",
+        "type": "linearNode",
+        "position": { "x": 1500, "y": 200 },
+        "data": { "in_features": 512, "out_features": 512 }
+      },
+      {
+        "id": "relu4-9",
+        "type": "reluNode",
+        "position": { "x": 1700, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "const-10",
+        "type": "constantNode",
+        "position": { "x": 300, "y": 400 },
+        "data": { "channels": 512, "height": 4, "width": 4 }
+      },
+      {
+        "id": "adain1-11",
+        "type": "adaptiveInstanceNormNode",
+        "position": { "x": 500, "y": 400 },
+        "data": { "num_features": 512 }
+      },
+      {
+        "id": "conv1-12",
+        "type": "conv2dNode",
+        "position": { "x": 700, "y": 400 },
+        "data": { "in_channels": 512, "out_channels": 512, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "noise1-13",
+        "type": "noiseNode",
+        "position": { "x": 900, "y": 400 },
+        "data": { "channels": 512, "height": 4, "width": 4 }
+      },
+      {
+        "id": "adain2-14",
+        "type": "adaptiveInstanceNormNode",
+        "position": { "x": 1100, "y": 400 },
+        "data": { "num_features": 512 }
+      },
+      {
+        "id": "conv2-15",
+        "type": "conv2dNode",
+        "position": { "x": 1300, "y": 400 },
+        "data": { "in_channels": 512, "out_channels": 512, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "upsample-16",
+        "type": "upsampleNode",
+        "position": { "x": 1500, "y": 300 },
+        "data": { "scale_factor": 2 }
+      },
+      {
+        "id": "output-17",
+        "type": "conv2dNode",
+        "position": { "x": 1700, "y": 300 },
+        "data": { "in_channels": 512, "out_channels": 3, "kernel_size": 1, "stride": 1, "padding": 0 }
+      }
+    ],
+    "edges": [
+      { "id": "e1-pre", "source": "input-1", "target": "flatten-pre-linear" },
+      { "id": "epre-2", "source": "flatten-pre-linear", "target": "linear1-2" },
+      { "id": "e2-3", "source": "linear1-2", "target": "relu1-3" },
+      { "id": "e3-4", "source": "relu1-3", "target": "linear2-4" },
+      { "id": "e4-5", "source": "linear2-4", "target": "relu2-5" },
+      { "id": "e5-6", "source": "relu2-5", "target": "linear3-6" },
+      { "id": "e6-7", "source": "linear3-6", "target": "relu3-7" },
+      { "id": "e7-8", "source": "relu3-7", "target": "linear4-8" },
+      { "id": "e8-9", "source": "linear4-8", "target": "relu4-9" },
+      { "id": "e10-11", "source": "const-10", "target": "adain1-11" },
+      { "id": "e9-11", "source": "relu4-9", "target": "adain1-11" },
+      { "id": "e11-12", "source": "adain1-11", "target": "conv1-12" },
+      { "id": "e12-13", "source": "conv1-12", "target": "noise1-13" },
+      { "id": "e13-14", "source": "noise1-13", "target": "adain2-14" },
+      { "id": "e9-14", "source": "relu4-9", "target": "adain2-14" },
+      { "id": "e14-15", "source": "adain2-14", "target": "conv2-15" },
+      { "id": "e15-16", "source": "conv2-15", "target": "upsample-16" },
+      { "id": "e16-17", "source": "upsample-16", "target": "output-17" }
+    ]
+}

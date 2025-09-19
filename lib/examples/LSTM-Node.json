@@ -1,0 +1,255 @@
+{
+    "name": "LSTM Cell (Detailed)",
+    "description": "A detailed view of a Long Short-Term Memory (LSTM) cell. This diagram illustrates the internal components, including the forget, input, and output gates, and the cell state, showing how information flows and is controlled within a single LSTM unit.",
+    "nodes": [
+        {
+            "id": "input-xt",
+            "type": "inputNode",
+            "position": {
+                "x": 0,
+                "y": 200
+            },
+            "data": {
+                "label": "Input x_t"
+            }
+        },
+        {
+            "id": "input-ht-1",
+            "type": "inputNode",
+            "position": {
+                "x": 0,
+                "y": 400
+            },
+            "data": {
+                "label": "Prev. Hidden h_{t-1}"
+            }
+        },
+        {
+            "id": "input-ct-1",
+            "type": "inputNode",
+            "position": {
+                "x": 0,
+                "y": 600
+            },
+            "data": {
+                "label": "Prev. Cell State C_{t-1}"
+            }
+        },
+        {
+            "id": "forget-gate",
+            "type": "sigmoidNode",
+            "position": {
+                "x": 400,
+                "y": 0
+            },
+            "data": {
+                "label": "Forget Gate (f_t)"
+            }
+        },
+        {
+            "id": "input-gate",
+            "type": "sigmoidNode",
+            "position": {
+                "x": 400,
+                "y": 250
+            },
+            "data": {
+                "label": "Input Gate (i_t)"
+            }
+        },
+        {
+            "id": "candidate-gate",
+            "type": "tanhNode",
+            "position": {
+                "x": 400,
+                "y": 500
+            },
+            "data": {
+                "label": "Candidate Values (C\u0303_t)"
+            }
+        },
+        {
+            "id": "output-gate",
+            "type": "sigmoidNode",
+            "position": {
+                "x": 400,
+                "y": 750
+            },
+            "data": {
+                "label": "Output Gate (o_t)"
+            }
+        },
+        {
+            "id": "mul-f-c",
+            "type": "multiplyNode",
+            "position": {
+                "x": 800,
+                "y": 300
+            },
+            "data": {}
+        },
+        {
+            "id": "mul-i-c-tilde",
+            "type": "multiplyNode",
+            "position": {
+                "x": 800,
+                "y": 500
+            },
+            "data": {}
+        },
+        {
+            "id": "add-c",
+            "type": "addNode",
+            "position": {
+                "x": 1200,
+                "y": 400
+            },
+            "data": {}
+        },
+        {
+            "id": "output-ct",
+            "type": "inputNode",
+            "position": {
+                "x": 1600,
+                "y": 400
+            },
+            "data": {
+                "label": "New Cell State C_t"
+            }
+        },
+        {
+            "id": "tanh-ct",
+            "type": "tanhNode",
+            "position": {
+                "x": 1600,
+                "y": 600
+            },
+            "data": {}
+        },
+        {
+            "id": "mul-o-tanh",
+            "type": "multiplyNode",
+            "position": {
+                "x": 2000,
+                "y": 675
+            },
+            "data": {}
+        },
+        {
+            "id": "output-ht",
+            "type": "inputNode",
+            "position": {
+                "x": 2400,
+                "y": 675
+            },
+            "data": {
+                "label": "New Hidden h_t"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "e-xt-fg",
+            "source": "input-xt",
+            "target": "forget-gate"
+        },
+        {
+            "id": "e-ht1-fg",
+            "source": "input-ht-1",
+            "target": "forget-gate"
+        },
+        {
+            "id": "e-xt-ig",
+            "source": "input-xt",
+            "target": "input-gate"
+        },
+        {
+            "id": "e-ht1-ig",
+            "source": "input-ht-1",
+            "target": "input-gate"
+        },
+        {
+            "id": "e-xt-cg",
+            "source": "input-xt",
+            "target": "candidate-gate"
+        },
+        {
+            "id": "e-ht1-cg",
+            "source": "input-ht-1",
+            "target": "candidate-gate"
+        },
+        {
+            "id": "e-xt-og",
+            "source": "input-xt",
+            "target": "output-gate"
+        },
+        {
+            "id": "e-ht1-og",
+            "source": "input-ht-1",
+            "target": "output-gate"
+        },
+        {
+            "id": "e-fg-mfc",
+            "source": "forget-gate",
+            "target": "mul-f-c",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "e-ct1-mfc",
+            "source": "input-ct-1",
+            "target": "mul-f-c",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "e-ig-mict",
+            "source": "input-gate",
+            "target": "mul-i-c-tilde",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "e-cg-mict",
+            "source": "candidate-gate",
+            "target": "mul-i-c-tilde",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "e-mfc-addc",
+            "source": "mul-f-c",
+            "target": "add-c",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "e-mict-addc",
+            "source": "mul-i-c-tilde",
+            "target": "add-c",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "e-addc-outct",
+            "source": "add-c",
+            "target": "output-ct"
+        },
+        {
+            "id": "e-addc-tanhct",
+            "source": "add-c",
+            "target": "tanh-ct"
+        },
+        {
+            "id": "e-og-mot",
+            "source": "output-gate",
+            "target": "mul-o-tanh",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "e-tanhct-mot",
+            "source": "tanh-ct",
+            "target": "mul-o-tanh",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "e-mot-outht",
+            "source": "mul-o-tanh",
+            "target": "output-ht"
+        }
+    ]
+}

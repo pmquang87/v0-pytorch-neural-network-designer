@@ -67,7 +67,7 @@ export function analyzeLayer(
         batchSize *
         outChannels *
         (typeof outputShape.height === "number" ? outputShape.height : 1) *
-        (typeof outputShape.width === "number" ? outputShape.width : 1) *
+        (typeof outputShape.width === "number" ? output_shape.width : 1) *
         4
       const weightMemory = analysis.parameters * 4
       analysis.memoryMB = (inputMemory + outputMemory + weightMemory) / (1024 * 1024)
@@ -194,6 +194,8 @@ export function analyzeLayer(
     case "avgpool2dNode":
     case "adaptiveavgpool2dNode":
     case "dropoutNode":
+    case "addNode":
+    case "multiplyNode":
       analysis.parameters = 0
       // Minimal FLOPs for activation functions
       if (

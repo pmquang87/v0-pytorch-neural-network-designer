@@ -1,0 +1,93 @@
+{
+    "name": "Transformer Block",
+    "description": "Self-attention transformer block (conceptual representation, attention mechanism is simplified).",
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "inputNode",
+        "position": { "x": 150, "y": 600 },
+        "data": { "channels": 512, "height": 1, "width": 100 }
+      },
+      {
+        "id": "layernorm1-2",
+        "type": "layernormNode",
+        "position": { "x": 450, "y": 300 },
+        "data": { "normalized_shape": 512 }
+      },
+      {
+        "id": "linear_q-3",
+        "type": "linearNode",
+        "position": { "x": 750, "y": 150 },
+        "data": { "in_features": 512, "out_features": 512 }
+      },
+      {
+        "id": "linear_k-4",
+        "type": "linearNode",
+        "position": { "x": 750, "y": 300 },
+        "data": { "in_features": 512, "out_features": 512 }
+      },
+      {
+        "id": "linear_v-5",
+        "type": "linearNode",
+        "position": { "x": 750, "y": 450 },
+        "data": { "in_features": 512, "out_features": 512 }
+      },
+      {
+        "id": "attention-6",
+        "type": "linearNode",
+        "position": { "x": 1200, "y": 300 },
+        "data": { "in_features": 512, "out_features": 512 }
+      },
+      {
+        "id": "add1-7",
+        "type": "addNode",
+        "position": { "x": 1500, "y": 450 },
+        "data": {}
+      },
+      {
+        "id": "layernorm2-8",
+        "type": "layernormNode",
+        "position": { "x": 1800, "y": 450 },
+        "data": { "normalized_shape": 512 }
+      },
+      {
+        "id": "ffn1-9",
+        "type": "linearNode",
+        "position": { "x": 2100, "y": 300 },
+        "data": { "in_features": 512, "out_features": 2048 }
+      },
+      {
+        "id": "relu-10",
+        "type": "reluNode",
+        "position": { "x": 2400, "y": 300 },
+        "data": {}
+      },
+      {
+        "id": "ffn2-11",
+        "type": "linearNode",
+        "position": { "x": 2700, "y": 300 },
+        "data": { "in_features": 2048, "out_features": 512 }
+      },
+      {
+        "id": "add2-12",
+        "type": "addNode",
+        "position": { "x": 3000, "y": 450 },
+        "data": {}
+      }
+    ],
+    "edges": [
+      { "id": "e1-2", "source": "input-1", "target": "layernorm1-2" },
+      { "id": "e2-3", "source": "layernorm1-2", "target": "linear_q-3" },
+      { "id": "e2-4", "source": "layernorm1-2", "target": "linear_k-4" },
+      { "id": "e2-5", "source": "layernorm1-2", "target": "linear_v-5" },
+      { "id": "e3-6", "source": "linear_q-3", "target": "attention-6" },
+      { "id": "e6-7", "source": "attention-6", "target": "add1-7", "targetHandle": "input1" },
+      { "id": "e1-7", "source": "input-1", "target": "add1-7", "targetHandle": "input2" },
+      { "id": "e7-8", "source": "add1-7", "target": "layernorm2-8" },
+      { "id": "e8-9", "source": "layernorm2-8", "target": "ffn1-9" },
+      { "id": "e9-10", "source": "ffn1-9", "target": "relu-10" },
+      { "id": "e10-11", "source": "relu-10", "target": "ffn2-11" },
+      { "id": "e11-12", "source": "ffn2-11", "target": "add2-12", "targetHandle": "input1" },
+      { "id": "e7-12", "source": "add1-7", "target": "add2-12", "targetHandle": "input2" }
+    ]
+}

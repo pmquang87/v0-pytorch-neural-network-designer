@@ -1,0 +1,154 @@
+{
+    "name": "Siamese Network",
+    "description": "Siamese network for similarity learning",
+    "nodes": [
+      {
+        "id": "input1-1",
+        "type": "inputNode",
+        "position": { "x": 100, "y": 200 },
+        "data": { "channels": 1, "height": 28, "width": 28 }
+      },
+      {
+        "id": "input2-2",
+        "type": "inputNode",
+        "position": { "x": 100, "y": 600 },
+        "data": { "channels": 1, "height": 28, "width": 28 }
+      },
+      {
+        "id": "conv1a-3",
+        "type": "conv2dNode",
+        "position": { "x": 350, "y": 100 },
+        "data": { "in_channels": 1, "out_channels": 32, "kernel_size": 5, "stride": 1, "padding": 0 }
+      },
+      {
+        "id": "relu1a-4",
+        "type": "reluNode",
+        "position": { "x": 550, "y": 100 },
+        "data": {}
+      },
+      {
+        "id": "pool1a-5",
+        "type": "maxpool2dNode",
+        "position": { "x": 750, "y": 100 },
+        "data": { "kernel_size": 2, "stride": 2 }
+      },
+      {
+        "id": "conv2a-6",
+        "type": "conv2dNode",
+        "position": { "x": 950, "y": 100 },
+        "data": { "in_channels": 32, "out_channels": 64, "kernel_size": 5, "stride": 1, "padding": 0 }
+      },
+      {
+        "id": "relu2a-7",
+        "type": "reluNode",
+        "position": { "x": 1150, "y": 100 },
+        "data": {}
+      },
+      {
+        "id": "pool2a-8",
+        "type": "maxpool2dNode",
+        "position": { "x": 1350, "y": 100 },
+        "data": { "kernel_size": 2, "stride": 2 }
+      },
+      {
+        "id": "flatten1-9",
+        "type": "flattenNode",
+        "position": { "x": 1550, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "fc1a-10",
+        "type": "linearNode",
+        "position": { "x": 1750, "y": 200 },
+        "data": { "in_features": 1024, "out_features": 128 }
+      },
+      {
+        "id": "conv1b-11",
+        "type": "conv2dNode",
+        "position": { "x": 350, "y": 500 },
+        "data": { "in_channels": 1, "out_channels": 32, "kernel_size": 5, "stride": 1, "padding": 0 }
+      },
+      {
+        "id": "relu1b-12",
+        "type": "reluNode",
+        "position": { "x": 550, "y": 500 },
+        "data": {}
+      },
+      {
+        "id": "pool1b-13",
+        "type": "maxpool2dNode",
+        "position": { "x": 750, "y": 500 },
+        "data": { "kernel_size": 2, "stride": 2 }
+      },
+      {
+        "id": "conv2b-14",
+        "type": "conv2dNode",
+        "position": { "x": 950, "y": 500 },
+        "data": { "in_channels": 32, "out_channels": 64, "kernel_size": 5, "stride": 1, "padding": 0 }
+      },
+      {
+        "id": "relu2b-15",
+        "type": "reluNode",
+        "position": { "x": 1150, "y": 500 },
+        "data": {}
+      },
+      {
+        "id": "pool2b-16",
+        "type": "maxpool2dNode",
+        "position": { "x": 1350, "y": 500 },
+        "data": { "kernel_size": 2, "stride": 2 }
+      },
+      {
+        "id": "flatten2-17",
+        "type": "flattenNode",
+        "position": { "x": 1550, "y": 600 },
+        "data": {}
+      },
+      {
+        "id": "fc1b-18",
+        "type": "linearNode",
+        "position": { "x": 1750, "y": 600 },
+        "data": { "in_features": 1024, "out_features": 128 }
+      },
+      {
+        "id": "concat-19",
+        "type": "concatenateNode",
+        "position": { "x": 2000, "y": 400 },
+        "data": { "dim": 1 }
+      },
+      {
+        "id": "distance-20",
+        "type": "linearNode",
+        "position": { "x": 2200, "y": 400 },
+        "data": { "in_features": 256, "out_features": 1 }
+      },
+      {
+        "id": "sigmoid-21",
+        "type": "sigmoidNode",
+        "position": { "x": 2400, "y": 400 },
+        "data": {}
+      }
+    ],
+    "edges": [
+      { "id": "e1-3", "source": "input1-1", "target": "conv1a-3" },
+      { "id": "e3-4", "source": "conv1a-3", "target": "relu1a-4" },
+      { "id": "e4-5", "source": "relu1a-4", "target": "pool1a-5" },
+      { "id": "e5-6", "source": "pool1a-5", "target": "conv2a-6" },
+      { "id": "e6-7", "source": "conv2a-6", "target": "relu2a-7" },
+      { "id": "e7-8", "source": "relu2a-7", "target": "pool2a-8" },
+      { "id": "e8-9", "source": "pool2a-8", "target": "flatten1-9" },
+      { "id": "e9-10", "source": "flatten1-9", "target": "fc1a-10" },
+      { "id": "e2-11", "source": "input2-2", "target": "conv1b-11" },
+      { "id": "e11-12", "source": "conv1b-11", "target": "relu1b-12" },
+      { "id": "e12-13", "source": "relu1b-12", "target": "pool1b-13" },
+      { "id": "e13-14", "source": "pool1b-13", "target": "conv2b-14" },
+      { "id": "e14-15", "source": "conv2b-14", "target": "relu2b-15" },
+      { "id": "e15-16", "source": "relu2b-15", "target": "pool2b-16" },
+      { "id": "e16-17", "source": "pool2b-16", "target": "flatten2-17" },
+      { "id": "e17-18", "source": "flatten2-17", "target": "fc1b-18" },
+      { "id": "e10-19", "source": "fc1a-10", "target": "concat-19", "targetHandle": "input1" },
+      { "id": "e18-19", "source": "fc1b-18", "target": "concat-19", "targetHandle": "input2" },
+      { "id": "e19-20", "source": "concat-19", "target": "distance-20" },
+      { "id": "e20-21", "source": "distance-20", "target": "sigmoid-21" }
+    ]
+}

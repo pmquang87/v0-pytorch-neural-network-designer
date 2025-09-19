@@ -1,0 +1,73 @@
+{
+    "name": "Inception Module",
+    "description": "Inception block with parallel convolutions",
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "inputNode",
+        "position": { "x": 100, "y": 400 },
+        "data": { "channels": 192, "height": 28, "width": 28 }
+      },
+      {
+        "id": "conv1x1-2",
+        "type": "conv2dNode",
+        "position": { "x": 500, "y": 0 },
+        "data": { "in_channels": 192, "out_channels": 64, "kernel_size": 1, "stride": 1, "padding": 0 }
+      },
+      {
+        "id": "conv1x1_3x3-3",
+        "type": "conv2dNode",
+        "position": { "x": 500, "y": 250 },
+        "data": { "in_channels": 192, "out_channels": 96, "kernel_size": 1, "stride": 1, "padding": 0 }
+      },
+      {
+        "id": "conv3x3-4",
+        "type": "conv2dNode",
+        "position": { "x": 700, "y": 250 },
+        "data": { "in_channels": 96, "out_channels": 128, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "conv1x1_5x5-5",
+        "type": "conv2dNode",
+        "position": { "x": 500, "y": 500 },
+        "data": { "in_channels": 192, "out_channels": 16, "kernel_size": 1, "stride": 1, "padding": 0 }
+      },
+      {
+        "id": "conv5x5-6",
+        "type": "conv2dNode",
+        "position": { "x": 700, "y": 500 },
+        "data": { "in_channels": 16, "out_channels": 32, "kernel_size": 5, "stride": 1, "padding": 2 }
+      },
+      {
+        "id": "pool-7",
+        "type": "maxpool2dNode",
+        "position": { "x": 500, "y": 750 },
+        "data": { "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "conv1x1_pool-8",
+        "type": "conv2dNode",
+        "position": { "x": 700, "y": 750 },
+        "data": { "in_channels": 192, "out_channels": 32, "kernel_size": 1, "stride": 1, "padding": 0 }
+      },
+      {
+        "id": "concat-9",
+        "type": "concatenateNode",
+        "position": { "x": 1000, "y": 0 },
+        "data": { "dim": 1, "inputs": 4 }
+      }
+    ],
+    "edges": [
+      { "id": "e1-2", "source": "input-1", "target": "conv1x1-2" },
+      { "id": "e1-3", "source": "input-1", "target": "conv1x1_3x3-3" },
+      { "id": "e3-4", "source": "conv1x1_3x3-3", "target": "conv3x3-4" },
+      { "id": "e1-5", "source": "input-1", "target": "conv1x1_5x5-5" },
+      { "id": "e5-6", "source": "conv1x1_5x5-5", "target": "conv5x5-6" },
+      { "id": "e1-7", "source": "input-1", "target": "pool-7" },
+      { "id": "e7-8", "source": "pool-7", "target": "conv1x1_pool-8" },
+      { "id": "e2-9", "source": "conv1x1-2", "target": "concat-9", "targetHandle": "input1" },
+      { "id": "e4-9", "source": "conv3x3-4", "target": "concat-9", "targetHandle": "input2" },
+      { "id": "e6-9", "source": "conv5x5-6", "target": "concat-9", "targetHandle": "input3" },
+      { "id": "e8-9", "source": "conv1x1_pool-8", "target": "concat-9", "targetHandle": "input4" }
+    ]
+}

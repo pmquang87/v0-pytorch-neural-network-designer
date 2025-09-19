@@ -100,6 +100,8 @@ export class VisualizationGenerator {
       case "sigmoidNode":
       case "tanhNode":
       case "batchnorm2dNode":
+      case "addNode":
+      case "multiplyNode":
         // These layers don't change shape
         return inputShape
 
@@ -223,6 +225,7 @@ export class VisualizationGenerator {
           .linear-box { fill: #06b6d4; stroke: #0891b2; }
           .conv-box { fill: #10b981; stroke: #059669; }
           .activation-box { fill: #f59e0b; stroke: #d97706; }
+          .multiply-box { fill: #a855f7; stroke: #9333ea; }
           .layer-text { fill: white; font-family: 'Geist Sans', sans-serif; font-size: 14px; font-weight: 600; }
           .param-text { fill: #d1d5db; font-family: 'Geist Sans', sans-serif; font-size: 11px; }
           .shape-text { fill: #9ca3af; font-family: 'Geist Mono', monospace; font-size: 10px; }
@@ -285,6 +288,7 @@ export class VisualizationGenerator {
     if (type === "linearNode") return "linear-box"
     if (type === "conv2dNode") return "conv-box"
     if (["reluNode", "sigmoidNode", "tanhNode"].includes(type)) return "activation-box"
+    if (type === "multiplyNode") return "multiply-box"
     return ""
   }
 
@@ -303,6 +307,9 @@ export class VisualizationGenerator {
         return `${params.input_size || "?"} → ${params.hidden_size || "?"}`
       case "batchnorm2dNode":
         return `features=${params.num_features || "?"}`
+      case "addNode":
+      case "multiplyNode":
+        return `inputs: ${params.num_inputs || 2}`
       default:
         return ""
     }

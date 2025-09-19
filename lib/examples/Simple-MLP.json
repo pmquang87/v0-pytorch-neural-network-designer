@@ -1,0 +1,70 @@
+{
+    "name": "Simple MLP",
+    "description": "Basic Multi-Layer Perceptron with a flatten layer for image-like input.",
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "inputNode",
+        "position": { "x": 100, "y": 200 },
+        "data": { "channels": 1, "height": 28, "width": 28 }
+      },
+      {
+        "id": "flatten-1",
+        "type": "flattenNode",
+        "position": { "x": 300, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "linear-1",
+        "type": "linearNode",
+        "position": { "x": 500, "y": 200 },
+        "data": { "in_features": 784, "out_features": 256 }
+      },
+      {
+        "id": "relu-1",
+        "type": "reluNode",
+        "position": { "x": 700, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "linear-2",
+        "type": "linearNode",
+        "position": { "x": 900, "y": 200 },
+        "data": { "in_features": 256, "out_features": 128 }
+      },
+      {
+        "id": "relu-2",
+        "type": "reluNode",
+        "position": { "x": 1100, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "linear-3",
+        "type": "linearNode",
+        "position": { "x": 1300, "y": 200 },
+        "data": { "in_features": 128, "out_features": 64 }
+      },
+      {
+        "id": "relu-3",
+        "type": "reluNode",
+        "position": { "x": 1500, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "linear-4",
+        "type": "linearNode",
+        "position": { "x": 1700, "y": 200 },
+        "data": { "in_features": 64, "out_features": 10 }
+      }
+    ],
+    "edges": [
+      { "id": "e1-f1", "source": "input-1", "target": "flatten-1" },
+      { "id": "ef1-l1", "source": "flatten-1", "target": "linear-1" },
+      { "id": "el1-r1", "source": "linear-1", "target": "relu-1" },
+      { "id": "er1-l2", "source": "relu-1", "target": "linear-2" },
+      { "id": "el2-r2", "source": "linear-2", "target": "relu-2" },
+      { "id": "er2-l3", "source": "relu-2", "target": "linear-3" },
+      { "id": "el3-r3", "source": "linear-3", "target": "relu-3" },
+      { "id": "er3-l4", "source": "relu-3", "target": "linear-4" }
+    ]
+}

@@ -1,0 +1,119 @@
+{
+    "name": "MobileNetV1",
+    "description": "Complete MobileNetV1 architecture with depthwise separable convolutions",
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "inputNode",
+        "position": { "x": 100, "y": 100 },
+        "data": { "channels": 3, "height": 224, "width": 224 }
+      },
+      {
+        "id": "conv1-2",
+        "type": "conv2dNode",
+        "position": { "x": 300, "y": 100 },
+        "data": { "in_channels": 3, "out_channels": 32, "kernel_size": 3, "stride": 2, "padding": 1 }
+      },
+      {
+        "id": "bn1-3",
+        "type": "batchnorm2dNode",
+        "position": { "x": 500, "y": 100 },
+        "data": { "num_features": 32 }
+      },
+      {
+        "id": "relu1-4",
+        "type": "reluNode",
+        "position": { "x": 700, "y": 100 },
+        "data": {}
+      },
+      {
+        "id": "dw1-5",
+        "type": "separableconv2dNode",
+        "position": { "x": 900, "y": 100 },
+        "data": { "in_channels": 32, "out_channels": 64, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn2-6",
+        "type": "batchnorm2dNode",
+        "position": { "x": 1100, "y": 100 },
+        "data": { "num_features": 64 }
+      },
+      {
+        "id": "relu2-7",
+        "type": "reluNode",
+        "position": { "x": 1300, "y": 100 },
+        "data": {}
+      },
+      {
+        "id": "dw2-8",
+        "type": "separableconv2dNode",
+        "position": { "x": 1500, "y": 100 },
+        "data": { "in_channels": 64, "out_channels": 128, "kernel_size": 3, "stride": 2, "padding": 1 }
+      },
+      {
+        "id": "bn3-9",
+        "type": "batchnorm2dNode",
+        "position": { "x": 1700, "y": 100 },
+        "data": { "num_features": 128 }
+      },
+      {
+        "id": "relu3-10",
+        "type": "reluNode",
+        "position": { "x": 1900, "y": 100 },
+        "data": {}
+      },
+      {
+        "id": "dw3-11",
+        "type": "separableconv2dNode",
+        "position": { "x": 2100, "y": 100 },
+        "data": { "in_channels": 128, "out_channels": 128, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn4-12",
+        "type": "batchnorm2dNode",
+        "position": { "x": 2300, "y": 100 },
+        "data": { "num_features": 128 }
+      },
+      {
+        "id": "relu4-13",
+        "type": "reluNode",
+        "position": { "x": 2500, "y": 100 },
+        "data": {}
+      },
+      {
+        "id": "pool-14",
+        "type": "adaptiveavgpool2dNode",
+        "position": { "x": 2700, "y": 100 },
+        "data": { "output_size": [1, 1] }
+      },
+      {
+        "id": "flatten-15",
+        "type": "flattenNode",
+        "position": { "x": 2900, "y": 100 },
+        "data": {}
+      },
+      {
+        "id": "fc-16",
+        "type": "linearNode",
+        "position": { "x": 3100, "y": 100 },
+        "data": { "in_features": 128, "out_features": 1000 }
+      }
+    ],
+    "edges": [
+      { "id": "e1-2", "source": "input-1", "target": "conv1-2" },
+      { "id": "e2-3", "source": "conv1-2", "target": "bn1-3" },
+      { "id": "e3-4", "source": "bn1-3", "target": "relu1-4" },
+      { "id": "e4-5", "source": "relu1-4", "target": "dw1-5" },
+      { "id": "e5-6", "source": "dw1-5", "target": "bn2-6" },
+      { "id": "e6-7", "source": "bn2-6", "target": "relu2-7" },
+      { "id": "e7-8", "source": "relu2-7", "target": "dw2-8" },
+      { "id": "e8-9", "source": "dw2-8", "target": "bn3-9" },
+      { "id": "e9-10", "source": "bn3-9", "target": "relu3-10" },
+      { "id": "e10-11", "source": "relu3-10", "target": "dw3-11" },
+      { "id": "e11-12", "source": "dw3-11", "target": "bn4-12" },
+      { "id": "e12-13", "source": "bn4-12", "target": "relu4-13" },
+      { "id": "e13-14", "source": "relu4-13", "target": "pool-14" },
+      { "id": "e14-15", "source": "pool-14", "target": "flatten-15" },
+      { "id": "e15-16", "source": "flatten-15", "target": "fc-16" }
+    ]
+}

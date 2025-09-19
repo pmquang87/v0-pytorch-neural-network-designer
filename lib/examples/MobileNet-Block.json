@@ -1,0 +1,56 @@
+{
+    "name": "MobileNet Block",
+    "description": "Depthwise separable convolution block",
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "inputNode",
+        "position": { "x": 100, "y": 300 },
+        "data": { "channels": 32, "height": 112, "width": 112 }
+      },
+      {
+        "id": "depthwise-2",
+        "type": "depthwiseconv2dNode",
+        "position": { "x": 300, "y": 200 },
+        "data": { "in_channels": 32, "out_channels": 32, "kernel_size": 3, "stride": 1, "padding": 1, "groups": 32 }
+      },
+      {
+        "id": "bn1-3",
+        "type": "batchnorm2dNode",
+        "position": { "x": 500, "y": 200 },
+        "data": { "num_features": 32 }
+      },
+      {
+        "id": "relu1-4",
+        "type": "reluNode",
+        "position": { "x": 700, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "pointwise-5",
+        "type": "conv2dNode",
+        "position": { "x": 900, "y": 200 },
+        "data": { "in_channels": 32, "out_channels": 64, "kernel_size": 1, "stride": 1, "padding": 0 }
+      },
+      {
+        "id": "bn2-6",
+        "type": "batchnorm2dNode",
+        "position": { "x": 1100, "y": 200 },
+        "data": { "num_features": 64 }
+      },
+      {
+        "id": "relu2-7",
+        "type": "reluNode",
+        "position": { "x": 1300, "y": 300 },
+        "data": {}
+      }
+    ],
+    "edges": [
+      { "id": "e1-2", "source": "input-1", "target": "depthwise-2" },
+      { "id": "e2-3", "source": "depthwise-2", "target": "bn1-3" },
+      { "id": "e3-4", "source": "bn1-3", "target": "relu1-4" },
+      { "id": "e4-5", "source": "relu1-4", "target": "pointwise-5" },
+      { "id": "e5-6", "source": "pointwise-5", "target": "bn2-6" },
+      { "id": "e6-7", "source": "bn2-6", "target": "relu2-7" }
+    ]
+}

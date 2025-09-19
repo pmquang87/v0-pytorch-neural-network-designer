@@ -381,6 +381,10 @@ export const PYTORCH_LAYER_MANIFEST = {
     className: null, // Special handling in generator
     params: []
   },
+  multiplyNode: {
+    className: null, // Special handling in generator
+    params: []
+  },
   concatenateNode: {
     className: null, // Special handling in generator
     params: ["dim"]

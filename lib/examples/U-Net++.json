@@ -1,0 +1,86 @@
+{
+    "name": "U-Net++",
+    "description": "A full U-Net++ implementation with nested and dense skip connections.",
+    "nodes": [
+      { "id": "input-1", "type": "inputNode", "position": { "x": 150, "y": 150 }, "data": { "channels": 1, "height": 256, "width": 256 } },
+
+      { "id": "conv0_0", "type": "conv2dNode", "position": { "x": 450, "y": 150 }, "data": { "in_channels": 1, "out_channels": 64, "kernel_size": 3, "padding": 1 } },
+      { "id": "pool0", "type": "maxpool2dNode", "position": { "x": 450, "y": 450 }, "data": { "kernel_size": 2, "stride": 2 } },
+      { "id": "conv1_0", "type": "conv2dNode", "position": { "x": 450, "y": 750 }, "data": { "in_channels": 64, "out_channels": 128, "kernel_size": 3, "padding": 1 } },
+      { "id": "pool1", "type": "maxpool2dNode", "position": { "x": 450, "y": 1050 }, "data": { "kernel_size": 2, "stride": 2 } },
+      { "id": "conv2_0", "type": "conv2dNode", "position": { "x": 450, "y": 1350 }, "data": { "in_channels": 128, "out_channels": 256, "kernel_size": 3, "padding": 1 } },
+      { "id": "pool2", "type": "maxpool2dNode", "position": { "x": 450, "y": 1650 }, "data": { "kernel_size": 2, "stride": 2 } },
+      { "id": "conv3_0", "type": "conv2dNode", "position": { "x": 450, "y": 1950 }, "data": { "in_channels": 256, "out_channels": 512, "kernel_size": 3, "padding": 1 } },
+
+      { "id": "up1_0", "type": "convtranspose2dNode", "position": { "x": 750, "y": 450 }, "data": { "in_channels": 128, "out_channels": 64, "kernel_size": 2, "stride": 2 } },
+      { "id": "concat0_1", "type": "concatenateNode", "position": { "x": 1050, "y": 150 }, "data": { "dim": 1 } },
+      { "id": "conv0_1", "type": "conv2dNode", "position": { "x": 1350, "y": 150 }, "data": { "in_channels": 128, "out_channels": 64, "kernel_size": 3, "padding": 1 } },
+
+      { "id": "up2_0", "type": "convtranspose2dNode", "position": { "x": 750, "y": 1050 }, "data": { "in_channels": 256, "out_channels": 128, "kernel_size": 2, "stride": 2 } },
+      { "id": "concat1_1", "type": "concatenateNode", "position": { "x": 1050, "y": 750 }, "data": { "dim": 1 } },
+      { "id": "conv1_1", "type": "conv2dNode", "position": { "x": 1350, "y": 750 }, "data": { "in_channels": 256, "out_channels": 128, "kernel_size": 3, "padding": 1 } },
+
+      { "id": "up3_0", "type": "convtranspose2dNode", "position": { "x": 750, "y": 1650 }, "data": { "in_channels": 512, "out_channels": 256, "kernel_size": 2, "stride": 2 } },
+      { "id": "concat2_1", "type": "concatenateNode", "position": { "x": 1050, "y": 1350 }, "data": { "dim": 1 } },
+      { "id": "conv2_1", "type": "conv2dNode", "position": { "x": 1350, "y": 1350 }, "data": { "in_channels": 512, "out_channels": 256, "kernel_size": 3, "padding": 1 } },
+
+      { "id": "up1_1", "type": "convtranspose2dNode", "position": { "x": 1650, "y": 450 }, "data": { "in_channels": 128, "out_channels": 64, "kernel_size": 2, "stride": 2 } },
+      { "id": "concat0_2", "type": "concatenateNode", "position": { "x": 1950, "y": 150 }, "data": { "dim": 1 } },
+      { "id": "conv0_2", "type": "conv2dNode", "position": { "x": 2250, "y": 150 }, "data": { "in_channels": 192, "out_channels": 64, "kernel_size": 3, "padding": 1 } },
+
+      { "id": "up2_1", "type": "convtranspose2dNode", "position": { "x": 1650, "y": 1050 }, "data": { "in_channels": 256, "out_channels": 128, "kernel_size": 2, "stride": 2 } },
+      { "id": "concat1_2", "type": "concatenateNode", "position": { "x": 1950, "y": 750 }, "data": { "dim": 1 } },
+      { "id": "conv1_2", "type": "conv2dNode", "position": { "x": 2250, "y": 750 }, "data": { "in_channels": 384, "out_channels": 128, "kernel_size": 3, "padding": 1 } },
+
+      { "id": "up1_2", "type": "convtranspose2dNode", "position": { "x": 2550, "y": 450 }, "data": { "in_channels": 128, "out_channels": 64, "kernel_size": 2, "stride": 2 } },
+      { "id": "concat0_3", "type": "concatenateNode", "position": { "x": 2850, "y": 150 }, "data": { "dim": 1 } },
+      { "id": "conv0_3", "type": "conv2dNode", "position": { "x": 3150, "y": 150 }, "data": { "in_channels": 256, "out_channels": 64, "kernel_size": 3, "padding": 1 } },
+
+      { "id": "output", "type": "conv2dNode", "position": { "x": 3450, "y": 150 }, "data": { "in_channels": 64, "out_channels": 1, "kernel_size": 1 } }
+    ],
+    "edges": [
+      { "id": "e_in-c00", "source": "input-1", "target": "conv0_0" },
+      { "id": "e_c00-p0", "source": "conv0_0", "target": "pool0" },
+      { "id": "e_p0-c10", "source": "pool0", "target": "conv1_0" },
+      { "id": "e_c10-p1", "source": "conv1_0", "target": "pool1" },
+      { "id": "e_p1-c20", "source": "pool1", "target": "conv2_0" },
+      { "id": "e_c20-p2", "source": "conv2_0", "target": "pool2" },
+      { "id": "e_p2-c30", "source": "pool2", "target": "conv3_0" },
+
+      { "id": "e_c10-up10", "source": "conv1_0", "target": "up1_0" },
+      { "id": "e_up10-cat01", "source": "up1_0", "target": "concat0_1", "targetHandle": "input1" },
+      { "id": "e_c00-cat01", "source": "conv0_0", "target": "concat0_1", "targetHandle": "input2" },
+      { "id": "e_cat01-c01", "source": "concat0_1", "target": "conv0_1" },
+
+      { "id": "e_c20-up20", "source": "conv2_0", "target": "up2_0" },
+      { "id": "e_up20-cat11", "source": "up2_0", "target": "concat1_1", "targetHandle": "input1" },
+      { "id": "e_c10-cat11", "source": "conv1_0", "target": "concat1_1", "targetHandle": "input2" },
+      { "id": "e_cat11-c11", "source": "concat1_1", "target": "conv1_1" },
+
+      { "id": "e_c30-up30", "source": "conv3_0", "target": "up3_0" },
+      { "id": "e_up30-cat21", "source": "up3_0", "target": "concat2_1", "targetHandle": "input1" },
+      { "id": "e_c20-cat21", "source": "conv2_0", "target": "concat2_1", "targetHandle": "input2" },
+      { "id": "e_cat21-c21", "source": "concat2_1", "target": "conv2_1" },
+
+      { "id": "e_c11-up11", "source": "conv1_1", "target": "up1_1" },
+      { "id": "e_up11-cat02", "source": "up1_1", "target": "concat0_2", "targetHandle": "input1" },
+      { "id": "e_c00-cat02", "source": "conv0_0", "target": "concat0_2", "targetHandle": "input2" },
+      { "id": "e_c01-cat02", "source": "conv0_1", "target": "concat0_2", "targetHandle": "input3" },
+      { "id": "e_cat02-c02", "source": "concat0_2", "target": "conv0_2" },
+
+      { "id": "e_c21-up21", "source": "conv2_1", "target": "up2_1" },
+      { "id": "e_up21-cat12", "source": "up2_1", "target": "concat1_2", "targetHandle": "input1" },
+      { "id": "e_c10-cat12", "source": "conv1_0", "target": "concat1_2", "targetHandle": "input2" },
+      { "id": "e_c11-cat12", "source": "conv1_1", "target": "concat1_2", "targetHandle": "input3" },
+      { "id": "e_cat12-c12", "source": "concat1_2", "target": "conv1_2" },
+
+      { "id": "e_c12-up12", "source": "conv1_2", "target": "up1_2" },
+      { "id": "e_up12-cat03", "source": "up1_2", "target": "concat0_3", "targetHandle": "input1" },
+      { "id": "e_c00-cat03", "source": "conv0_0", "target": "concat0_3", "targetHandle": "input2" },
+      { "id": "e_c01-cat03", "source": "conv0_1", "target": "concat0_3", "targetHandle": "input3" },
+      { "id": "e_c02-cat03", "source": "conv0_2", "target": "concat0_3", "targetHandle": "input4" },
+      { "id": "e_cat03-c03", "source": "concat0_3", "target": "conv0_3" },
+
+      { "id": "e_c03-out", "source": "conv0_3", "target": "output" }
+    ]
+}

@@ -1,0 +1,98 @@
+{
+    "name": "LeNet-5",
+    "description": "Classic CNN for digit recognition (1998)",
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "inputNode",
+        "position": { "x": 100, "y": 300 },
+        "data": { "channels": 1, "height": 32, "width": 32 }
+      },
+      {
+        "id": "conv1-2",
+        "type": "conv2dNode",
+        "position": { "x": 300, "y": 200 },
+        "data": { "in_channels": 1, "out_channels": 6, "kernel_size": 5, "stride": 1, "padding": 0 }
+      },
+      {
+        "id": "relu1-3",
+        "type": "reluNode",
+        "position": { "x": 500, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "pool1-4",
+        "type": "avgpool2dNode",
+        "position": { "x": 700, "y": 200 },
+        "data": { "kernel_size": 2, "stride": 2 }
+      },
+      {
+        "id": "conv2-5",
+        "type": "conv2dNode",
+        "position": { "x": 900, "y": 200 },
+        "data": { "in_channels": 6, "out_channels": 16, "kernel_size": 5, "stride": 1, "padding": 0 }
+      },
+      {
+        "id": "relu2-6",
+        "type": "reluNode",
+        "position": { "x": 1100, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "pool2-7",
+        "type": "avgpool2dNode",
+        "position": { "x": 1300, "y": 200 },
+        "data": { "kernel_size": 2, "stride": 2 }
+      },
+      {
+        "id": "flatten-8",
+        "type": "flattenNode",
+        "position": { "x": 1500, "y": 300 },
+        "data": {}
+      },
+      {
+        "id": "fc1-9",
+        "type": "linearNode",
+        "position": { "x": 1700, "y": 300 },
+        "data": { "in_features": 400, "out_features": 120 }
+      },
+      {
+        "id": "relu3-10",
+        "type": "reluNode",
+        "position": { "x": 1900, "y": 300 },
+        "data": {}
+      },
+      {
+        "id": "fc2-11",
+        "type": "linearNode",
+        "position": { "x": 2100, "y": 300 },
+        "data": { "in_features": 120, "out_features": 84 }
+      },
+      {
+        "id": "relu4-12",
+        "type": "reluNode",
+        "position": { "x": 2300, "y": 300 },
+        "data": {}
+      },
+      {
+        "id": "fc3-13",
+        "type": "linearNode",
+        "position": { "x": 2500, "y": 300 },
+        "data": { "in_features": 84, "out_features": 10 }
+      }
+    ],
+    "edges": [
+      { "id": "e1-2", "source": "input-1", "target": "conv1-2" },
+      { "id": "e2-3", "source": "conv1-2", "target": "relu1-3" },
+      { "id": "e3-4", "source": "relu1-3", "target": "pool1-4" },
+      { "id": "e4-5", "source": "pool1-4", "target": "conv2-5" },
+      { "id": "e5-6", "source": "conv2-5", "target": "relu2-6" },
+      { "id": "e6-7", "source": "relu2-6", "target": "pool2-7" },
+      { "id": "e7-8", "source": "pool2-7", "target": "flatten-8" },
+      { "id": "e8-9", "source": "flatten-8", "target": "fc1-9" },
+      { "id": "e9-10", "source": "fc1-9", "target": "relu3-10" },
+      { "id": "e10-11", "source": "relu3-10", "target": "fc2-11" },
+      { "id": "e11-12", "source": "fc2-11", "target": "relu4-12" },
+      { "id": "e12-13", "source": "relu4-12", "target": "fc3-13" }
+    ]
+}

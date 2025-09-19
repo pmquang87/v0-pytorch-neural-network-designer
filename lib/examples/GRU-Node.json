@@ -1,0 +1,97 @@
+{
+    "name": "GRU Cell (Detailed)",
+    "description": "A detailed view of a Gated Recurrent Unit (GRU) cell. The layout has been improved for better visibility, and the connections are updated to accurately represent the data flow, showing the update gate (z_t), reset gate (r_t), candidate hidden state (n_t), and the final hidden state (h_t).",
+    "nodes": [
+      {
+        "id": "input-xt",
+        "type": "inputNode",
+        "position": { "x": 0, "y": 100 },
+        "data": { "label": "Input x_t" }
+      },
+      {
+        "id": "input-ht-1",
+        "type": "inputNode",
+        "position": { "x": 0, "y": 600 },
+        "data": { "label": "Prev. Hidden h_{t-1}" }
+      },
+      {
+        "id": "reset-gate",
+        "type": "sigmoidNode",
+        "position": { "x": 350, "y": 200 },
+        "data": { "label": "Reset Gate (r_t)" }
+      },
+      {
+        "id": "update-gate",
+        "type": "sigmoidNode",
+        "position": { "x": 350, "y": 500 },
+        "data": { "label": "Update Gate (z_t)" }
+      },
+      {
+        "id": "mul-r-h",
+        "type": "multiplyNode",
+        "position": { "x": 700, "y": 300 },
+        "data": {}
+      },
+      {
+        "id": "add-for-cand",
+        "type": "addNode",
+        "position": { "x": 1050, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "candidate-gate",
+        "type": "tanhNode",
+        "position": { "x": 1400, "y": 200 },
+        "data": { "label": "Candidate State (n_t)" }
+      },
+      {
+        "id": "one-minus-z",
+        "type": "inputNode",
+        "position": { "x": 700, "y": 600 },
+        "data": { "label": "1 - z_t" }
+      },
+      {
+        "id": "mul-1-z-n",
+        "type": "multiplyNode",
+        "position": { "x": 1750, "y": 350 },
+        "data": {}
+      },
+      {
+        "id": "mul-z-h",
+        "type": "multiplyNode",
+        "position": { "x": 1750, "y": 600 },
+        "data": {}
+      },
+      {
+        "id": "add-h",
+        "type": "addNode",
+        "position": { "x": 2100, "y": 475 },
+        "data": {}
+      },
+      {
+        "id": "output-ht",
+        "type": "inputNode",
+        "position": { "x": 2450, "y": 475 },
+        "data": { "label": "New Hidden h_t" }
+      }
+    ],
+    "edges": [
+      { "id": "e-xt-rg", "source": "input-xt", "target": "reset-gate" },
+      { "id": "e-ht1-rg", "source": "input-ht-1", "target": "reset-gate" },
+      { "id": "e-xt-ug", "source": "input-xt", "target": "update-gate" },
+      { "id": "e-ht1-ug", "source": "input-ht-1", "target": "update-gate" },
+      { "id": "e-rg-mulrh", "source": "reset-gate", "target": "mul-r-h", "targetHandle": "input1" },
+      { "id": "e-ht1-mulrh", "source": "input-ht-1", "target": "mul-r-h", "targetHandle": "input2" },
+      { "id": "e-ug-1mz", "source": "update-gate", "target": "one-minus-z" },
+      { "id": "e-xt-addcand", "source": "input-xt", "target": "add-for-cand", "targetHandle": "input1" },
+      { "id": "e-mulrh-addcand", "source": "mul-r-h", "target": "add-for-cand", "targetHandle": "input2" },
+      { "id": "e-addcand-cand", "source": "add-for-cand", "target": "candidate-gate" },
+      { "id": "e-1mz-mul", "source": "one-minus-z", "target": "mul-1-z-n", "targetHandle": "input1" },
+      { "id": "e-cand-mul", "source": "candidate-gate", "target": "mul-1-z-n", "targetHandle": "input2" },
+      { "id": "e-ug-mulzh", "source": "update-gate", "target": "mul-z-h", "targetHandle": "input1" },
+      { "id": "e-ht1-mulzh", "source": "input-ht-1", "target": "mul-z-h", "targetHandle": "input2" },
+      { "id": "e-mul1-addh", "source": "mul-1-z-n", "target": "add-h", "targetHandle": "input1" },
+      { "id": "e-mul2-addh", "source": "mul-z-h", "target": "add-h", "targetHandle": "input2" },
+      { "id": "e-addh-out", "source": "add-h", "target": "output-ht" }
+    ]
+  }

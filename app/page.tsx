@@ -43,6 +43,7 @@ import {
   Shrink,
   Eye,
   Plus,
+  X,
   GitBranch,
   Database,
   Layers,
@@ -93,6 +94,7 @@ import { LayerNormNode } from "@/components/nodes/LayerNormNode"
 import { GroupNormNode } from "@/components/nodes/GroupNormNode"
 import { ConcatenateNode } from "@/components/nodes/ConcatenateNode"
 import { AddNode } from "@/components/nodes/AddNode"
+import { MultiplyNode } from "@/components/nodes/MultiplyNode"
 import { LSTMNode } from "@/components/nodes/LSTMNode"
 import { GRUNode } from "@/components/nodes/GRUNode"
 import { Conv1DNode } from "@/components/nodes/Conv1DNode"
@@ -163,6 +165,7 @@ const nodeTypes: NodeTypes = {
   instancenorm3dNode: InstanceNorm3DNode,
   concatenateNode: ConcatenateNode,
   addNode: AddNode,
+  multiplyNode: MultiplyNode,
   lstmNode: LSTMNode,
   gruNode: GRUNode,
   multiheadattentionNode: MultiheadAttentionNode,
@@ -326,7 +329,7 @@ export default function NeuralNetworkDesigner() {
         const inputEdges = edges.filter((edge) => edge.target === nodeId)
         let allInputShapes: (TensorShape | undefined)[] = []
 
-        if (node.type === "concatenateNode" || node.type === "addNode") {
+        if (node.type === "concatenateNode" || node.type === "addNode" || node.type === "multiplyNode") {
           const numInputs = node.data.num_inputs || 2
           for (let i = 1; i <= numInputs; i++) {
             const handleId = `input${i}`
@@ -387,7 +390,7 @@ export default function NeuralNetworkDesigner() {
 
         const outputShape = calcOutputShape(node.type || "", cleanInputShapes, data)
 
-        if (node.type === "concatenateNode" || node.type === "addNode") {
+        if (node.type === "concatenateNode" || node.type === "addNode" || node.type === "multiplyNode") {
           node.data = {
             ...data,
             inputShape: allInputShapes,
@@ -1567,6 +1570,15 @@ export default function NeuralNetworkDesigner() {
                   </Card>
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
+                    onClick={() => addNode("multiplyNode", { num_inputs: 2 })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <X className="h-4 w-4 text-purple-500" />
+                      <span className="text-sm font-medium text-sidebar-foreground">Multiply</span>
+                    </div>
+                  </Card>
+                  <Card
+                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
                     onClick={() => addNode("concatenateNode", { dim: 1, num_inputs: 2 })}
                   >
                     <div className="flex items-center gap-2">
@@ -1959,6 +1971,17 @@ export default function NeuralNetworkDesigner() {
                     </>
                   )}
                   {selectedNode.type === "addNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Number of Inputs"
+                        value={selectedNode.data.num_inputs as number | undefined}
+                        defaultValue={2}
+                        min={2}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_inputs: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "multiplyNode" && (
                     <>
                       <EditableNumberInput
                         label="Number of Inputs"

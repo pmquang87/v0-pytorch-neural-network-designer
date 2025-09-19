@@ -57,22 +57,24 @@ export function validateTensorShapes(
 ): ShapeValidationResult {
   switch (nodeType) {
     case "addNode":
+    case "multiplyNode":
       if (inputShapes.length < 2) {
         return { isValid: true }; 
       }
-      const firstAddInputShape = inputShapes[0];
-      if (!firstAddInputShape) {
+      const firstInputShape = inputShapes[0];
+      if (!firstInputShape) {
         return { isValid: true }; // Cannot validate if first input is undefined
       }
 
       for (let i = 1; i < inputShapes.length; i++) {
-        const currentAddInputShape = inputShapes[i];
-        if (!currentAddInputShape) continue;
+        const currentInputShape = inputShapes[i];
+        if (!currentInputShape) continue;
 
-        if (!shapesCompatible(firstAddInputShape, currentAddInputShape)) {
+        if (!shapesCompatible(firstInputShape, currentInputShape)) {
+          const nodeName = nodeType === 'addNode' ? 'Add' : 'Multiply';
           return {
             isValid: false,
-            error: `Add error: Input ${i + 1} shape does not match the first input shape. All inputs must be identical for element-wise addition.`,
+            error: `${nodeName} error: Input ${i + 1} shape does not match the first input shape. All inputs must be identical for element-wise operations.`,
           };
         }
       }
@@ -118,6 +120,7 @@ export function validateTensorShapes(
       }
       break;
 
+    case "gruNode":
     case "lstmNode": {
       const lstmInputSize = nodeData.input_size;
       const inputFeatures = inputShapes[0]?.features || inputShapes[0]?.width;
@@ -476,6 +479,7 @@ export function calculateOutputShape(
         width: 1,
       };
 
+    case "gruNode":
     case "lstmNode":
       const sequenceLength = inputShape.sequence || inputShape.channels;
       return {
@@ -523,6 +527,7 @@ export function calculateOutputShape(
       return inputShape;
 
     case "addNode":
+    case "multiplyNode":
       // For element-wise addition, all inputs must have the same shape
       // Return the shape of the first valid input
       if (inputShapes.length > 0) {
@@ -646,7 +651,7 @@ export function inferDynamicShape(
   }
 
   // For operations that can work with multiple inputs, pass all shapes
-  if (nodeType === "addNode" || nodeType === "concatenateNode") {
+  if (nodeType === "addNode" || nodeType === "concatenateNode" || nodeType === "multiplyNode") {
     return calculateOutputShape(nodeType, inputShapes, nodeData);
   }
 
