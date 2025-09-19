@@ -1,2172 +1,1476 @@
 "use client"
 
 import type React from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
+import { type NodeTypes, ReactFlowProvider } from "reactflow"
+import "reactflow/dist/style.css"
 
-import { useState, useCallback, useEffect, useRef } from "react"
-import {
-  ReactFlow,
-  ReactFlowProvider,
-  MiniMap,
-  Controls,
-  Background,
-  useNodesState,
-  useEdgesState,
-  addEdge,
-  type Connection,
-  type Edge,
-  type Node,
-  type NodeTypes,
-  BackgroundVariant,
-} from "@xyflow/react"
-import "@xyflow/react/dist/style.css"
-
-import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useToast } from "@/hooks/use-toast"
-import { EditableNumberInput } from "@/components/ui/EditableNumberInput"
-import {
-  Brain,
-  Code,
-  RotateCcw,
-  Network,
-  HelpCircle,
-  BarChart3,
-  Loader2,
-  Download,
-  Copy,
-  Zap,
-  Shrink,
-  Eye,
-  Plus,
-  GitBranch,
-  Database,
-  Layers,
-} from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { AlertCircle, Download, Upload, Play, HelpCircle, Save, Trash2, Copy } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
-import { EXAMPLE_NETWORKS } from "@/lib/example-networks"
-import { calculateOutputShape as calcOutputShape, type TensorShape } from "@/lib/tensor-shape-calculator"
+import { validateModel } from "@/lib/model-validator"
+import { generatePyTorchCode } from "@/lib/code-generator"
+import { autoSave, loadFromAutoSave } from "@/lib/auto-save"
+import type { LayerType, LayerConfig, ValidationResult, NetworkState } from "@/lib/types"
 
-import { analyzeModel, formatNumber, type ModelAnalysis } from "@/lib/model-analyzer"
-
-// Custom Node Components
-import { InputNode } from "@/components/nodes/InputNode"
-import { LinearNode } from "@/components/nodes/LinearNode"
-import { Conv2DNode } from "@/components/nodes/Conv2DNode"
-import { ReLUNode } from "@/components/nodes/ReLUNode"
-import { SigmoidNode } from "@/components/nodes/SigmoidNode"
-import { TanhNode } from "@/components/nodes/TanhNode"
-import { SoftmaxNode } from "@/components/nodes/SoftmaxNode"
-import { LeakyReLUNode } from "@/components/nodes/LeakyReLUNode"
-import { DropoutNode } from "@/components/nodes/DropoutNode"
-import { FlattenNode } from "@/components/nodes/FlattenNode"
-import { MaxPool2DNode } from "@/components/nodes/MaxPool2DNode"
-import { AvgPool2DNode } from "@/components/nodes/AvgPool2DNode"
-import { AdaptiveAvgPool2DNode } from "@/components/nodes/AdaptiveAvgPool2DNode"
-import { BatchNorm1DNode } from "@/components/nodes/BatchNorm1DNode"
-import { BatchNorm2DNode } from "@/components/nodes/BatchNorm2DNode"
-import { LayerNormNode } from "@/components/nodes/LayerNormNode"
-import { GroupNormNode } from "@/components/nodes/GroupNormNode"
-import { ConcatenateNode } from "@/components/nodes/ConcatenateNode"
-import { AddNode } from "@/components/nodes/AddNode"
-import { LSTMNode } from "@/components/nodes/LSTMNode"
-import { GRUNode } from "@/components/nodes/GRUNode"
-import { Conv1DNode } from "@/components/nodes/Conv1DNode"
-import { Conv3DNode } from "@/components/nodes/Conv3DNode"
-import { ConvTranspose1DNode } from "@/components/nodes/ConvTranspose1DNode"
-import { ConvTranspose2DNode } from "@/components/nodes/ConvTranspose2DNode"
-import { ConvTranspose3DNode } from "@/components/nodes/ConvTranspose3DNode"
-import { DepthwiseConv2DNode } from "@/components/nodes/DepthwiseConv2DNode"
-import { SeparableConv2DNode } from "@/components/nodes/SeparableConv2DNode"
-import { GELUNode } from "@/components/nodes/GELUNode"
-import { SiLUNode } from "@/components/nodes/SiLUNode"
-import { MishNode } from "@/components/nodes/MishNode"
-import { HardswishNode } from "@/components/nodes/HardswishNode"
-import { HardsigmoidNode } from "@/components/nodes/HardsigmoidNode"
-import { InstanceNorm1DNode } from "@/components/nodes/InstanceNorm1DNode"
-import { InstanceNorm2DNode } from "@/components/nodes/InstanceNorm2DNode"
-import { InstanceNorm3DNode } from "@/components/nodes/InstanceNorm3DNode"
-import { MultiheadAttentionNode } from "@/components/nodes/MultiheadAttentionNode"
-import { TransformerEncoderLayerNode } from "@/components/nodes/TransformerEncoderLayerNode"
-import { TransformerDecoderLayerNode } from "@/components/nodes/TransformerDecoderLayerNode"
-import { TransposeNode } from "@/components/nodes/TransposeNode"
-import { SelectNode } from "@/components/nodes/SelectNode"
-
-const initialNodes: Node[] = [
-  {
-    id: "input-1",
-    type: "inputNode",
-    position: { x: 100, y: 100 },
-    data: { batch_size: 1, channels: 3, height: 28, width: 28 },
-  },
-]
-
-const initialEdges: Edge[] = []
-
-const nodeTypes: NodeTypes = {
-  inputNode: InputNode,
-  linearNode: LinearNode,
-  conv2dNode: Conv2DNode,
-  conv1dNode: Conv1DNode,
-  conv3dNode: Conv3DNode,
-  convtranspose1dNode: ConvTranspose1DNode,
-  convtranspose2dNode: ConvTranspose2DNode,
-  convtranspose3dNode: ConvTranspose3DNode,
-  depthwiseconv2dNode: DepthwiseConv2DNode,
-  separableconv2dNode: SeparableConv2DNode,
-  reluNode: ReLUNode,
-  sigmoidNode: SigmoidNode,
-  tanhNode: TanhNode,
-  softmaxNode: SoftmaxNode,
-  leakyreluNode: LeakyReLUNode,
-  geluNode: GELUNode,
-  siluNode: SiLUNode,
-  mishNode: MishNode,
-  hardswishNode: HardswishNode,
-  hardsigmoidNode: HardsigmoidNode,
-  dropoutNode: DropoutNode,
-  flattenNode: FlattenNode,
-  maxpool2dNode: MaxPool2DNode,
-  avgpool2dNode: AvgPool2DNode,
-  adaptiveavgpool2dNode: AdaptiveAvgPool2DNode,
-  batchnorm1dNode: BatchNorm1DNode,
-  batchnorm2dNode: BatchNorm2DNode,
-  layernormNode: LayerNormNode,
-  groupnormNode: GroupNormNode,
-  instancenorm1dNode: InstanceNorm1DNode,
-  instancenorm2dNode: InstanceNorm2DNode,
-  instancenorm3dNode: InstanceNorm3DNode,
-  concatenateNode: ConcatenateNode,
-  addNode: AddNode,
-  lstmNode: LSTMNode,
-  gruNode: GRUNode,
-  multiheadattentionNode: MultiheadAttentionNode,
-  transformerencoderlayerNode: TransformerEncoderLayerNode,
-  transformerdecoderlayerNode: TransformerDecoderLayerNode,
-  transposeNode: TransposeNode,
-  selectNode: SelectNode,
+interface CustomNode {
+  id: string
+  type: string
+  position: { x: number; y: number }
+  data: {
+    layerType: LayerType
+    config: LayerConfig
+    label: string
+  }
 }
 
-export default function NeuralNetworkDesigner() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null)
-  const [showCodeDialog, setShowCodeDialog] = useState(false)
+interface CustomEdge {
+  id: string
+  source: string
+  target: string
+}
+
+function LayerNodeComponent({
+  node,
+  isSelected,
+  onSelect,
+  onDragStart,
+  onDelete,
+}: {
+  node: CustomNode
+  isSelected: boolean
+  onSelect: () => void
+  onDragStart: (e: React.DragEvent) => void
+  onDelete: () => void
+}) {
+  return (
+    <div
+      className={`absolute bg-white border-2 rounded-lg p-3 cursor-move min-w-[120px] shadow-md ${
+        isSelected ? "border-blue-500 shadow-lg" : "border-gray-300"
+      }`}
+      style={{
+        left: node.position.x,
+        top: node.position.y,
+        transform: "translate(-50%, -50%)",
+      }}
+      onClick={onSelect}
+      draggable
+      onDragStart={onDragStart}
+    >
+      <div className="text-sm font-medium text-center">{node.data.label}</div>
+      <div className="text-xs text-gray-500 text-center mt-1">{node.data.layerType}</div>
+
+      {/* Connection points */}
+      <div
+        className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white connection-point"
+        data-type="input"
+      />
+      <div
+        className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white connection-point"
+        data-type="output"
+      />
+
+      {isSelected && (
+        <button
+          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  )
+}
+
+function CustomCanvas({
+  nodes,
+  edges,
+  selectedNode,
+  onNodeSelect,
+  onNodeMove,
+  onNodeDelete,
+  onConnect,
+}: {
+  nodes: CustomNode[]
+  edges: CustomEdge[]
+  selectedNode: CustomNode | null
+  onNodeSelect: (node: CustomNode | null) => void
+  onNodeMove: (nodeId: string, position: { x: number; y: number }) => void
+  onNodeDelete: (nodeId: string) => void
+  onConnect: (sourceId: string, targetId: string) => void
+}) {
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const [draggedNode, setDraggedNode] = useState<string | null>(null)
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [connecting, setConnecting] = useState<{ nodeId: string; type: "input" | "output" } | null>(null)
+
+  const handleNodeDragStart = (e: React.DragEvent, node: CustomNode) => {
+    setDraggedNode(node.id)
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (rect) {
+      setDragOffset({
+        x: e.clientX - rect.left - node.position.x,
+        y: e.clientY - rect.top - node.position.y,
+      })
+    }
+  }
+
+  const handleCanvasDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+  }
+
+  const handleCanvasDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    if (draggedNode) {
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (rect) {
+        const x = e.clientX - rect.left - dragOffset.x
+        const y = e.clientY - rect.top - dragOffset.y
+        onNodeMove(draggedNode, { x, y })
+      }
+      setDraggedNode(null)
+    }
+  }
+
+  const handleCanvasClick = (e: React.MouseEvent) => {
+    if (e.target === canvasRef.current) {
+      onNodeSelect(null)
+    }
+  }
+
+  const renderConnections = () => {
+    return edges.map((edge) => {
+      const sourceNode = nodes.find((n) => n.id === edge.source)
+      const targetNode = nodes.find((n) => n.id === edge.target)
+
+      if (!sourceNode || !targetNode) return null
+
+      return (
+        <line
+          key={edge.id}
+          x1={sourceNode.position.x}
+          y1={sourceNode.position.y + 20}
+          x2={targetNode.position.x}
+          y2={targetNode.position.y - 20}
+          stroke="#3b82f6"
+          strokeWidth="2"
+          markerEnd="url(#arrowhead)"
+        />
+      )
+    })
+  }
+
+  return (
+    <div
+      ref={canvasRef}
+      className="relative w-full h-full bg-gray-50 overflow-hidden"
+      onDragOver={handleCanvasDragOver}
+      onDrop={handleCanvasDrop}
+      onClick={handleCanvasClick}
+    >
+      {/* SVG for connections */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+          </marker>
+        </defs>
+        {renderConnections()}
+      </svg>
+
+      {/* Nodes */}
+      {nodes.map((node) => (
+        <LayerNodeComponent
+          key={node.id}
+          node={node}
+          isSelected={selectedNode?.id === node.id}
+          onSelect={() => onNodeSelect(node)}
+          onDragStart={(e) => handleNodeDragStart(e, node)}
+          onDelete={() => onNodeDelete(node.id)}
+        />
+      ))}
+
+      {/* Grid background */}
+      <div className="absolute inset-0 opacity-20 pointer-events-none">
+        <div
+          className="w-full h-full"
+          style={{
+            backgroundImage: `
+            linear-gradient(to right, #e5e7eb 1px, transparent 1px),
+            linear-gradient(to bottom, #e5e7eb 1px, transparent 1px)
+          `,
+            backgroundSize: "20px 20px",
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+const nodeTypes: NodeTypes = {
+  layer: LayerNodeComponent, // Use the custom component
+}
+
+const initialNodes: CustomNode[] = []
+const initialEdges: CustomEdge[] = []
+
+function NetworkDesigner() {
+  const [nodes, setNodes] = useState<CustomNode[]>(initialNodes)
+  const [edges, setEdges] = useState<CustomEdge[]>(initialEdges)
+  const [selectedNode, setSelectedNode] = useState<CustomNode | null>(null)
   const [generatedCode, setGeneratedCode] = useState("")
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
-  const { toast } = useToast()
-  const isUpdatingShapes = useRef(false)
-  const [copySuccess, setCopySuccess] = useState(false)
-
-  const [modelAnalysis, setModelAnalysis] = useState<ModelAnalysis | null>(null)
-  const [showAnalysisPanel, setShowAnalysisPanel] = useState(false)
-
+  const [isValidating, setIsValidating] = useState(false)
+  const [showCodeDialog, setShowCodeDialog] = useState(false)
+  const [showAnalysisDialog, setShowAnalysisDialog] = useState(false)
   const [showHelpDialog, setShowHelpDialog] = useState(false)
+  const [showImportDialog, setShowImportDialog] = useState(false)
+  const [importCode, setImportCode] = useState("")
+  const [networkName, setNetworkName] = useState("MyNetwork")
+  const [savedNetworks, setSavedNetworks] = useState<NetworkState[]>([])
 
-  const [showCodeInputDialog, setShowCodeInputDialog] = useState(false)
-  const [generatedModel, setShowGeneratedModel] = useState(false)
-  const [inputCode, setInputCode] = useState("")
-  const [parseErrors, setParseErrors] = useState<string[]>([])
-  const [parseWarnings, setParseWarnings] = useState<string[]>([])
-  const [unsupportedModules, setUnsupportedModules] = useState<string[]>([])
-
-  const reactFlowInstanceRef = useRef<any>(null)
-
-  // const [showFeedbackDialog, setShowFeedbackDialog] = useState(false)
-  // const [feedbackMessage, setFeedbackMessage] = useState("")
-  // const [feedbackEmail, setFeedbackEmail] = useState("")
-
-  const propagateTensorShapes = useCallback(() => {
-    if (isUpdatingShapes.current) return // Prevent recursive calls
-
-    isUpdatingShapes.current = true
-
-    setNodes((currentNodes) => {
-      const updatedNodes = currentNodes.map((node) => ({
-        ...node,
-        data: { ...node.data },
-      }))
-      const nodeMap = new Map(updatedNodes.map((node) => [node.id, node]))
-
-      // Topological sort to process nodes in correct order
-      const visited = new Set<string>()
-      const processing = new Set<string>()
-      const sorted: string[] = []
-
-      const visit = (nodeId: string) => {
-        if (processing.has(nodeId)) return // Cycle detected
-        if (visited.has(nodeId)) return
-
-        processing.add(nodeId)
-
-        // Find all nodes that this node connects to
-        const outgoingEdges = edges.filter((edge) => edge.source === nodeId)
-        for (const edge of outgoingEdges) {
-          visit(edge.target)
-        }
-
-        processing.delete(nodeId)
-        visited.add(nodeId)
-        sorted.unshift(nodeId)
-      }
-
-      // Visit all nodes
-      for (const node of updatedNodes) {
-        visit(node.id)
-      }
-
-      // Propagate shapes in topological order
-      for (const nodeId of sorted) {
-        const node = nodeMap.get(nodeId)
-        if (!node) continue
-
-        if (node.type === "inputNode") {
-          const inputShape: TensorShape = {
-            batch: (node.data as any).batch_size ?? 1,
-            channels: (node.data as any).channels ?? 3,
-            height: (node.data as any).height ?? 28,
-            width: (node.data as any).width ?? 28,
-          }
-          node.data = {
-            ...(node.data as any),
-            inputShape,
-            outputShape: inputShape,
-          }
-          continue
-        }
-
-        // Find input edges
-        const inputEdges = edges.filter((edge) => edge.target === nodeId)
-
-        let inputShape: TensorShape
-        if (inputEdges.length > 0) {
-          // Get input shape from the first connected node
-          const sourceNode = nodeMap.get(inputEdges[0].source)
-          if (sourceNode && sourceNode.data.outputShape) {
-            inputShape = {
-              batch: (sourceNode.data.outputShape as any).batch ?? 1,
-              channels: (sourceNode.data.outputShape as any).channels ?? 3,
-              height: (sourceNode.data.outputShape as any).height ?? 28,
-              width: (sourceNode.data.outputShape as any).width ?? 28,
-            }
-          } else {
-            inputShape = { batch: 1, channels: 3, height: 28, width: 28 }
-          }
-        } else {
-          inputShape = { batch: 1, channels: 3, height: 28, width: 28 }
-        }
-
-        // Calculate output shape using the imported function
-        const outputShape = calcOutputShape(node.type || "", inputShape, node.data)
-
-        node.data = {
-          ...node.data,
-          inputShape,
-          outputShape,
-        }
-      }
-
-      isUpdatingShapes.current = false
-      return updatedNodes
-    })
-  }, [edges, setNodes]) // Only depend on edges, not nodes
-
-  const onKeyDown = useCallback(
-    (event: React.KeyboardEvent) => {
-      if (event.key === "Delete" || event.key === "Backspace") {
-        if (selectedNode) {
-          setNodes((nodes) => nodes.filter((node) => node.id !== selectedNode.id))
-          setEdges((edges) =>
-            edges.filter((edge) => edge.source !== selectedNode.id && edge.target !== selectedNode.id),
-          )
-          setSelectedNode(null)
-
-          // Trigger tensor shape propagation after deletion
-          setTimeout(() => {
-            propagateTensorShapes()
-          }, 10)
-        }
-      }
-    },
-    [selectedNode, setNodes, setEdges, propagateTensorShapes],
-  )
-
-  const onConnect = useCallback(
-    (params: Connection) => {
-      console.log("[v0] Connection created:", params)
-      setEdges((eds) => addEdge(params, eds))
-      toast({
-        title: "Connection Created",
-        description: "Successfully connected layers",
-      })
-      setTimeout(() => {
-        propagateTensorShapes()
-      }, 0)
-    },
-    [setEdges, toast, propagateTensorShapes],
-  )
-
-  const addNode = useCallback(
-    (type: string, data: any = {}) => {
-      const newNode: Node = {
-        id: `${type}_${Date.now()}`,
-        type,
-        position: { x: Math.random() * 400 + 100, y: Math.random() * 400 + 100 },
-        data,
-      }
-      console.log("[v0] Adding node:", newNode)
-      setNodes((nds) => [...nds, newNode])
-    },
-    [setNodes],
-  )
-
-  const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
-      // Find the current node data from nodes state to avoid stale data
-      setNodes((currentNodes) => {
-        const currentNode = currentNodes.find((n) => n.id === node.id)
-        if (currentNode) {
-          console.log("[v0] Node selected:", currentNode)
-          setSelectedNode(currentNode)
-        }
-        return currentNodes // Don't modify nodes, just use this to access current state
-      })
-    },
-    [setNodes],
-  )
-
-  const updateNodeData = useCallback(
-    (nodeId: string, newData: any) => {
-      console.log("[v0] Updating node data:", nodeId, newData)
-      setNodes((nodes) => {
-        const updatedNodes = nodes.map((node) => {
-          if (node.id === nodeId) {
-            const updatedNode = {
-              ...node,
-              data: { ...node.data, ...newData },
-            }
-            // Update selectedNode if it's the same node
-            if (selectedNode && selectedNode.id === nodeId) {
-              setSelectedNode(updatedNode)
-            }
-            return updatedNode
-          }
-          return node
-        })
-        return updatedNodes
-      })
-      setTimeout(() => {
-        propagateTensorShapes()
-      }, 10)
-    },
-    [setNodes, propagateTensorShapes, selectedNode],
-  )
-
+  // Auto-save functionality
   useEffect(() => {
-    propagateTensorShapes()
-  }, [edges, propagateTensorShapes])
-
-  const loadExample = useCallback(
-    (example: any) => {
-      console.log("[v0] Loading example:", example.name)
-
-      try {
-        console.log("[v0] Validating node types...")
-        // Validate that all node types exist in nodeTypes mapping
-        const invalidNodeTypes = example.nodes.filter((node: any) => !nodeTypes[node.type])
-        if (invalidNodeTypes.length > 0) {
-          console.error(
-            "[v0] Invalid node types found:",
-            invalidNodeTypes.map((n: any) => n.type),
-          )
-          toast({
-            title: "Loading Failed",
-            description: `Example contains unsupported node types: ${invalidNodeTypes.map((n: any) => n.type).join(", ")}`,
-            variant: "destructive",
-          })
-          return
-        }
-        console.log("[v0] Node types validated successfully.")
-
-        console.log("[v0] Validating edges...")
-        // Validate edges reference existing nodes
-        const nodeIds = new Set(example.nodes.map((node: any) => node.id))
-        const invalidEdges = example.edges.filter((edge: any) => !nodeIds.has(edge.source) || !nodeIds.has(edge.target))
-        if (invalidEdges.length > 0) {
-          console.error("[v0] Invalid edges found:", invalidEdges)
-          toast({
-            title: "Loading Failed",
-            description: "Example contains invalid connections",
-            variant: "destructive",
-          })
-          return
-        }
-        console.log("[v0] Edges validated successfully.")
-
-        console.log("[v0] Setting nodes and edges...")
-        setNodes(example.nodes)
-        setEdges(example.edges)
-        setSelectedNode(null)
-
-        toast({
-          title: "Example Loaded",
-          description: `Successfully loaded ${example.name}`,
-        })
-
-        // Trigger tensor shape propagation and fit view after loading example
-        setTimeout(() => {
-          console.log("[v0] Triggering tensor shape propagation")
-          propagateTensorShapes()
-
-          if (reactFlowInstanceRef.current) {
-            reactFlowInstanceRef.current.fitView({ padding: 0.1, duration: 800 })
-          }
-        }, 100)
-      } catch (error) {
-        console.error("[v0] Error loading example:", error)
-        toast({
-          title: "Loading Failed",
-          description: `Failed to load ${example.name}: ${error}`,
-          variant: "destructive",
-        })
-      }
-    },
-    [setNodes, setEdges, toast, propagateTensorShapes, nodeTypes],
-  )
-
-  const resetCanvas = useCallback(() => {
-    setNodes(initialNodes)
-    setEdges(initialEdges)
-    setSelectedNode(null)
-    toast({
-      title: "Canvas Reset",
-      description: "Canvas has been reset to initial state",
-    })
-    // Trigger tensor shape propagation after reset
-    setTimeout(() => {
-      propagateTensorShapes()
-    }, 0)
-  }, [setNodes, setEdges, toast, propagateTensorShapes])
-
-  const analyzeCurrentModel = useCallback(() => {
-    if (nodes.length === 0) return
-
-    const analysis = analyzeModel(nodes, edges)
-    setModelAnalysis(analysis)
-    setShowAnalysisPanel(true)
+    const saveData = { nodes, edges, timestamp: Date.now() }
+    autoSave(saveData)
   }, [nodes, edges])
 
-  const generateModel = useCallback(async () => {
-    setIsGenerating(true)
-    try {
-      const response = await fetch("/api/generate-model", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nodes, edges }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to generate model")
-      }
-
-      const data = await response.json()
-      setGeneratedCode(data.code)
-
-      setShowCodeDialog(true)
-      toast({
-        title: "Model Generated",
-        description: "PyTorch model code generated successfully",
-      })
-    } catch (error) {
-      toast({
-        title: "Generation Failed",
-        description: "Failed to generate model code",
-        variant: "destructive",
-      })
-    } finally {
-      setIsGenerating(false)
-    }
-  }, [nodes, edges, toast])
-
-  const downloadCode = useCallback(() => {
-    if (!generatedCode) return
-
-    const blob = new Blob([generatedCode], { type: "text/python" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "neural_network_model.py"
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-
-    toast({
-      title: "Code Downloaded",
-      description: "Model code saved as neural_network_model.py",
-    })
-  }, [generatedCode, toast])
-
-  const copyCode = useCallback(async () => {
-    if (!generatedCode) return
-
-    try {
-      await navigator.clipboard.writeText(generatedCode)
-      setCopySuccess(true)
-      toast({
-        title: "Code Copied",
-        description: "Generated code copied to clipboard",
-      })
-      // Reset color after 2 seconds
-      setTimeout(() => setCopySuccess(false), 2000)
-    } catch (error) {
-      toast({
-        title: "Copy Failed",
-        description: "Failed to copy code to clipboard",
-        variant: "destructive",
-      })
-    }
-  }, [generatedCode, toast])
-
-  const parsePyTorchCode = useCallback((code: string) => {
-    const errors: string[] = []
-    const warnings: string[] = []
-    const unsupportedModules: string[] = []
-    const newNodes: Node[] = []
-    const newEdges: Edge[] = []
-
-    try {
-      console.log("[v0] Starting PyTorch code parsing...")
-
-      // Step 1: Find PyTorch model class with proper regex
-      const classPatterns = [
-        /class\s+(\w+)\s*$$\s*nn\.Module\s*$$:/,
-        /class\s+(\w+)\s*$$\s*torch\.nn\.Module\s*$$:/,
-        /class\s+(\w+)\s*$$[^)]*nn\.Module[^)]*$$:/,
-        /class\s+(\w+)\s*$$[^)]*torch\.nn\.Module[^)]*$$:/,
-      ]
-
-      let className = ""
-      let classFound = false
-
-      for (const pattern of classPatterns) {
-        const match = code.match(pattern)
-        if (match) {
-          className = match[1]
-          classFound = true
-          console.log(`[v0] Found PyTorch model class: ${className}`)
-          break
-        }
-      }
-
-      if (!classFound) {
-        errors.push(
-          "No PyTorch model class found. Expected 'class YourModelName(nn.Module):' or similar inheritance from nn.Module",
-        )
-        return { nodes: [], edges: [], errors, warnings, unsupportedModules }
-      }
-
-      // Step 2: Extract __init__ method content
-      const initPattern = /def\s+__init__\s*$$[^)]*$$\s*:([\s\S]*?)(?=\n\s*def\s+\w+|\n\s*class\s+\w+|$)/
-      const initMatch = code.match(initPattern)
-
-      if (!initMatch) {
-        errors.push("No __init__ method found in the model class")
-        return { nodes: [], edges: [], errors, warnings, unsupportedModules }
-      }
-
-      const initContent = initMatch[1]
-      console.log("[v0] Found __init__ method content")
-
-      // Step 3: Find all layer definitions with improved patterns
-      const layerPatterns = [
-        /self\.(\w+)\s*=\s*nn\.(\w+)\s*$$([^)]*)$$/g,
-        /self\.(\w+)\s*=\s*torch\.nn\.(\w+)\s*$$([^)]*)$$/g,
-      ]
-
-      const allLayerMatches: RegExpMatchArray[] = []
-
-      for (const pattern of layerPatterns) {
-        let match
-        while ((match = pattern.exec(initContent)) !== null) {
-          allLayerMatches.push(match)
-        }
-      }
-
-      if (allLayerMatches.length === 0) {
-        errors.push(
-          "No PyTorch layers found in __init__ method. Make sure layers are defined as 'self.layer_name = nn.LayerType(...)'",
-        )
-        return { nodes: [], edges: [], errors, warnings, unsupportedModules }
-      }
-
-      console.log(`[v0] Found ${allLayerMatches.length} layer definitions`)
-
-      // Step 4: Node type mapping
-      const nodeTypeMap: Record<string, string> = {
-        Linear: "linearNode",
-        Conv1d: "conv1dNode",
-        Conv2d: "conv2dNode",
-        Conv3d: "conv3dNode",
-        ConvTranspose1d: "convtranspose1dNode",
-        ConvTranspose2d: "convtranspose2dNode",
-        ConvTranspose3d: "convtranspose3dNode",
-        BatchNorm1d: "batchnorm1dNode",
-        BatchNorm2d: "batchnorm2dNode",
-        BatchNorm3d: "batchnorm3dNode",
-        LayerNorm: "layernormNode",
-        GroupNorm: "groupnormNode",
-        InstanceNorm1d: "instancenorm1dNode",
-        InstanceNorm2d: "instancenorm2dNode",
-        InstanceNorm3d: "instancenorm3dNode",
-        ReLU: "reluNode",
-        LeakyReLU: "leakyreluNode",
-        ELU: "eluNode",
-        GELU: "geluNode",
-        SiLU: "siluNode",
-        Mish: "mishNode",
-        Hardswish: "hardswishNode",
-        Hardsigmoid: "hardsigmoidNode",
-        Tanh: "tanhNode",
-        Sigmoid: "sigmoidNode",
-        Softmax: "softmaxNode",
-        LogSoftmax: "logsoftmaxNode",
-        MaxPool1d: "maxpool1dNode",
-        MaxPool2d: "maxpool2dNode",
-        MaxPool3d: "maxpool3dNode",
-        AvgPool1d: "avgpool1dNode",
-        AvgPool2d: "avgpool2dNode",
-        AvgPool3d: "avgpool3dNode",
-        AdaptiveAvgPool1d: "adaptiveavgpool1dNode",
-        AdaptiveAvgPool2d: "adaptiveavgpool2dNode",
-        AdaptiveAvgPool3d: "adaptiveavgpool3dNode",
-        AdaptiveMaxPool1d: "adaptivemaxpool1dNode",
-        AdaptiveMaxPool2d: "adaptivemaxpool2dNode",
-        Dropout: "dropoutNode",
-        Dropout2d: "dropout2dNode",
-        Dropout3d: "dropout3dNode",
-        LSTM: "lstmNode",
-        GRU: "gruNode",
-        MultiheadAttention: "multiheadattentionNode",
-        TransformerEncoderLayer: "transformerencoderlayerNode",
-        TransformerDecoderLayer: "transformerdecoderlayerNode",
-        Flatten: "flattenNode",
-        Unflatten: "unflattenNode",
-        Transpose: "transposeNode",
-        Add: "addNode",
-        Concatenate: "concatenateNode",
-      }
-
-      // Step 5: Create nodes from layer definitions
-      let yPosition = 100
-      const layerMap = new Map<string, string>()
-
-      allLayerMatches.forEach((match, index) => {
-        const [, layerName, layerType, params] = match
-        const nodeId = `${layerName}-${Date.now()}-${index}`
-        layerMap.set(layerName, nodeId)
-
-        const nodeType = nodeTypeMap[layerType]
-        if (!nodeType) {
-          unsupportedModules.push(layerType)
-          warnings.push(`Unsupported layer type: ${layerType}. This layer will be skipped in visualization.`)
-          return
-        }
-
-        const nodeData: any = { label: layerName }
-
-        // Parse parameters if they exist
-        if (params && params.trim()) {
-          try {
-            const paramPairs = parseParameters(params)
-            paramPairs.forEach((param) => {
-              if (!param) return
-
-              if (param.includes("=")) {
-                const [key, value] = param.split("=").map((s) => s.trim())
-                if (key && value) {
-                  nodeData[key] = parseParameterValue(value)
-                }
-              } else {
-                // Handle positional arguments
-                const numValue = Number.parseInt(param.trim())
-                if (!isNaN(numValue)) {
-                  mapPositionalParameter(layerType, nodeData, numValue)
-                }
-              }
-            })
-          } catch (paramError) {
-            warnings.push(`Could not parse parameters for ${layerName}: ${params}`)
-          }
-        }
-
-        const newNode: Node = {
-          id: nodeId,
-          type: nodeType,
-          position: { x: 300, y: yPosition },
-          data: nodeData,
-          draggable: true,
-          selectable: true,
-          deletable: true,
-        }
-
-        newNodes.push(newNode)
-        yPosition += 120
-      })
-
-      // Step 6: Create sequential connections
-      for (let i = 0; i < newNodes.length - 1; i++) {
-        const edgeId = `e-${newNodes[i].id}-${newNodes[i + 1].id}`
-        newEdges.push({
-          id: edgeId,
-          source: newNodes[i].id,
-          target: newNodes[i + 1].id,
-          type: "default",
-          animated: false,
-          deletable: true,
-        })
-      }
-
-      // Step 7: Add input node
-      if (newNodes.length > 0) {
-        const inputNode: Node = {
-          id: `input-${Date.now()}`,
-          type: "inputNode",
-          position: { x: 300, y: 20 },
-          data: { batch_size: 1, channels: 3, height: 224, width: 224 },
-          draggable: true,
-          selectable: true,
-          deletable: true,
-        }
-
-        newNodes.unshift(inputNode)
-
-        const inputEdgeId = `e-${inputNode.id}-${newNodes[1].id}`
-        newEdges.unshift({
-          id: inputEdgeId,
-          source: inputNode.id,
-          target: newNodes[1].id,
-          type: "default",
-          animated: false,
-          deletable: true,
-        })
-      }
-
-      // Step 8: Handle unsupported modules
-      if (unsupportedModules.length > 0) {
-        const uniqueUnsupported = [...new Set(unsupportedModules)]
-        warnings.push(`Found ${uniqueUnsupported.length} unsupported module types: ${uniqueUnsupported.join(", ")}`)
-        warnings.push("Consider requesting support for these modules in future updates.")
-      }
-
-      console.log(`[v0] Successfully parsed ${newNodes.length} nodes and ${newEdges.length} edges`)
-      return { nodes: newNodes, edges: newEdges, errors, warnings, unsupportedModules }
-    } catch (error) {
-      console.error("[v0] PyTorch parsing error:", error)
-      errors.push(`Parsing error: ${error instanceof Error ? error.message : "Unknown error"}`)
-      return { nodes: [], edges: [], errors, warnings, unsupportedModules }
+  // Load saved networks on mount
+  useEffect(() => {
+    const saved = loadFromAutoSave()
+    if (saved) {
+      setNodes(saved.nodes)
+      setEdges(saved.edges)
     }
   }, [])
 
-  // Helper function to parse parameters with proper parentheses handling
-  const parseParameters = (params: string): string[] => {
-    const result: string[] = []
-    let current = ""
-    let depth = 0
-    let inQuotes = false
-    let quoteChar = ""
+  const handleNodeMove = useCallback((nodeId: string, position: { x: number; y: number }) => {
+    setNodes((prev) => prev.map((node) => (node.id === nodeId ? { ...node, position } : node)))
+  }, [])
 
-    for (let i = 0; i < params.length; i++) {
-      const char = params[i]
+  const handleConnect = useCallback((sourceId: string, targetId: string) => {
+    const newEdge: CustomEdge = {
+      id: `${sourceId}-${targetId}`,
+      source: sourceId,
+      target: targetId,
+    }
+    setEdges((prev) => [...prev, newEdge])
+  }, [])
 
-      if (!inQuotes && (char === '"' || char === "'")) {
-        inQuotes = true
-        quoteChar = char
-      } else if (inQuotes && char === quoteChar) {
-        inQuotes = false
-        quoteChar = ""
-      } else if (!inQuotes && char === "(") {
-        depth++
-      } else if (!inQuotes && char === ")") {
-        depth--
-      } else if (!inQuotes && char === "," && depth === 0) {
-        if (current.trim()) {
-          result.push(current.trim())
+  const addLayer = useCallback((layerType: LayerType) => {
+    const newNode: CustomNode = {
+      id: `${layerType}-${Date.now()}`,
+      type: "layer",
+      position: {
+        x: Math.random() * 400 + 200,
+        y: Math.random() * 400 + 200,
+      },
+      data: {
+        layerType,
+        config: getDefaultConfig(layerType),
+        label: layerType.charAt(0).toUpperCase() + layerType.slice(1),
+      },
+    }
+    setNodes((prev) => [...prev, newNode])
+  }, [])
+
+  const updateNodeConfig = useCallback((nodeId: string, config: LayerConfig) => {
+    setNodes((prev) => prev.map((node) => (node.id === nodeId ? { ...node, data: { ...node.data, config } } : node)))
+  }, [])
+
+  const deleteNode = useCallback(
+    (nodeId: string) => {
+      setNodes((prev) => prev.filter((node) => node.id !== nodeId))
+      setEdges((prev) => prev.filter((edge) => edge.source !== nodeId && edge.target !== nodeId))
+      if (selectedNode?.id === nodeId) {
+        setSelectedNode(null)
+      }
+    },
+    [selectedNode],
+  )
+
+  const duplicateNode = useCallback(
+    (nodeId: string) => {
+      const nodeToDuplicate = nodes.find((node) => node.id === nodeId)
+      if (nodeToDuplicate) {
+        const newNode: CustomNode = {
+          ...nodeToDuplicate,
+          id: `${nodeToDuplicate.data.layerType}-${Date.now()}`,
+          position: {
+            x: nodeToDuplicate.position.x + 50,
+            y: nodeToDuplicate.position.y + 50,
+          },
         }
-        current = ""
-        continue
+        setNodes((prev) => [...prev, newNode])
       }
+    },
+    [nodes],
+  )
 
-      current += char
+  const validateNetwork = useCallback(async () => {
+    setIsValidating(true)
+    try {
+      const reactFlowNodes = nodes.map((node) => ({
+        id: node.id,
+        type: node.type,
+        position: node.position,
+        data: node.data,
+      }))
+      const reactFlowEdges = edges.map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+      }))
+      const result = await validateModel(reactFlowNodes, reactFlowEdges)
+      setValidationResult(result)
+    } catch (error) {
+      console.error("Validation error:", error)
+      setValidationResult({
+        isValid: false,
+        errors: ["Validation failed: " + (error as Error).message],
+        warnings: [],
+      })
+    } finally {
+      setIsValidating(false)
     }
+  }, [nodes, edges])
 
-    if (current.trim()) {
-      result.push(current.trim())
+  const generateCode = useCallback(async () => {
+    setIsGenerating(true)
+    try {
+      const reactFlowNodes = nodes.map((node) => ({
+        id: node.id,
+        type: node.type,
+        position: node.position,
+        data: node.data,
+      }))
+      const reactFlowEdges = edges.map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+      }))
+      const code = await generatePyTorchCode(reactFlowNodes, reactFlowEdges, networkName)
+      setGeneratedCode(code)
+      setShowCodeDialog(true)
+    } catch (error) {
+      console.error("Code generation error:", error)
+      setGeneratedCode(`# Error generating code: ${(error as Error).message}`)
+      setShowCodeDialog(true)
+    } finally {
+      setIsGenerating(false)
     }
+  }, [nodes, edges, networkName])
 
-    return result
+  const clearNetwork = useCallback(() => {
+    setNodes([])
+    setEdges([])
+    setSelectedNode(null)
+    setValidationResult(null)
+  }, [])
+
+  const saveNetwork = useCallback(() => {
+    const networkState: NetworkState = {
+      nodes,
+      edges,
+      timestamp: Date.now(),
+    }
+    const saved = [...savedNetworks, networkState]
+    setSavedNetworks(saved)
+    localStorage.setItem("savedNetworks", JSON.stringify(saved))
+  }, [nodes, edges, savedNetworks])
+
+  const loadNetwork = useCallback((networkState: NetworkState) => {
+    setNodes(networkState.nodes)
+    setEdges(networkState.edges)
+    setSelectedNode(null)
+  }, [])
+
+  function getDefaultConfig(layerType: LayerType): LayerConfig {
+    switch (layerType) {
+      case "linear":
+        return { in_features: 128, out_features: 64, bias: true }
+      case "conv2d":
+        return { in_channels: 3, out_channels: 64, kernel_size: 3, stride: 1, padding: 1 }
+      case "maxpool2d":
+        return { kernel_size: 2, stride: 2, padding: 0 }
+      case "avgpool2d":
+        return { kernel_size: 2, stride: 2, padding: 0 }
+      case "dropout":
+        return { p: 0.5, inplace: false }
+      case "batchnorm1d":
+        return { num_features: 128, eps: 1e-5, momentum: 0.1 }
+      case "batchnorm2d":
+        return { num_features: 64, eps: 1e-5, momentum: 0.1 }
+      case "relu":
+        return { inplace: false }
+      case "sigmoid":
+        return {}
+      case "tanh":
+        return {}
+      case "softmax":
+        return { dim: 1 }
+      case "leakyrelu":
+        return { negative_slope: 0.01, inplace: false }
+      case "elu":
+        return { alpha: 1.0, inplace: false }
+      case "gelu":
+        return {}
+      case "lstm":
+        return {
+          input_size: 128,
+          hidden_size: 64,
+          num_layers: 1,
+          bias: true,
+          batch_first: true,
+          dropout: 0,
+          bidirectional: false,
+        }
+      case "gru":
+        return {
+          input_size: 128,
+          hidden_size: 64,
+          num_layers: 1,
+          bias: true,
+          batch_first: true,
+          dropout: 0,
+          bidirectional: false,
+        }
+      case "embedding":
+        return {
+          num_embeddings: 1000,
+          embedding_dim: 128,
+          padding_idx: null,
+          max_norm: null,
+          norm_type: 2.0,
+          scale_grad_by_freq: false,
+          sparse: false,
+        }
+      case "layernorm":
+        return { normalized_shape: [128], eps: 1e-5, elementwise_affine: true }
+      case "multiheadattention":
+        return {
+          embed_dim: 128,
+          num_heads: 8,
+          dropout: 0.0,
+          bias: true,
+          add_bias_kv: false,
+          add_zero_attn: false,
+          kdim: null,
+          vdim: null,
+          batch_first: false,
+        }
+      case "transformer":
+        return {
+          d_model: 512,
+          nhead: 8,
+          num_encoder_layers: 6,
+          num_decoder_layers: 6,
+          dim_feedforward: 2048,
+          dropout: 0.1,
+          activation: "relu",
+          custom_encoder: null,
+          custom_decoder: null,
+          layer_norm_eps: 1e-5,
+          batch_first: false,
+          norm_first: false,
+        }
+      default:
+        return {}
+    }
   }
 
-  // Helper function to parse parameter values
-  const parseParameterValue = (value: string): any => {
-    const trimmedValue = value.trim()
-
-    if (trimmedValue === "True") return true
-    if (trimmedValue === "False") return false
-    if (trimmedValue === "None") return null
-    if (/^\d+$/.test(trimmedValue)) return Number.parseInt(trimmedValue)
-    if (/^\d*\.\d+$/.test(trimmedValue)) return Number.parseFloat(trimmedValue)
-
-    // Handle tuples like (3, 3)
-    if (/^$$[^)]+$$$/.test(trimmedValue)) {
-      const tupleMatch = trimmedValue.match(/$$([^)]+)$$/)
-      if (tupleMatch) {
-        const tupleValues = tupleMatch[1].split(",").map((v) => {
-          const num = Number.parseInt(v.trim())
-          return isNaN(num) ? v.trim() : num
-        })
-        return tupleValues.length === 1 ? tupleValues[0] : tupleValues
-      }
-    }
-
-    // String value, remove quotes
-    return trimmedValue.replace(/^['"]|['"]$/g, "")
-  }
-
-  // Helper function to map positional parameters
-  const mapPositionalParameter = (layerType: string, nodeData: any, numValue: number): void => {
-    const paramCount = Object.keys(nodeData).length - 1 // Subtract 1 for label
-
-    if (layerType === "Linear") {
-      if (paramCount === 0) nodeData.in_features = numValue
-      else if (paramCount === 1) nodeData.out_features = numValue
-    } else if (layerType.includes("Conv")) {
-      if (paramCount === 0) nodeData.in_channels = numValue
-      else if (paramCount === 1) nodeData.out_channels = numValue
-      else if (paramCount === 2) nodeData.kernel_size = numValue
-    }
-  }
-
-  const handleCodeInput = useCallback(() => {
-    console.log("[v0] Parsing PyTorch code...")
-    const result = parsePyTorchCode(inputCode)
-
-    if (result.errors.length > 0) {
-      console.log("[v0] Parse errors:", result.errors)
-      setParseErrors(result.errors)
-      setParseWarnings([])
-      setUnsupportedModules([])
-      return
-    }
-
-    if (result.nodes.length === 0) {
-      setParseErrors(["No valid layers found in the code"])
-      setParseWarnings([])
-      setUnsupportedModules([])
-      return
-    }
-
-    console.log("[v0] Successfully parsed", result.nodes.length, "nodes and", result.edges.length, "edges")
-
-    const feedbackMessages: string[] = []
-
-    if (result.warnings.length > 0) {
-      feedbackMessages.push(...result.warnings)
-    }
-
-    if (result.unsupportedModules.length > 0) {
-      const uniqueUnsupported = [...new Set(result.unsupportedModules)]
-      feedbackMessages.push(
-        `Missing modules for visualization: ${uniqueUnsupported.join(", ")}. ` +
-          `Consider requesting support for these modules in future updates.`,
+  const renderPropertyPanel = () => {
+    if (!selectedNode) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Properties</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Select a layer to edit its properties</p>
+          </CardContent>
+        </Card>
       )
     }
 
-    // Clear existing nodes and edges
-    setNodes([])
-    setEdges([])
-    setParseErrors([])
-    setParseWarnings(result.warnings)
-    setUnsupportedModules(result.unsupportedModules)
+    const { layerType, config } = selectedNode.data
 
-    // Add parsed nodes and edges
-    setTimeout(() => {
-      setNodes(result.nodes)
-      setEdges(result.edges)
-      setShowCodeInputDialog(false)
-      setInputCode("")
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            {layerType.charAt(0).toUpperCase() + layerType.slice(1)} Layer
+            <div className="flex gap-1">
+              <Button size="sm" variant="outline" onClick={() => duplicateNode(selectedNode.id)}>
+                <Copy className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => deleteNode(selectedNode.id)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">{renderLayerProperties(layerType, config, selectedNode.id)}</CardContent>
+      </Card>
+    )
+  }
 
-      // Show success message with module analysis
-      if (result.nodes.length > 0) {
-        const supportedCount = result.nodes.length - 1 // Exclude input node
-        const totalLayers = supportedCount + result.unsupportedModules.length
+  const renderLayerProperties = (layerType: LayerType, config: LayerConfig, nodeId: string) => {
+    const updateConfig = (updates: Partial<LayerConfig>) => {
+      updateNodeConfig(nodeId, { ...config, ...updates })
+    }
 
-        toast({
-          title: "PyTorch Code Imported",
-          description: `Successfully imported ${supportedCount}/${totalLayers} layers. ${
-            result.unsupportedModules.length > 0
-              ? `${result.unsupportedModules.length} unsupported modules were skipped.`
-              : "All modules are supported!"
-          }`,
-          duration: 5000,
-        })
-      }
+    switch (layerType) {
+      case "linear":
+        return (
+          <>
+            <div>
+              <Label htmlFor="in_features">Input Features</Label>
+              <Input
+                id="in_features"
+                type="number"
+                value={config.in_features || 128}
+                onChange={(e) => updateConfig({ in_features: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="out_features">Output Features</Label>
+              <Input
+                id="out_features"
+                type="number"
+                value={config.out_features || 64}
+                onChange={(e) => updateConfig({ out_features: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="bias"
+                checked={config.bias !== false}
+                onChange={(e) => updateConfig({ bias: e.target.checked })}
+              />
+              <Label htmlFor="bias">Use Bias</Label>
+            </div>
+          </>
+        )
 
-      // Trigger tensor shape propagation
-      setTimeout(() => {
-        console.log("[v0] Triggering tensor shape propagation after code import")
-        propagateTensorShapes()
-      }, 100)
-    }, 50)
-  }, [inputCode, parsePyTorchCode, propagateTensorShapes, toast])
+      case "conv2d":
+        return (
+          <>
+            <div>
+              <Label htmlFor="in_channels">Input Channels</Label>
+              <Input
+                id="in_channels"
+                type="number"
+                value={config.in_channels || 3}
+                onChange={(e) => updateConfig({ in_channels: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="out_channels">Output Channels</Label>
+              <Input
+                id="out_channels"
+                type="number"
+                value={config.out_channels || 64}
+                onChange={(e) => updateConfig({ out_channels: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="kernel_size">Kernel Size</Label>
+              <Input
+                id="kernel_size"
+                type="number"
+                value={config.kernel_size || 3}
+                onChange={(e) => updateConfig({ kernel_size: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="stride">Stride</Label>
+              <Input
+                id="stride"
+                type="number"
+                value={config.stride || 1}
+                onChange={(e) => updateConfig({ stride: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="padding">Padding</Label>
+              <Input
+                id="padding"
+                type="number"
+                value={config.padding || 1}
+                onChange={(e) => updateConfig({ padding: Number.parseInt(e.target.value) })}
+              />
+            </div>
+          </>
+        )
+
+      case "maxpool2d":
+      case "avgpool2d":
+        return (
+          <>
+            <div>
+              <Label htmlFor="kernel_size">Kernel Size</Label>
+              <Input
+                id="kernel_size"
+                type="number"
+                value={config.kernel_size || 2}
+                onChange={(e) => updateConfig({ kernel_size: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="stride">Stride</Label>
+              <Input
+                id="stride"
+                type="number"
+                value={config.stride || 2}
+                onChange={(e) => updateConfig({ stride: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="padding">Padding</Label>
+              <Input
+                id="padding"
+                type="number"
+                value={config.padding || 0}
+                onChange={(e) => updateConfig({ padding: Number.parseInt(e.target.value) })}
+              />
+            </div>
+          </>
+        )
+
+      case "dropout":
+        return (
+          <>
+            <div>
+              <Label htmlFor="p">Dropout Probability</Label>
+              <Input
+                id="p"
+                type="number"
+                step="0.1"
+                min="0"
+                max="1"
+                value={config.p || 0.5}
+                onChange={(e) => updateConfig({ p: Number.parseFloat(e.target.value) })}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="inplace"
+                checked={config.inplace === true}
+                onChange={(e) => updateConfig({ inplace: e.target.checked })}
+              />
+              <Label htmlFor="inplace">In-place</Label>
+            </div>
+          </>
+        )
+
+      case "batchnorm1d":
+      case "batchnorm2d":
+        return (
+          <>
+            <div>
+              <Label htmlFor="num_features">Number of Features</Label>
+              <Input
+                id="num_features"
+                type="number"
+                value={config.num_features || (layerType === "batchnorm1d" ? 128 : 64)}
+                onChange={(e) => updateConfig({ num_features: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="eps">Epsilon</Label>
+              <Input
+                id="eps"
+                type="number"
+                step="0.00001"
+                value={config.eps || 1e-5}
+                onChange={(e) => updateConfig({ eps: Number.parseFloat(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="momentum">Momentum</Label>
+              <Input
+                id="momentum"
+                type="number"
+                step="0.01"
+                value={config.momentum || 0.1}
+                onChange={(e) => updateConfig({ momentum: Number.parseFloat(e.target.value) })}
+              />
+            </div>
+          </>
+        )
+
+      case "relu":
+      case "leakyrelu":
+      case "elu":
+        return (
+          <>
+            {layerType === "leakyrelu" && (
+              <div>
+                <Label htmlFor="negative_slope">Negative Slope</Label>
+                <Input
+                  id="negative_slope"
+                  type="number"
+                  step="0.01"
+                  value={config.negative_slope || 0.01}
+                  onChange={(e) => updateConfig({ negative_slope: Number.parseFloat(e.target.value) })}
+                />
+              </div>
+            )}
+            {layerType === "elu" && (
+              <div>
+                <Label htmlFor="alpha">Alpha</Label>
+                <Input
+                  id="alpha"
+                  type="number"
+                  step="0.1"
+                  value={config.alpha || 1.0}
+                  onChange={(e) => updateConfig({ alpha: Number.parseFloat(e.target.value) })}
+                />
+              </div>
+            )}
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="inplace"
+                checked={config.inplace === true}
+                onChange={(e) => updateConfig({ inplace: e.target.checked })}
+              />
+              <Label htmlFor="inplace">In-place</Label>
+            </div>
+          </>
+        )
+
+      case "softmax":
+        return (
+          <div>
+            <Label htmlFor="dim">Dimension</Label>
+            <Input
+              id="dim"
+              type="number"
+              value={config.dim || 1}
+              onChange={(e) => updateConfig({ dim: Number.parseInt(e.target.value) })}
+            />
+          </div>
+        )
+
+      case "lstm":
+      case "gru":
+        return (
+          <>
+            <div>
+              <Label htmlFor="input_size">Input Size</Label>
+              <Input
+                id="input_size"
+                type="number"
+                value={config.input_size || 128}
+                onChange={(e) => updateConfig({ input_size: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="hidden_size">Hidden Size</Label>
+              <Input
+                id="hidden_size"
+                type="number"
+                value={config.hidden_size || 64}
+                onChange={(e) => updateConfig({ hidden_size: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="num_layers">Number of Layers</Label>
+              <Input
+                id="num_layers"
+                type="number"
+                value={config.num_layers || 1}
+                onChange={(e) => updateConfig({ num_layers: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="dropout">Dropout</Label>
+              <Input
+                id="dropout"
+                type="number"
+                step="0.1"
+                min="0"
+                max="1"
+                value={config.dropout || 0}
+                onChange={(e) => updateConfig({ dropout: Number.parseFloat(e.target.value) })}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="bias"
+                checked={config.bias !== false}
+                onChange={(e) => updateConfig({ bias: e.target.checked })}
+              />
+              <Label htmlFor="bias">Use Bias</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="batch_first"
+                checked={config.batch_first === true}
+                onChange={(e) => updateConfig({ batch_first: e.target.checked })}
+              />
+              <Label htmlFor="batch_first">Batch First</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="bidirectional"
+                checked={config.bidirectional === true}
+                onChange={(e) => updateConfig({ bidirectional: e.target.checked })}
+              />
+              <Label htmlFor="bidirectional">Bidirectional</Label>
+            </div>
+          </>
+        )
+
+      case "embedding":
+        return (
+          <>
+            <div>
+              <Label htmlFor="num_embeddings">Number of Embeddings</Label>
+              <Input
+                id="num_embeddings"
+                type="number"
+                value={config.num_embeddings || 1000}
+                onChange={(e) => updateConfig({ num_embeddings: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="embedding_dim">Embedding Dimension</Label>
+              <Input
+                id="embedding_dim"
+                type="number"
+                value={config.embedding_dim || 128}
+                onChange={(e) => updateConfig({ embedding_dim: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="padding_idx">Padding Index</Label>
+              <Input
+                id="padding_idx"
+                type="number"
+                value={config.padding_idx || ""}
+                onChange={(e) => updateConfig({ padding_idx: e.target.value ? Number.parseInt(e.target.value) : null })}
+              />
+            </div>
+          </>
+        )
+
+      case "layernorm":
+        return (
+          <>
+            <div>
+              <Label htmlFor="normalized_shape">Normalized Shape</Label>
+              <Input
+                id="normalized_shape"
+                value={Array.isArray(config.normalized_shape) ? config.normalized_shape.join(",") : "128"}
+                onChange={(e) =>
+                  updateConfig({ normalized_shape: e.target.value.split(",").map((x) => Number.parseInt(x.trim())) })
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="eps">Epsilon</Label>
+              <Input
+                id="eps"
+                type="number"
+                step="0.00001"
+                value={config.eps || 1e-5}
+                onChange={(e) => updateConfig({ eps: Number.parseFloat(e.target.value) })}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="elementwise_affine"
+                checked={config.elementwise_affine !== false}
+                onChange={(e) => updateConfig({ elementwise_affine: e.target.checked })}
+              />
+              <Label htmlFor="elementwise_affine">Elementwise Affine</Label>
+            </div>
+          </>
+        )
+
+      case "multiheadattention":
+        return (
+          <>
+            <div>
+              <Label htmlFor="embed_dim">Embed Dimension</Label>
+              <Input
+                id="embed_dim"
+                type="number"
+                value={config.embed_dim || 128}
+                onChange={(e) => updateConfig({ embed_dim: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="num_heads">Number of Heads</Label>
+              <Input
+                id="num_heads"
+                type="number"
+                value={config.num_heads || 8}
+                onChange={(e) => updateConfig({ num_heads: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="dropout">Dropout</Label>
+              <Input
+                id="dropout"
+                type="number"
+                step="0.1"
+                min="0"
+                max="1"
+                value={config.dropout || 0.0}
+                onChange={(e) => updateConfig({ dropout: Number.parseFloat(e.target.value) })}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="bias"
+                checked={config.bias !== false}
+                onChange={(e) => updateConfig({ bias: e.target.checked })}
+              />
+              <Label htmlFor="bias">Use Bias</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="batch_first"
+                checked={config.batch_first === true}
+                onChange={(e) => updateConfig({ batch_first: e.target.checked })}
+              />
+              <Label htmlFor="batch_first">Batch First</Label>
+            </div>
+          </>
+        )
+
+      case "transformer":
+        return (
+          <>
+            <div>
+              <Label htmlFor="d_model">Model Dimension</Label>
+              <Input
+                id="d_model"
+                type="number"
+                value={config.d_model || 512}
+                onChange={(e) => updateConfig({ d_model: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="nhead">Number of Heads</Label>
+              <Input
+                id="nhead"
+                type="number"
+                value={config.nhead || 8}
+                onChange={(e) => updateConfig({ nhead: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="num_encoder_layers">Encoder Layers</Label>
+              <Input
+                id="num_encoder_layers"
+                type="number"
+                value={config.num_encoder_layers || 6}
+                onChange={(e) => updateConfig({ num_encoder_layers: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="num_decoder_layers">Decoder Layers</Label>
+              <Input
+                id="num_decoder_layers"
+                type="number"
+                value={config.num_decoder_layers || 6}
+                onChange={(e) => updateConfig({ num_decoder_layers: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="dim_feedforward">Feedforward Dimension</Label>
+              <Input
+                id="dim_feedforward"
+                type="number"
+                value={config.dim_feedforward || 2048}
+                onChange={(e) => updateConfig({ dim_feedforward: Number.parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="dropout">Dropout</Label>
+              <Input
+                id="dropout"
+                type="number"
+                step="0.1"
+                min="0"
+                max="1"
+                value={config.dropout || 0.1}
+                onChange={(e) => updateConfig({ dropout: Number.parseFloat(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="activation">Activation</Label>
+              <Select
+                value={config.activation || "relu"}
+                onValueChange={(value) => updateConfig({ activation: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="relu">ReLU</SelectItem>
+                  <SelectItem value="gelu">GELU</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="batch_first"
+                checked={config.batch_first === true}
+                onChange={(e) => updateConfig({ batch_first: e.target.checked })}
+              />
+              <Label htmlFor="batch_first">Batch First</Label>
+            </div>
+          </>
+        )
+
+      default:
+        return <p className="text-sm text-muted-foreground">No configurable properties</p>
+    }
+  }
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      <div className="flex items-center justify-between p-4 border-b border-border bg-card">
-        <div className="flex items-center gap-3">
-          <Brain className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Neural Network Designer</h1>
-            <p className="text-sm text-muted-foreground">Build PyTorch models visually</p>
+    <div className="h-screen flex">
+      {/* Sidebar */}
+      <div className="w-80 bg-background border-r flex flex-col">
+        {/* Header */}
+        <div className="p-4 border-b">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-bold">PyTorch Designer</h1>
+            <Dialog open={showHelpDialog} onOpenChange={setShowHelpDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <HelpCircle className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>PyTorch Neural Network Designer - Help</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-6">
+                  <section>
+                    <h3 className="text-lg font-semibold mb-2">Getting Started</h3>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Welcome to the PyTorch Neural Network Designer! This tool helps you visually design neural
+                      networks and generate PyTorch code.
+                    </p>
+                    <ul className="text-sm space-y-1 ml-4">
+                      <li>• Add layers from the sidebar by clicking on them</li>
+                      <li>• Drag layers around the canvas to position them</li>
+                      <li>• Select layers to edit their properties in the Properties panel</li>
+                      <li>• Validate your network to check for errors</li>
+                      <li>• Generate PyTorch code when your network is ready</li>
+                    </ul>
+                  </section>
+
+                  <section>
+                    <h3 className="text-lg font-semibold mb-2">Available Layers</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <h4 className="font-medium mb-1">Core Layers</h4>
+                        <ul className="space-y-1 ml-2">
+                          <li>• Linear - Fully connected layer</li>
+                          <li>• Conv2D - 2D convolution</li>
+                          <li>• MaxPool2D - Max pooling</li>
+                          <li>• AvgPool2D - Average pooling</li>
+                          <li>• Dropout - Regularization</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className="font-medium mb-1">Activation Functions</h4>
+                        <ul className="space-y-1 ml-2">
+                          <li>• ReLU - Rectified Linear Unit</li>
+                          <li>• Sigmoid - Sigmoid activation</li>
+                          <li>• Tanh - Hyperbolic tangent</li>
+                          <li>• Softmax - Softmax activation</li>
+                          <li>• LeakyReLU - Leaky ReLU</li>
+                          <li>• ELU - Exponential Linear Unit</li>
+                          <li>• GELU - Gaussian Error Linear Unit</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className="font-medium mb-1">Normalization</h4>
+                        <ul className="space-y-1 ml-2">
+                          <li>• BatchNorm1D - 1D batch normalization</li>
+                          <li>• BatchNorm2D - 2D batch normalization</li>
+                          <li>• LayerNorm - Layer normalization</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className="font-medium mb-1">Recurrent & Advanced</h4>
+                        <ul className="space-y-1 ml-2">
+                          <li>• LSTM - Long Short-Term Memory</li>
+                          <li>• GRU - Gated Recurrent Unit</li>
+                          <li>• Embedding - Embedding layer</li>
+                          <li>• MultiheadAttention - Attention mechanism</li>
+                          <li>• Transformer - Full transformer</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className="text-lg font-semibold mb-2">Tips & Best Practices</h3>
+                    <ul className="text-sm space-y-1 ml-4">
+                      <li>• Always start with an input layer and end with an output layer</li>
+                      <li>• Use batch normalization after convolutional layers for better training</li>
+                      <li>• Add dropout layers to prevent overfitting</li>
+                      <li>• Validate your network before generating code</li>
+                      <li>• Save your work regularly using the auto-save feature</li>
+                      <li>• Use appropriate activation functions for your task</li>
+                    </ul>
+                  </section>
+
+                  <section>
+                    <h3 className="text-lg font-semibold mb-2">Keyboard Shortcuts</h3>
+                    <ul className="text-sm space-y-1 ml-4">
+                      <li>• Delete - Remove selected layer</li>
+                      <li>• Ctrl+C - Copy selected layer</li>
+                      <li>• Ctrl+V - Paste layer</li>
+                      <li>• Ctrl+Z - Undo (coming soon)</li>
+                      <li>• Ctrl+S - Save network</li>
+                    </ul>
+                  </section>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowHelpDialog(true)}>
-            <HelpCircle className="h-4 w-4 mr-2" />
-            Help
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Network className="h-4 w-4 mr-2" />
-                Load Example
+
+          <div className="space-y-2">
+            <div>
+              <Label htmlFor="network-name">Network Name</Label>
+              <Input
+                id="network-name"
+                value={networkName}
+                onChange={(e) => setNetworkName(e.target.value)}
+                placeholder="MyNetwork"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button onClick={validateNetwork} disabled={isValidating} size="sm" className="flex-1">
+                {isValidating ? "Validating..." : "Validate"}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              {EXAMPLE_NETWORKS.map((example) => (
-                <DropdownMenuItem key={example.name} onClick={() => loadExample(example)}>
-                  <div className="flex flex-col">
-                    <span className="font-medium">{example.name}</span>
-                    <span className="text-xs text-muted-foreground">{example.description}</span>
+              <Button onClick={generateCode} disabled={isGenerating} size="sm" className="flex-1">
+                <Play className="h-4 w-4 mr-1" />
+                {isGenerating ? "Generating..." : "Generate"}
+              </Button>
+            </div>
+
+            <div className="flex gap-2">
+              <Button onClick={saveNetwork} variant="outline" size="sm">
+                <Save className="h-4 w-4 mr-1" />
+                Save
+              </Button>
+              <Button onClick={clearNetwork} variant="outline" size="sm">
+                <Trash2 className="h-4 w-4 mr-1" />
+                Clear
+              </Button>
+              <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Upload className="h-4 w-4 mr-1" />
+                    Import
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Import PyTorch Code</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <Textarea
+                      placeholder="Paste your PyTorch model code here..."
+                      value={importCode}
+                      onChange={(e) => setImportCode(e.target.value)}
+                      rows={10}
+                    />
+                    <Button onClick={() => setShowImportDialog(false)}>Import Network</Button>
                   </div>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button variant="outline" size="sm" onClick={resetCanvas}>
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Reset
-          </Button>
-          <Button variant="outline" size="sm" onClick={analyzeCurrentModel} disabled={nodes.length === 0}>
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Analyze Model
-          </Button>
-          <Button onClick={generateModel} disabled={isGenerating} className="flex items-center">
-            {isGenerating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Code className="h-4 w-4 mr-2" />}
-            Generate PyTorch Code
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
-          <div className="p-4 border-b border-sidebar-border overflow-y-auto">
-            <h2 className="font-semibold text-sidebar-foreground mb-3">Layer Library</h2>
-            <div className="space-y-4">
-              {/* Input Section */}
-              <div>
-                <div className="text-sm text-sidebar-foreground/70 font-medium mb-2">Input</div>
-                <div className="space-y-2">
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("inputNode", { batch_size: 1, channels: 3, height: 28, width: 28 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Database className="h-4 w-4 text-purple-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Input</span>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Linear Section */}
-              <div>
-                <div className="text-sm text-sidebar-foreground/70 font-medium mb-2">Linear</div>
-                <div className="space-y-2">
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("linearNode", { in_features: 128, out_features: 64 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-blue-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Linear</span>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Convolution Section */}
-              <div>
-                <div className="text-sm text-sidebar-foreground/70 font-medium mb-2">Convolution</div>
-                <div className="space-y-2">
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("conv1dNode", { in_channels: 1, out_channels: 32, kernel_size: 3 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-green-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Conv1D</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("conv2dNode", { in_channels: 3, out_channels: 32, kernel_size: 3 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-green-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Conv2D</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("conv3dNode", { in_channels: 3, out_channels: 32, kernel_size: 3 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-green-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Conv3D</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() =>
-                      addNode("depthwiseconv2dNode", { in_channels: 32, out_channels: 32, kernel_size: 3, groups: 32 })
-                    }
-                  >
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-orange-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">DepthwiseConv2D</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() =>
-                      addNode("separableconv2dNode", { in_channels: 32, out_channels: 64, kernel_size: 3 })
-                    }
-                  >
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-purple-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">SeparableConv2D</span>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Transposed Convolution Section */}
-              <div>
-                <div className="text-sm text-sidebar-foreground/70 font-medium mb-2">Transposed Convolution</div>
-                <div className="space-y-2">
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() =>
-                      addNode("convtranspose1dNode", { in_channels: 32, out_channels: 16, kernel_size: 3 })
-                    }
-                  >
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-purple-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">ConvTranspose1D</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() =>
-                      addNode("convtranspose2dNode", { in_channels: 32, out_channels: 16, kernel_size: 3 })
-                    }
-                  >
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-purple-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">ConvTranspose2D</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() =>
-                      addNode("convtranspose3dNode", { in_channels: 32, out_channels: 16, kernel_size: 3 })
-                    }
-                  >
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-purple-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">ConvTranspose3D</span>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Activation Section */}
-              <div>
-                <div className="text-sm text-sidebar-foreground/70 font-medium mb-2">Activation</div>
-                <div className="space-y-2">
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("reluNode", {})}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">ReLU</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("leakyreluNode", { negative_slope: 0.01 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">LeakyReLU</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("geluNode", {})}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">GELU</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("siluNode", {})}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">SiLU</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("mishNode", {})}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Mish</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("hardswishNode", {})}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Hardswish</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("hardsigmoidNode", {})}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Hardsigmoid</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("sigmoidNode", {})}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Sigmoid</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("tanhNode", {})}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Tanh</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("softmaxNode", { dim: 1 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Softmax</span>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Pooling Section */}
-              <div>
-                <div className="text-sm text-sidebar-foreground/70 font-medium mb-2">Pooling</div>
-                <div className="space-y-2">
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("maxpool2dNode", { kernel_size: 2, stride: 2 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Shrink className="h-4 w-4 text-red-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">MaxPool2D</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("avgpool2dNode", { kernel_size: 2, stride: 2 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Shrink className="h-4 w-4 text-red-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">AvgPool2D</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("adaptiveavgpool2dNode", { output_size: [1, 1] })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Shrink className="h-4 w-4 text-red-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">AdaptiveAvgPool2D</span>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Normalization Section */}
-              <div>
-                <div className="text-sm text-sidebar-foreground/70 font-medium mb-2">Normalization</div>
-                <div className="space-y-2">
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("batchnorm1dNode", { num_features: 128 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-cyan-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">BatchNorm1D</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("batchnorm2dNode", { num_features: 32 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-cyan-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">BatchNorm2D</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("layernormNode", { normalized_shape: [128] })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-cyan-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">LayerNorm</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("groupnormNode", { num_groups: 8, num_channels: 32 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-cyan-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">GroupNorm</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("instancenorm1dNode", { num_features: 128 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-cyan-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">InstanceNorm1D</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("instancenorm2dNode", { num_features: 32 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-cyan-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">InstanceNorm2D</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("instancenorm3dNode", { num_features: 16 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-cyan-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">InstanceNorm3D</span>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Regularization Section */}
-              <div>
-                <div className="text-sm text-sidebar-foreground/70 font-medium mb-2">Regularization</div>
-                <div className="space-y-2">
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("dropoutNode", { p: 0.5 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Eye className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Dropout</span>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Utility Section */}
-              <div>
-                <div className="text-sm text-sidebar-foreground/70 font-medium mb-2">Utility</div>
-                <div className="space-y-2">
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("flattenNode", {})}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Flatten</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("transposeNode", { dim0: 0, dim1: 1 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <RotateCcw className="h-4 w-4 text-orange-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Transpose</span>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Advanced Operations Section */}
-              <div>
-                <div className="text-sm text-sidebar-foreground/70 font-medium mb-2">Advanced Operations</div>
-                <div className="space-y-2">
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("addNode", { num_inputs: 2 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Plus className="h-4 w-4 text-orange-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Add (Skip Connection)</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("concatenateNode", { dim: 1 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <GitBranch className="h-4 w-4 text-indigo-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">Concatenate</span>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Recurrent Section */}
-              <div>
-                <div className="text-sm text-sidebar-foreground/70 font-medium mb-2">Recurrent</div>
-                <div className="space-y-2">
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("lstmNode", { input_size: 128, hidden_size: 64 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Network className="h-4 w-4 text-pink-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">LSTM</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("gruNode", { input_size: 128, hidden_size: 64 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Network className="h-4 w-4 text-pink-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">GRU</span>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-              {/* Attention Section */}
-              <div>
-                <div className="text-sm text-sidebar-foreground/70 font-medium mb-2">Attention</div>
-                <div className="space-y-2">
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("multiheadattentionNode", { embed_dim: 128, num_heads: 8 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Network className="h-4 w-4 text-pink-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">MultiheadAttention</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("transformerencoderlayerNode", { d_model: 512, nhead: 8 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Network className="h-4 w-4 text-pink-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">TransformerEncoderLayer</span>
-                    </div>
-                  </Card>
-                  <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("transformerdecoderlayerNode", { d_model: 512, nhead: 8 })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Network className="h-4 w-4 text-pink-500" />
-                      <span className="text-sm font-medium text-sidebar-foreground">TransformerDecoderLayer</span>
-                    </div>
-                  </Card>
-                </div>
-              </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </div>
 
-        {/* Main Canvas Area */}
-        <div className="flex flex-1 flex">
-          <div className="flex-1 h-full w-full">
-            <ReactFlowProvider>
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                onNodeClick={onNodeClick}
-                nodeTypes={nodeTypes}
-                className="h-full w-full"
-                fitView
-                onKeyDown={onKeyDown}
-                tabIndex={0}
-                onInit={(reactFlowInstance) => {
-                  reactFlowInstanceRef.current = reactFlowInstance
-                }}
-              >
-                <Controls />
-                <MiniMap />
-                <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
-              </ReactFlow>
-            </ReactFlowProvider>
+        {/* Validation Results */}
+        {validationResult && (
+          <div className="p-4 border-b">
+            <Alert variant={validationResult.isValid ? "default" : "destructive"}>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {validationResult.isValid ? (
+                  "Network is valid!"
+                ) : (
+                  <div>
+                    <p className="font-medium">Validation Errors:</p>
+                    <ul className="mt-1 text-sm">
+                      {validationResult.errors.map((error, i) => (
+                        <li key={i}>• {error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {validationResult.warnings.length > 0 && (
+                  <div className="mt-2">
+                    <p className="font-medium">Warnings:</p>
+                    <ul className="mt-1 text-sm">
+                      {validationResult.warnings.map((warning, i) => (
+                        <li key={i}>• {warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
           </div>
+        )}
 
-          {/* Properties Panel */}
-          <div className="w-64 bg-sidebar border-l border-sidebar-border p-4">
-            <h3 className="font-semibold text-sidebar-foreground mb-4">Properties</h3>
-            {selectedNode ? (
-              <div className="space-y-4">
-                <div>
-                  <Badge variant="secondary" className="mb-2">
-                    {selectedNode.type}
-                  </Badge>
-                  <div className="text-sm text-sidebar-foreground/70">ID: {selectedNode.id}</div>
-                </div>
-                <Separator />
-                <div className="space-y-3">
-                  {selectedNode.type === "inputNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Batch Size"
-                        value={selectedNode.data.batch_size as number | undefined}
-                        defaultValue={1}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { batch_size: value })}
-                      />
-                      <EditableNumberInput
-                        label="Channels"
-                        value={selectedNode.data.channels as number | undefined}
-                        defaultValue={3}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { channels: value })}
-                      />
-                      <EditableNumberInput
-                        label="Height"
-                        value={selectedNode.data.height as number | undefined}
-                        defaultValue={28}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { height: value })}
-                      />
-                      <EditableNumberInput
-                        label="Width"
-                        value={selectedNode.data.width as number | undefined}
-                        defaultValue={28}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { width: value })}
-                      />
-                      <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
-                        Shape: [{selectedNode.data.batch_size ?? 1}, {selectedNode.data.channels ?? 3},
-                        {selectedNode.data.height ?? 28}, {selectedNode.data.width ?? 28}].join(", ")]
-                      </div>
-                    </>
-                  )}
-                  {selectedNode.type === "linearNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Input Features"
-                        value={selectedNode.data.in_features as number | undefined}
-                        defaultValue={128}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { in_features: value })}
-                      />
-                      <EditableNumberInput
-                        label="Output Features"
-                        value={selectedNode.data.out_features as number | undefined}
-                        defaultValue={64}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { out_features: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "conv2dNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Input Channels"
-                        value={selectedNode.data.in_channels as number | undefined}
-                        defaultValue={3}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { in_channels: value })}
-                      />
-                      <EditableNumberInput
-                        label="Output Channels"
-                        value={selectedNode.data.out_channels as number | undefined}
-                        defaultValue={32}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { out_channels: value })}
-                      />
-                      <EditableNumberInput
-                        label="Kernel Size"
-                        value={selectedNode.data.kernel_size as number | undefined}
-                        defaultValue={3}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { kernel_size: value })}
-                      />
-                      <EditableNumberInput
-                        label="Padding"
-                        value={selectedNode.data.padding as number | undefined}
-                        defaultValue={0}
-                        min={0}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { padding: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "dropoutNode" && (
-                    <>
-                      <div>
-                        <label className="text-sm font-medium text-sidebar-foreground">Dropout Probability (p)</label>
-                        <input
-                          type="number"
-                          value={(selectedNode.data.p as number) ?? 0.5}
-                          onChange={(e) =>
-                            updateNodeData(selectedNode.id, { p: Number.parseFloat(e.target.value) ?? 0.5 })
-                          }
-                          step={0.01}
-                          min={0}
-                          max={1}
-                          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
-                    </>
-                  )}
-                  {selectedNode.type === "batchnorm2dNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Number of Features"
-                        value={selectedNode.data.num_features as number | undefined}
-                        defaultValue={32}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_features: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "convtranspose2dNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Input Channels"
-                        value={selectedNode.data.in_channels as number | undefined}
-                        defaultValue={32}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { in_channels: value })}
-                      />
-                      <EditableNumberInput
-                        label="Output Channels"
-                        value={selectedNode.data.out_channels as number | undefined}
-                        defaultValue={16}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { out_channels: value })}
-                      />
-                      <EditableNumberInput
-                        label="Kernel Size"
-                        value={selectedNode.data.kernel_size as number | undefined}
-                        defaultValue={2}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { kernel_size: value })}
-                      />
-                      <EditableNumberInput
-                        label="Stride"
-                        value={selectedNode.data.stride as number | undefined}
-                        defaultValue={2}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { stride: value })}
-                      />
-                      <EditableNumberInput
-                        label="Padding"
-                        value={selectedNode.data.padding as number | undefined}
-                        defaultValue={0}
-                        min={0}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { padding: value })}
-                      />
-                      <EditableNumberInput
-                        label="Output Padding"
-                        value={selectedNode.data.output_padding as number | undefined}
-                        defaultValue={0}
-                        min={0}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { output_padding: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "maxpool2dNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Kernel Size"
-                        value={selectedNode.data.kernel_size as number | undefined}
-                        defaultValue={2}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { kernel_size: value })}
-                      />
-                      <EditableNumberInput
-                        label="Stride"
-                        value={selectedNode.data.stride as number | undefined}
-                        defaultValue={2}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { stride: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "adaptiveavgpool2dNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Output Height"
-                        value={
-                          selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size)
-                            ? ((selectedNode.data.output_size[0] as number | undefined) ?? 1)
-                            : 1
-                        }
-                        defaultValue={1}
-                        min={1}
-                        onUpdate={(value) =>
-                          updateNodeData(selectedNode.id, {
-                            output_size: [
-                              value,
-                              selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size)
-                                ? ((selectedNode.data.output_size[1] as number | undefined) ?? 1)
-                                : 1,
-                            ],
-                          })
-                        }
-                      />
-                      <EditableNumberInput
-                        label="Output Width"
-                        value={
-                          selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size)
-                            ? ((selectedNode.data.output_size[1] as number | undefined) ?? 1)
-                            : 1
-                        }
-                        defaultValue={1}
-                        min={1}
-                        onUpdate={(value) =>
-                          updateNodeData(selectedNode.id, {
-                            output_size: [
-                              selectedNode.data.output_size && Array.isArray(selectedNode.data.output_size)
-                                ? ((selectedNode.data.output_size[0] as number | undefined) ?? 1)
-                                : 1,
-                              value,
-                            ],
-                          })
-                        }
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "layernormNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Normalized Shape"
-                        value={selectedNode.data.normalized_shape as number | undefined}
-                        defaultValue={1}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { normalized_shape: value })}
-                      />
-                      <EditableNumberInput
-                        label="Epsilon (eps)"
-                        value={selectedNode.data.eps as number | undefined}
-                        defaultValue={1e-5}
-                        min={0}
-                        step={1e-6}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { eps: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "groupnormNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Number of Groups"
-                        value={selectedNode.data.num_groups as number | undefined}
-                        defaultValue={1}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_groups: value })}
-                      />
-                      <EditableNumberInput
-                        label="Number of Channels"
-                        value={selectedNode.data.num_channels as number | undefined}
-                        defaultValue={1}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_channels: value })}
-                      />
-                      <EditableNumberInput
-                        label="Epsilon (eps)"
-                        value={selectedNode.data.eps as number | undefined}
-                        defaultValue={1e-5}
-                        min={0}
-                        step={1e-6}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { eps: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "lstmNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Input Size"
-                        value={selectedNode.data.input_size as number | undefined}
-                        defaultValue={1}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { input_size: value })}
-                      />
-                      <EditableNumberInput
-                        label="Hidden Size"
-                        value={selectedNode.data.hidden_size as number | undefined}
-                        defaultValue={1}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { hidden_size: value })}
-                      />
-                      <EditableNumberInput
-                        label="Number of Layers"
-                        value={selectedNode.data.num_layers as number | undefined}
-                        defaultValue={1}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_layers: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "gruNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Input Size"
-                        value={selectedNode.data.input_size as number | undefined}
-                        defaultValue={1}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { input_size: value })}
-                      />
-                      <EditableNumberInput
-                        label="Hidden Size"
-                        value={selectedNode.data.hidden_size as number | undefined}
-                        defaultValue={1}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { hidden_size: value })}
-                      />
-                      <EditableNumberInput
-                        label="Number of Layers"
-                        value={selectedNode.data.num_layers as number | undefined}
-                        defaultValue={1}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_layers: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "multiheadattentionNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Embedding Dimension"
-                        value={selectedNode.data.embed_dim as number | undefined}
-                        defaultValue={128}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { embed_dim: value })}
-                      />
-                      <EditableNumberInput
-                        label="Number of Heads"
-                        value={selectedNode.data.num_heads as number | undefined}
-                        defaultValue={8}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_heads: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "transformerencoderlayerNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Model Dimension"
-                        value={selectedNode.data.d_model as number | undefined}
-                        defaultValue={512}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { d_model: value })}
-                      />
-                      <EditableNumberInput
-                        label="Number of Heads"
-                        value={selectedNode.data.nhead as number | undefined}
-                        defaultValue={8}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { nhead: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "transformerdecoderlayerNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Model Dimension"
-                        value={selectedNode.data.d_model as number | undefined}
-                        defaultValue={512}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { d_model: value })}
-                      />
-                      <EditableNumberInput
-                        label="Number of Heads"
-                        value={selectedNode.data.nhead as number | undefined}
-                        defaultValue={8}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { nhead: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "transposeNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Dimension 0"
-                        value={selectedNode.data.dim0 as number | undefined}
-                        defaultValue={0}
-                        min={0}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { dim0: value })}
-                      />
-                      <EditableNumberInput
-                        label="Dimension 1"
-                        value={selectedNode.data.dim1 as number | undefined}
-                        defaultValue={1}
-                        min={0}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { dim1: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "selectNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Dimension"
-                        value={selectedNode.data.dim as number | undefined}
-                        defaultValue={0}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { dim: value })}
-                      />
-                      <EditableNumberInput
-                        label="Index"
-                        value={selectedNode.data.index as number | undefined}
-                        defaultValue={0}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { index: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "addNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Number of Inputs"
-                        value={selectedNode.data.num_inputs as number | undefined}
-                        defaultValue={2}
-                        min={2}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_inputs: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "concatenateNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Dimension"
-                        value={selectedNode.data.dim as number | undefined}
-                        defaultValue={1}
-                        min={0}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { dim: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "softmaxNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Dimension"
-                        value={selectedNode.data.dim as number | undefined}
-                        defaultValue={1}
-                        min={0}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { dim: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "leakyreluNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Negative Slope"
-                        value={selectedNode.data.negative_slope as number | undefined}
-                        defaultValue={0.01}
-                        min={0}
-                        step={0.01}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { negative_slope: value })}
-                      />
-                    </>
-                  )}
-                </div>
-                {selectedNode.data.inputShape && (
-                  <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
-                    Input Shape: {JSON.stringify(selectedNode.data.inputShape)}
-                  </div>
-                )}
-                {selectedNode.data.outputShape && (
-                  <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
-                    Output Shape: {JSON.stringify(selectedNode.data.outputShape)}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center text-sidebar-foreground/60 py-8">
-                <Layers className="h-12 w-12 mx-auto mb-4 text-sidebar-foreground/30" />
-                <p>Select a node to view its properties</p>
-              </div>
-            )}
+        {/* Layer Palette */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-4">
+            <h2 className="text-sm font-semibold mb-3">Layers</h2>
+            <Tabs defaultValue="core" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="core">Core</TabsTrigger>
+                <TabsTrigger value="activation">Activation</TabsTrigger>
+                <TabsTrigger value="norm">Norm</TabsTrigger>
+                <TabsTrigger value="advanced">Advanced</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="core" className="space-y-2 mt-3">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("linear")}
+                >
+                  Linear
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("conv2d")}
+                >
+                  Conv2D
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("maxpool2d")}
+                >
+                  MaxPool2D
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("avgpool2d")}
+                >
+                  AvgPool2D
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("dropout")}
+                >
+                  Dropout
+                </Button>
+              </TabsContent>
+
+              <TabsContent value="activation" className="space-y-2 mt-3">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("relu")}
+                >
+                  ReLU
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("sigmoid")}
+                >
+                  Sigmoid
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("tanh")}
+                >
+                  Tanh
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("softmax")}
+                >
+                  Softmax
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("leakyrelu")}
+                >
+                  LeakyReLU
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("elu")}
+                >
+                  ELU
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("gelu")}
+                >
+                  GELU
+                </Button>
+              </TabsContent>
+
+              <TabsContent value="norm" className="space-y-2 mt-3">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("batchnorm1d")}
+                >
+                  BatchNorm1D
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("batchnorm2d")}
+                >
+                  BatchNorm2D
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("layernorm")}
+                >
+                  LayerNorm
+                </Button>
+              </TabsContent>
+
+              <TabsContent value="advanced" className="space-y-2 mt-3">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("lstm")}
+                >
+                  LSTM
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("gru")}
+                >
+                  GRU
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("embedding")}
+                >
+                  Embedding
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("multiheadattention")}
+                >
+                  MultiheadAttention
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-transparent"
+                  onClick={() => addLayer("transformer")}
+                >
+                  Transformer
+                </Button>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
+
+        {/* Properties Panel */}
+        <div className="border-t">
+          <ScrollArea className="h-80">
+            <div className="p-4">{renderPropertyPanel()}</div>
+          </ScrollArea>
+        </div>
+      </div>
+
+      {/* Main Canvas */}
+      <div className="flex-1 relative">
+        <CustomCanvas
+          nodes={nodes}
+          edges={edges}
+          selectedNode={selectedNode}
+          onNodeSelect={setSelectedNode}
+          onNodeMove={handleNodeMove}
+          onNodeDelete={deleteNode}
+          onConnect={handleConnect}
+        />
       </div>
 
       {/* Code Generation Dialog */}
       <Dialog open={showCodeDialog} onOpenChange={setShowCodeDialog}>
-        <DialogContent className="max-w-4xl w-full h-[80vh]">
+        <DialogContent className="max-w-4xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Generated PyTorch Code</DialogTitle>
-            <DialogDescription>Your neural network has been converted to PyTorch code</DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col h-full">
-            <div className="flex justify-end gap-2 mb-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={copyCode}
-                className={copySuccess ? "bg-green-100 border-green-300" : ""}
-              >
-                <Copy className="h-4 w-4 mr-2" />
-                {copySuccess ? "Copied!" : "Copy"}
-              </Button>
-              <Button variant="outline" size="sm" onClick={downloadCode}>
-                <Download className="h-4 w-4 mr-2" />
-                Download
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <Badge variant="secondary">{networkName}.py</Badge>
+              <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(generatedCode)}>
+                <Download className="h-4 w-4 mr-1" />
+                Copy Code
               </Button>
             </div>
-            <ScrollArea className="flex-1 border rounded-md">
-              <pre className="p-4 text-sm font-mono whitespace-pre-wrap">
+            <ScrollArea className="h-96">
+              <pre className="text-sm bg-muted p-4 rounded-md overflow-x-auto">
                 <code>{generatedCode}</code>
               </pre>
             </ScrollArea>
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Model Analysis Panel */}
-      <Dialog open={showAnalysisPanel} onOpenChange={setShowAnalysisPanel}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Model Analysis</DialogTitle>
-            <DialogDescription>Detailed analysis of your neural network architecture</DialogDescription>
-          </DialogHeader>
-          {modelAnalysis && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-muted rounded-lg">
-                  <div className="text-sm font-medium">Total Parameters</div>
-                  <div className="text-2xl font-bold text-primary">{formatNumber(modelAnalysis.totalParams)}</div>
-                </div>
-                <div className="p-3 bg-muted rounded-lg">
-                  <div className="text-sm font-medium">Trainable Parameters</div>
-                  <div className="text-2xl font-bold text-green-600">{formatNumber(modelAnalysis.trainableParams)}</div>
-                </div>
-                <div className="p-3 bg-muted rounded-lg">
-                  <div className="text-sm font-medium">Model Size</div>
-                  <div className="text-2xl font-bold text-blue-600">{modelAnalysis.modelSize}</div>
-                </div>
-                <div className="p-3 bg-muted rounded-lg">
-                  <div className="text-sm font-medium">Total Layers</div>
-                  <div className="text-2xl font-bold text-purple-600">{modelAnalysis.totalLayers}</div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2">Layer Breakdown</h4>
-                <div className="space-y-2">
-                  {Object.entries(modelAnalysis.layerBreakdown).map(([type, count]) => (
-                    <div key={type} className="flex justify-between items-center p-2 bg-muted/50 rounded">
-                      <span className="capitalize">{type.replace(/Node$/, "")}</span>
-                      <Badge variant="secondary">{count}</Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Help Dialog */}
-      <Dialog open={showHelpDialog} onOpenChange={setShowHelpDialog}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Neural Network Designer Help</DialogTitle>
-            <DialogDescription>Learn how to use the visual neural network designer</DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
-            <div className="space-y-6 pr-4">
-              <div>
-                <h3 className="font-semibold mb-2">Getting Started</h3>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  <li>• Drag layers from the sidebar to build your network</li>
-                  <li>• Connect layers by dragging from output to input handles</li>
-                  <li>• Select nodes to edit their properties in the right panel</li>
-                  <li>• Use Delete/Backspace to remove selected nodes</li>
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-2">Layer Categories</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <h4 className="font-medium text-blue-600">Linear</h4>
-                    <p className="text-muted-foreground">Fully connected layers</p>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-green-600">Convolution</h4>
-                    <p className="text-muted-foreground">1D, 2D, 3D convolutions</p>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-yellow-600">Activation</h4>
-                    <p className="text-muted-foreground">ReLU, Sigmoid, Tanh, etc.</p>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-red-600">Pooling</h4>
-                    <p className="text-muted-foreground">Max, Average pooling</p>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-cyan-600">Normalization</h4>
-                    <p className="text-muted-foreground">Batch, Layer, Group norms</p>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-pink-600">Recurrent</h4>
-                    <p className="text-muted-foreground">LSTM, GRU layers</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-2">Features</h3>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  <li>
-                    • <strong>Auto Shape Calculation:</strong> Tensor shapes are automatically computed
-                  </li>
-                  <li>
-                    • <strong>Code Generation:</strong> Export to PyTorch code
-                  </li>
-                  <li>
-                    • <strong>Model Analysis:</strong> View parameter counts and model size
-                  </li>
-                  <li>
-                    • <strong>Example Networks:</strong> Load pre-built architectures
-                  </li>
-                  <li>
-                    • <strong>Import Code:</strong> Parse existing PyTorch models
-                  </li>
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-2">Keyboard Shortcuts</h3>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  <li>
-                    • <kbd className="px-1 py-0.5 bg-muted rounded text-xs">Delete</kbd> - Remove selected node
-                  </li>
-                  <li>
-                    • <kbd className="px-1 py-0.5 bg-muted rounded text-xs">Backspace</kbd> - Remove selected node
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
-
-      {/* Code Input Dialog */}
-      <Dialog open={showCodeInputDialog} onOpenChange={setShowCodeInputDialog}>
-        <DialogContent className="max-w-4xl w-full h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>Import PyTorch Code</DialogTitle>
-            <DialogDescription>Paste your PyTorch model code to visualize it</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col h-full space-y-4">
-            <div className="flex-1">
-              <textarea
-                value={inputCode}
-                onChange={(e) => setInputCode(e.target.value)}
-                placeholder="Paste your PyTorch model code here..."
-                className="w-full h-full p-4 border rounded-md font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {parseErrors.length > 0 && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                <h4 className="font-medium text-red-800 mb-2">Parsing Errors:</h4>
-                <ul className="text-sm text-red-700 space-y-1">
-                  {parseErrors.map((error, index) => (
-                    <li key={index}>• {error}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {parseWarnings.length > 0 && (
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                <h4 className="font-medium text-yellow-800 mb-2">Warnings:</h4>
-                <ul className="text-sm text-yellow-700 space-y-1">
-                  {parseWarnings.map((warning, index) => (
-                    <li key={index}>• {warning}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowCodeInputDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCodeInput} disabled={!inputCode.trim()}>
-                Import Model
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Import Code Button */}
-      <div className="fixed bottom-4 right-4">
-        <Button onClick={() => setShowCodeInputDialog(true)} className="shadow-lg" size="sm">
-          <Code className="h-4 w-4 mr-2" />
-          Import Code
-        </Button>
-      </div>
     </div>
+  )
+}
+
+export default function Home() {
+  return (
+    <ReactFlowProvider>
+      <NetworkDesigner />
+    </ReactFlowProvider>
   )
 }
