@@ -882,7 +882,7 @@ export default function NeuralNetworkDesigner() {
       const uniqueUnsupported = [...new Set(result.unsupportedModules)]
       feedbackMessages.push(
         `Missing modules for visualization: ${uniqueUnsupported.join(", ")}. ` +
-          `Consider requesting these layer types to be added to the designer.`,
+          `Consider requesting support for these modules in future updates.`,
       )
     }
 
@@ -1822,14 +1822,14 @@ export default function NeuralNetworkDesigner() {
                   {selectedNode.type === "transformerencoderlayerNode" && (
                     <>
                       <EditableNumberInput
-                        label="D_model"
+                        label="Model Dimension"
                         value={selectedNode.data.d_model as number | undefined}
                         defaultValue={512}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { d_model: value })}
                       />
                       <EditableNumberInput
-                        label="Nhead"
+                        label="Number of Heads"
                         value={selectedNode.data.nhead as number | undefined}
                         defaultValue={8}
                         min={1}
@@ -1856,14 +1856,14 @@ export default function NeuralNetworkDesigner() {
                   {selectedNode.type === "transformerdecoderlayerNode" && (
                     <>
                       <EditableNumberInput
-                        label="D_model"
+                        label="Model Dimension"
                         value={selectedNode.data.d_model as number | undefined}
                         defaultValue={512}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { d_model: value })}
                       />
                       <EditableNumberInput
-                        label="Nhead"
+                        label="Number of Heads"
                         value={selectedNode.data.nhead as number | undefined}
                         defaultValue={8}
                         min={1}
@@ -1893,12 +1893,14 @@ export default function NeuralNetworkDesigner() {
                         label="Dimension 0"
                         value={selectedNode.data.dim0 as number | undefined}
                         defaultValue={0}
+                        min={0}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { dim0: value })}
                       />
                       <EditableNumberInput
                         label="Dimension 1"
                         value={selectedNode.data.dim1 as number | undefined}
                         defaultValue={1}
+                        min={0}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { dim1: value })}
                       />
                     </>
@@ -1919,7 +1921,60 @@ export default function NeuralNetworkDesigner() {
                       />
                     </>
                   )}
+                  {selectedNode.type === "addNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Number of Inputs"
+                        value={selectedNode.data.num_inputs as number | undefined}
+                        defaultValue={2}
+                        min={2}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_inputs: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "concatenateNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Dimension"
+                        value={selectedNode.data.dim as number | undefined}
+                        defaultValue={1}
+                        min={0}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { dim: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "softmaxNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Dimension"
+                        value={selectedNode.data.dim as number | undefined}
+                        defaultValue={1}
+                        min={0}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { dim: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "leakyreluNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Negative Slope"
+                        value={selectedNode.data.negative_slope as number | undefined}
+                        defaultValue={0.01}
+                        min={0}
+                        step={0.01}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { negative_slope: value })}
+                      />
+                    </>
+                  )}
                 </div>
+                {selectedNode.data.inputShape && (
+                  <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
+                    <div>Input: {JSON.stringify(selectedNode.data.inputShape)}</div>
+                    {selectedNode.data.outputShape && (
+                      <div>Output: {JSON.stringify(selectedNode.data.outputShape)}</div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center text-sidebar-foreground/60 py-8">
@@ -1977,6 +2032,7 @@ export default function NeuralNetworkDesigner() {
         </DialogContent>
       </Dialog>
 
+      {/* Model Analysis Panel */}
       <Dialog open={showAnalysisPanel} onOpenChange={setShowAnalysisPanel}>
         <DialogContent className="max-w-6xl max-h-[90vh] w-[95vw]">
           <DialogHeader>
