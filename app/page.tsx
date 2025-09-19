@@ -1808,15 +1808,6 @@ export default function NeuralNetworkDesigner() {
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { num_heads: value })}
                       />
-                      <EditableNumberInput
-                        label="Dropout"
-                        value={selectedNode.data.dropout as number | undefined}
-                        defaultValue={0.0}
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { dropout: value })}
-                      />
                     </>
                   )}
                   {selectedNode.type === "transformerencoderlayerNode" && (
@@ -1835,22 +1826,6 @@ export default function NeuralNetworkDesigner() {
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { nhead: value })}
                       />
-                      <EditableNumberInput
-                        label="Dim Feedforward"
-                        value={selectedNode.data.dim_feedforward as number | undefined}
-                        defaultValue={2048}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { dim_feedforward: value })}
-                      />
-                      <EditableNumberInput
-                        label="Dropout"
-                        value={selectedNode.data.dropout as number | undefined}
-                        defaultValue={0.1}
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { dropout: value })}
-                      />
                     </>
                   )}
                   {selectedNode.type === "transformerdecoderlayerNode" && (
@@ -1868,22 +1843,6 @@ export default function NeuralNetworkDesigner() {
                         defaultValue={8}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { nhead: value })}
-                      />
-                      <EditableNumberInput
-                        label="Dim Feedforward"
-                        value={selectedNode.data.dim_feedforward as number | undefined}
-                        defaultValue={2048}
-                        min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { dim_feedforward: value })}
-                      />
-                      <EditableNumberInput
-                        label="Dropout"
-                        value={selectedNode.data.dropout as number | undefined}
-                        defaultValue={0.1}
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { dropout: value })}
                       />
                     </>
                   )}
@@ -1969,10 +1928,12 @@ export default function NeuralNetworkDesigner() {
                 </div>
                 {selectedNode.data.inputShape && (
                   <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
-                    <div>Input: {JSON.stringify(selectedNode.data.inputShape)}</div>
-                    {selectedNode.data.outputShape && (
-                      <div>Output: {JSON.stringify(selectedNode.data.outputShape)}</div>
-                    )}
+                    Input Shape: {JSON.stringify(selectedNode.data.inputShape)}
+                  </div>
+                )}
+                {selectedNode.data.outputShape && (
+                  <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
+                    Output Shape: {JSON.stringify(selectedNode.data.outputShape)}
                   </div>
                 )}
               </div>
@@ -1988,478 +1949,224 @@ export default function NeuralNetworkDesigner() {
 
       {/* Code Generation Dialog */}
       <Dialog open={showCodeDialog} onOpenChange={setShowCodeDialog}>
-        <DialogContent className="max-w-6xl w-full h-[80vh] flex flex-col">
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <DialogHeader>
-              <DialogTitle>Generated PyTorch Model</DialogTitle>
-              <DialogDescription>
-                Here's the PyTorch code for your model. Click a node to view its specific code.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-              <div className="flex-1 relative">
-                <ScrollArea className="h-full w-full rounded-md border p-4 font-mono text-sm">
-                  <pre className="whitespace-pre-wrap">
-                    {selectedNode
-                      ? `// Code for ${selectedNode.data.label || selectedNode.type} (getNodeCode not yet implemented)
-`
-                      : generatedCode}
-                  </pre>
-                </ScrollArea>
-                {generatedCode && (
-                  <div className="absolute bottom-2 right-2 flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={copyCode}
-                      className={copySuccess ? "bg-green-500 text-white" : ""}
-                    >
-                      {copySuccess ? "Copied!" : <Copy className="h-4 w-4" />}
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={downloadCode}>
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="flex justify-end pt-4 border-t">
-              <Button variant="outline" onClick={() => setShowCodeDialog(false)}>
-                Close
+        <DialogContent className="max-w-4xl w-full h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Generated PyTorch Code</DialogTitle>
+            <DialogDescription>Your neural network has been converted to PyTorch code</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col h-full">
+            <div className="flex justify-end gap-2 mb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={copyCode}
+                className={copySuccess ? "bg-green-100 border-green-300" : ""}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                {copySuccess ? "Copied!" : "Copy"}
+              </Button>
+              <Button variant="outline" size="sm" onClick={downloadCode}>
+                <Download className="h-4 w-4 mr-2" />
+                Download
               </Button>
             </div>
+            <ScrollArea className="flex-1 border rounded-md">
+              <pre className="p-4 text-sm font-mono whitespace-pre-wrap">
+                <code>{generatedCode}</code>
+              </pre>
+            </ScrollArea>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Model Analysis Panel */}
       <Dialog open={showAnalysisPanel} onOpenChange={setShowAnalysisPanel}>
-        <DialogContent className="max-w-6xl max-h-[90vh] w-[95vw]">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Model Analysis</DialogTitle>
+            <DialogDescription>Detailed analysis of your neural network architecture</DialogDescription>
           </DialogHeader>
           {modelAnalysis && (
-            <div className="space-y-6">
-              {/* Model Summary */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600 break-words">
-                    {formatNumber(modelAnalysis.totalParameters)}
-                  </div>
-                  <div className="text-sm text-blue-800">Total Parameters</div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="text-sm font-medium">Total Parameters</div>
+                  <div className="text-2xl font-bold text-primary">{formatNumber(modelAnalysis.totalParams)}</div>
                 </div>
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600 break-words">
-                    {formatNumber(modelAnalysis.totalFLOPs)}
-                  </div>
-                  <div className="text-sm text-green-800">FLOPs</div>
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="text-sm font-medium">Trainable Parameters</div>
+                  <div className="text-2xl font-bold text-green-600">{formatNumber(modelAnalysis.trainableParams)}</div>
                 </div>
-                <div className="p-4 bg-purple-50 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-600 break-words">
-                    {modelAnalysis.modelSizeMB.toFixed(2)} MB
-                  </div>
-                  <div className="text-sm text-purple-800">Model Size</div>
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="text-sm font-medium">Model Size</div>
+                  <div className="text-2xl font-bold text-blue-600">{modelAnalysis.modelSize}</div>
                 </div>
-                <div className="p-4 bg-orange-50 rounded-lg">
-                  <div className="text-2xl font-bold text-orange-600 break-words">
-                    {modelAnalysis.estimatedInferenceTimeMs.toFixed(2)} ms
-                  </div>
-                  <div className="text-sm text-orange-800">Est. Inference Time</div>
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="text-sm font-medium">Total Layers</div>
+                  <div className="text-2xl font-bold text-purple-600">{modelAnalysis.totalLayers}</div>
                 </div>
               </div>
 
-              {/* Layer-by-Layer Analysis */}
               <div>
-                <h3 className="text-lg font-semibold mb-3">Layer Analysis</h3>
-                <ScrollArea className="h-64 w-full rounded-md border">
-                  <div className="p-4">
-                    <div className="space-y-2">
-                      {modelAnalysis.layers.map((layer, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg min-w-0"
-                        >
-                          <div className="flex-1 min-w-0 mr-4">
-                            <div className="font-medium text-sm truncate">{layer.name}</div>
-                            <div className="text-xs text-gray-600 truncate">{layer.type}</div>
-                          </div>
-                          <div className="flex gap-4 text-xs flex-shrink-0">
-                            <div className="text-center min-w-0">
-                              <div className="font-medium break-words text-gray-900">
-                                {formatNumber(layer.parameters)}
-                              </div>
-                              <div className="text-gray-600">Params</div>
-                            </div>
-                            <div className="text-center min-w-0">
-                              <div className="font-medium break-words text-gray-900">{formatNumber(layer.flops)}</div>
-                              <div className="text-gray-600">FLOPs</div>
-                            </div>
-                            <div className="text-center min-w-0">
-                              <div className="font-medium break-words text-gray-900">
-                                {layer.memoryMB.toFixed(1)} MB
-                              </div>
-                              <div className="text-gray-600">Memory</div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                <h4 className="font-medium mb-2">Layer Breakdown</h4>
+                <div className="space-y-2">
+                  {Object.entries(modelAnalysis.layerBreakdown).map(([type, count]) => (
+                    <div key={type} className="flex justify-between items-center p-2 bg-muted/50 rounded">
+                      <span className="capitalize">{type.replace(/Node$/, "")}</span>
+                      <Badge variant="secondary">{count}</Badge>
                     </div>
-                  </div>
-                </ScrollArea>
-              </div>
-
-              {/* Performance Insights */}
-              <div>
-                <h3 className="text-lg font-semibold mb-3">Performance Insights</h3>
-                <div className="space-y-2 text-sm">
-                  {modelAnalysis.totalParameters > 1e6 && (
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="font-medium text-yellow-800">Large Model</div>
-                      <div className="text-yellow-700">
-                        This model has {formatNumber(modelAnalysis.totalParameters)} parameters. Consider using
-                        techniques like pruning or quantization for deployment.
-                      </div>
-                    </div>
-                  )}
-                  {modelAnalysis.totalFLOPs > 1e9 && (
-                    <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                      <div className="font-medium text-orange-800">High Computational Cost</div>
-                      <div className="text-orange-700">
-                        This model requires {formatNumber(modelAnalysis.totalFLOPs)} FLOPs. Consider optimizing for
-                        faster inference.
-                      </div>
-                    </div>
-                  )}
-                  {modelAnalysis.memoryUsageMB > 1000 && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <div className="font-medium text-red-800">High Memory Usage</div>
-                      <div className="text-red-700">
-                        This model uses approximately {modelAnalysis.memoryUsageMB.toFixed(0)} MB of memory during
-                        inference.
-                      </div>
-                    </div>
-                  )}
-                  {modelAnalysis.totalParameters < 1e4 && (
-                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="font-medium text-green-800">Lightweight Model</div>
-                      <div className="text-green-700">
-                        This model is lightweight with only {formatNumber(modelAnalysis.totalParameters)} parameters,
-                        suitable for mobile deployment.
-                      </div>
-                    </div>
-                  )}
+                  ))}
                 </div>
               </div>
             </div>
           )}
-          <div className="flex justify-end pt-4 border-t">
-            <Button variant="outline" onClick={() => setShowAnalysisPanel(false)}>
-              Close
-            </Button>
-          </div>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showCodeInputDialog} onOpenChange={setShowCodeInputDialog}>
-        <DialogContent className="max-w-6xl w-full h-[80vh] flex flex-col">
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <DialogHeader>
-              <DialogTitle>Input PyTorch Code</DialogTitle>
-              <DialogDescription>
-                Paste your PyTorch model code below and we'll recreate it visually in the canvas
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex-1 flex flex-col gap-4">
-              <div className="flex-1">
-                <label className="text-sm font-medium mb-2 block">PyTorch Model Code:</label>
-                <textarea
-                  value={inputCode}
-                  onChange={(e) => setInputCode(e.target.value)}
-                  placeholder={`import torch
-import torch.nn as nn
-
-class MyModel(nn.Module):
-    def __init__(self):
-        super(MyModel, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, padding=1)
-        self.relu1 = nn.ReLU()
-        self.pool1 = nn.MaxPool2d(2, 2)
-        self.fc1 = nn.Linear(64 * 112 * 112, 10)
-        
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.relu1(x)
-        x = self.pool1(x)
-        x = x.view(x.size(0), -1)
-        x = self.fc1(x)
-        return x`}
-                  className="w-full h-full p-3 border rounded-md font-mono text-sm resize-none"
-                ></textarea>
+      {/* Help Dialog */}
+      <Dialog open={showHelpDialog} onOpenChange={setShowHelpDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Neural Network Designer Help</DialogTitle>
+            <DialogDescription>Learn how to use the visual neural network designer</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <div className="space-y-6 pr-4">
+              <div>
+                <h3 className="font-semibold mb-2">Getting Started</h3>
+                <ul className="space-y-1 text-sm text-muted-foreground">
+                  <li>• Drag layers from the sidebar to build your network</li>
+                  <li>• Connect layers by dragging from output to input handles</li>
+                  <li>• Select nodes to edit their properties in the right panel</li>
+                  <li>• Use Delete/Backspace to remove selected nodes</li>
+                </ul>
               </div>
-              {parseErrors.length > 0 && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                  <strong className="font-bold">Parsing Errors:</strong>
-                  <ul className="mt-1 list-disc list-inside">
-                    {parseErrors.map((error, index) => (
-                      <li key={index}>{error}</li>
-                    ))}
-                  </ul>
+
+              <div>
+                <h3 className="font-semibold mb-2">Layer Categories</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <h4 className="font-medium text-blue-600">Linear</h4>
+                    <p className="text-muted-foreground">Fully connected layers</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-green-600">Convolution</h4>
+                    <p className="text-muted-foreground">1D, 2D, 3D convolutions</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-yellow-600">Activation</h4>
+                    <p className="text-muted-foreground">ReLU, Sigmoid, Tanh, etc.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-red-600">Pooling</h4>
+                    <p className="text-muted-foreground">Max, Average pooling</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-cyan-600">Normalization</h4>
+                    <p className="text-muted-foreground">Batch, Layer, Group norms</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-pink-600">Recurrent</h4>
+                    <p className="text-muted-foreground">LSTM, GRU layers</p>
+                  </div>
                 </div>
-              )}
-              {parseWarnings.length > 0 && (
-                <div
-                  className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative"
-                  role="alert"
-                >
-                  <strong className="font-bold">Parsing Warnings:</strong>
-                  <ul className="mt-1 list-disc list-inside">
-                    {parseWarnings.map((warning, index) => (
-                      <li key={index}>{warning}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {unsupportedModules.length > 0 && (
-                <div
-                  className="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-3 rounded relative"
-                  role="alert"
-                >
-                  <strong className="font-bold">Unsupported Modules:</strong>
-                  <ul className="mt-1 list-disc list-inside">
-                    {unsupportedModules.map((module, index) => (
-                      <li key={index}>{module}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              </div>
+
+              <div>
+                <h3 className="font-semibold mb-2">Features</h3>
+                <ul className="space-y-1 text-sm text-muted-foreground">
+                  <li>
+                    • <strong>Auto Shape Calculation:</strong> Tensor shapes are automatically computed
+                  </li>
+                  <li>
+                    • <strong>Code Generation:</strong> Export to PyTorch code
+                  </li>
+                  <li>
+                    • <strong>Model Analysis:</strong> View parameter counts and model size
+                  </li>
+                  <li>
+                    • <strong>Example Networks:</strong> Load pre-built architectures
+                  </li>
+                  <li>
+                    • <strong>Import Code:</strong> Parse existing PyTorch models
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-semibold mb-2">Keyboard Shortcuts</h3>
+                <ul className="space-y-1 text-sm text-muted-foreground">
+                  <li>
+                    • <kbd className="px-1 py-0.5 bg-muted rounded text-xs">Delete</kbd> - Remove selected node
+                  </li>
+                  <li>
+                    • <kbd className="px-1 py-0.5 bg-muted rounded text-xs">Backspace</kbd> - Remove selected node
+                  </li>
+                </ul>
+              </div>
             </div>
-            <div className="flex justify-end pt-4 border-t">
-              <Button onClick={() => setShowCodeInputDialog(false)}>Close</Button>
-              <Button onClick={handleCodeInput}>
-                <Zap className="h-4 w-4 mr-2" />
-                Parse Code
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Code Input Dialog */}
+      <Dialog open={showCodeInputDialog} onOpenChange={setShowCodeInputDialog}>
+        <DialogContent className="max-w-4xl w-full h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Import PyTorch Code</DialogTitle>
+            <DialogDescription>Paste your PyTorch model code to visualize it</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col h-full space-y-4">
+            <div className="flex-1">
+              <textarea
+                value={inputCode}
+                onChange={(e) => setInputCode(e.target.value)}
+                placeholder="Paste your PyTorch model code here..."
+                className="w-full h-full p-4 border rounded-md font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {parseErrors.length > 0 && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                <h4 className="font-medium text-red-800 mb-2">Parsing Errors:</h4>
+                <ul className="text-sm text-red-700 space-y-1">
+                  {parseErrors.map((error, index) => (
+                    <li key={index}>• {error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {parseWarnings.length > 0 && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                <h4 className="font-medium text-yellow-800 mb-2">Warnings:</h4>
+                <ul className="text-sm text-yellow-700 space-y-1">
+                  {parseWarnings.map((warning, index) => (
+                    <li key={index}>• {warning}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowCodeInputDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCodeInput} disabled={!inputCode.trim()}>
+                Import Model
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showHelpDialog} onOpenChange={setShowHelpDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] w-[90vw]">
-          <DialogHeader>
-            <DialogTitle>Neural Network Designer - Help Guide</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="h-[70vh] pr-4">
-            <div className="space-y-6">
-              {/* Getting Started */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">🚀 Getting Started</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>
-                    Welcome to the Neural Network Designer! This tool helps you build PyTorch models visually by
-                    connecting blocks on a canvas.
-                  </p>
-                </div>
-              </div>
-
-              {/* Adding Blocks */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">📦 Adding Blocks</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>
-                    <strong>1.</strong> Browse the left sidebar to find different layer types (Input, Linear,
-                    Convolution, etc.)
-                  </p>
-                  <p>
-                    <strong>2.</strong> Click on any block type to add it to the canvas
-                  </p>
-                  <p>
-                    <strong>3.</strong> Blocks will appear in the center canvas area
-                  </p>
-                  <p>
-                    <strong>4.</strong> Each block shows its input/output tensor shapes automatically
-                  </p>
-                </div>
-              </div>
-
-              {/* Connecting Blocks */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">🔗 Connecting Blocks</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>
-                    <strong>1.</strong> Drag from the output handle (right side) of one block
-                  </p>
-                  <p>
-                    <strong>2.</strong> Drop onto the input handle (left side) of another block
-                  </p>
-                  <p>
-                    <strong>3.</strong> Connections show the data flow through your network
-                  </p>
-                  <p>
-                    <strong>4.</strong> Tensor shapes update automatically when you make connections
-                  </p>
-                </div>
-              </div>
-
-              {/* Configuring Parameters */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">⚙️ Configuring Parameters</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>
-                    <strong>1.</strong> Click on any block to select it
-                  </p>
-                  <p>
-                    <strong>2.</strong> The right sidebar shows editable parameters for that block
-                  </p>
-                  <p>
-                    <strong>3.</strong> Type new values and press Enter to update
-                  </p>
-                  <p>
-                    <strong>4.</strong> Tensor shapes recalculate automatically when parameters change
-                  </p>
-                </div>
-              </div>
-
-              {/* Deleting Blocks */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">🗑️ Deleting Blocks</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>
-                    <strong>1.</strong> Click on a block to select it (shows selection border)
-                  </p>
-                  <p>
-                    <strong>2.</strong> Press the <kbd className="px-2 py-1 bg-gray-100 rounded text-xs">Delete</kbd> or{" "}
-                    <kbd className="px-2 py-1 bg-gray-100 rounded text-xs">Backspace</kbd> key
-                  </p>
-                  <p>
-                    <strong>3.</strong> The block and its connections will be removed
-                  </p>
-                </div>
-              </div>
-
-              {/* Using Examples */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">📚 Loading Examples</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>
-                    <strong>1.</strong> Click the "Load Example" button in the header
-                  </p>
-                  <p>
-                    <strong>2.</strong> Choose from pre-built architectures like LeNet-5, ResNet, U-Net, YOLO, etc.
-                  </p>
-                  <p>
-                    <strong>3.</strong> Examples load with proper connections and parameters
-                  </p>
-                  <p>
-                    <strong>4.</strong> Use "Reset" to clear the canvas and start fresh
-                  </p>
-                </div>
-              </div>
-
-              {/* Generating Code */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">🐍 Generating PyTorch Code</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>
-                    <strong>1.</strong> Click "Generate PyTorch Code" when your network is ready
-                  </p>
-                  <p>
-                    <strong>2.</strong> Review the generated Python code in the dialog
-                  </p>
-                  <p>
-                    <strong>3.</strong> Use "Copy Code" to copy to clipboard
-                  </p>
-                  <p>
-                    <strong>4.</strong> Use "Download Code" to save as a .py file
-                  </p>
-                </div>
-              </div>
-
-              {/* Model Analysis */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">📊 Model Analysis</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>
-                    <strong>1.</strong> Click "Analyze Model" to get detailed insights
-                  </p>
-                  <p>
-                    <strong>2.</strong> View parameter counts, FLOPs, and memory usage
-                  </p>
-                  <p>
-                    <strong>3.</strong> See layer-by-layer analysis and performance recommendations
-                  </p>
-                  <p>
-                    <strong>4.</strong> Use insights to optimize your architecture
-                  </p>
-                </div>
-              </div>
-
-              {/* Tips */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">💡 Pro Tips</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>• Always start with an Input block to define your data dimensions</p>
-                  <p>• Watch tensor shapes to ensure compatibility between layers</p>
-                  <p>• Use skip connections (Add/Concatenate blocks) for advanced architectures</p>
-                  <p>• Load examples to learn common architectural patterns</p>
-                  <p>• Analyze your model before generating code to catch issues early</p>
-                </div>
-              </div>
-
-              {/* Available Blocks */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">🧱 Available Block Types</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
-                  <div>
-                    <p>
-                      <strong>Basic:</strong> Input, Linear, Dropout
-                    </p>
-                    <p>
-                      <strong>Convolution:</strong> Conv1D/2D/3D, DepthwiseConv2D
-                    </p>
-                    <p>
-                      <strong>Pooling:</strong> MaxPool, AvgPool, AdaptivePool
-                    </p>
-                    <p>
-                      <strong>Activation:</strong> ReLU, GELU, SiLU, Sigmoid, Tanh
-                    </p>
-                  </div>
-                  <div>
-                    <p>
-                      <strong>Normalization:</strong> BatchNorm, LayerNorm, GroupNorm
-                    </p>
-                    <p>
-                      <strong>Recurrent:</strong> LSTM, GRU
-                    </p>
-                    <p>
-                      <strong>Attention:</strong> MultiheadAttention, Transformer
-                    </p>
-                    <p>
-                      <strong>Operations:</strong> Add, Concatenate, Flatten
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">📧 Feedback & Contact</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>
-                    Have suggestions, found a bug, or want to request new features? Send your feedback to:{" "}
-                    <strong className="text-foreground">pmquang87@icloud.com</strong>
-                  </p>
-                  <p>Thank you for using Neural Network Designer and for your valuable feedback!</p>
-                </div>
-              </div>
-            </div>
-          </ScrollArea>
-          <div className="flex justify-end pt-4 border-t">
-            <Button onClick={() => setShowHelpDialog(false)}>Got it!</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Feedback dialog removed */}
+      {/* Import Code Button */}
+      <div className="fixed bottom-4 right-4">
+        <Button onClick={() => setShowCodeInputDialog(true)} className="shadow-lg" size="sm">
+          <Code className="h-4 w-4 mr-2" />
+          Import Code
+        </Button>
+      </div>
     </div>
   )
 }
