@@ -2178,10 +2178,8 @@ class MyModel(nn.Module):
               )}
             </div>
             <div className="flex justify-end pt-4 border-t">
-              <Button variant="outline" onClick={() => setShowCodeInputDialog(false)}>
-                Close
-              </Button>
-              <Button onClick={() => parsePyTorchCode(inputCode)}>
+              <Button onClick={() => setShowCodeInputDialog(false)}>Close</Button>
+              <Button onClick={handleCodeInput}>
                 <Zap className="h-4 w-4 mr-2" />
                 Parse Code
               </Button>
