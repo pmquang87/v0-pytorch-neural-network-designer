@@ -1,0 +1,56 @@
+{
+    "name": "Expanded RNN Cell",
+    "description": "An expanded view of a single RNN cell, showing the underlying operations.",
+    "nodes": [
+      {
+        "id": "input-xt",
+        "type": "inputNode",
+        "position": { "x": 50, "y": 100 },
+        "data": { "label": "Input (x_t)", "channels": 1, "height": 1, "width": 64 }
+      },
+      {
+        "id": "input-ht-1",
+        "type": "inputNode",
+        "position": { "x": 50, "y": 300 },
+        "data": { "label": "Hidden (h_t-1)", "channels": 1, "height": 1, "width": 128 }
+      },
+      {
+        "id": "linear-xh",
+        "type": "linearNode",
+        "position": { "x": 300, "y": 100 },
+        "data": { "in_features": 64, "out_features": 128 }
+      },
+      {
+        "id": "linear-hh",
+        "type": "linearNode",
+        "position": { "x": 300, "y": 300 },
+        "data": { "in_features": 128, "out_features": 128, "bias": false }
+      },
+      {
+        "id": "add",
+        "type": "addNode",
+        "position": { "x": 550, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "tanh",
+        "type": "tanhNode",
+        "position": { "x": 750, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "output-ht",
+        "type": "outputNode",
+        "position": { "x": 950, "y": 200 },
+        "data": { "label": "New Hidden (h_t)" }
+      }
+    ],
+    "edges": [
+      { "id": "e-xt-lin-xh", "source": "input-xt", "target": "linear-xh" },
+      { "id": "e-ht-1-lin-hh", "source": "input-ht-1", "target": "linear-hh" },
+      { "id": "e-lin-xh-add", "source": "linear-xh", "target": "add", "targetHandle": "input1" },
+      { "id": "e-lin-hh-add", "source": "linear-hh", "target": "add", "targetHandle": "input2" },
+      { "id": "e-add-tanh", "source": "add", "target": "tanh" },
+      { "id": "e-tanh-ht", "source": "tanh", "target": "output-ht" }
+    ]
+}

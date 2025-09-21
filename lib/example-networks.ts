@@ -16,6 +16,7 @@ import DenseNet169 from "./examples/DenseNet-169.json";
 import DenseNet201 from "./examples/DenseNet-201.json";
 import DenseNet264 from "./examples/DenseNet-264.json";
 import EfficientNetB0 from "./examples/EfficientNet-B0.json";
+import ExpandedRNNCell from "./examples/Expanded-RNN-Cell.json";
 import UNet from "./examples/U-Net.json";
 import UNetPlusPlus from "./examples/U-Net++.json";
 import GANGenerator from "./examples/GAN-Generator.json";
@@ -61,6 +62,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
   DenseNet201,
   DenseNet264,
   EfficientNetB0,
+  ExpandedRNNCell,
   UNet,
   UNetPlusPlus,
   GANGenerator,

@@ -1,0 +1,21 @@
+{
+    "name": "RNN Cell",
+    "description": "A single RNN cell, showing the basic inputs and outputs.",
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "inputNode",
+        "position": { "x": 100, "y": 200 },
+        "data": { "channels": 1, "height": 1, "width": 64 }
+      },
+      {
+        "id": "rnn-2",
+        "type": "rnnNode",
+        "position": { "x": 350, "y": 200 },
+        "data": { "input_size": 64, "hidden_size": 128, "num_layers": 1 }
+      }
+    ],
+    "edges": [
+      { "id": "e1-2", "source": "input-1", "target": "rnn-2" }
+    ]
+}
