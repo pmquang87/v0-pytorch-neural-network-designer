@@ -80,7 +80,7 @@ export interface DropoutNodeData extends BaseNodeData {
   inplace?: boolean
 }
 
-// LSTM/GRU data
+// LSTM/GRU/RNN data
 export interface RNNNodeData extends BaseNodeData {
   input_size: number
   hidden_size: number
@@ -89,6 +89,7 @@ export interface RNNNodeData extends BaseNodeData {
   batch_first?: boolean
   dropout?: number
   bidirectional?: boolean
+  nonlinearity?: string // for RNN
 }
 
 // Multihead attention data

@@ -163,6 +163,7 @@ export function analyzeLayer(
 
     case "lstmNode":
     case "gruNode":
+    case "rnnNode":
       const inputSize = nodeData.input_size || 128
       const hiddenSize = nodeData.hidden_size || 64
       const numLayers = nodeData.num_layers || 1
@@ -170,9 +171,12 @@ export function analyzeLayer(
       if (nodeType === "lstmNode") {
         // LSTM has 4 gates, each with input-to-hidden and hidden-to-hidden weights
         analysis.parameters = numLayers * (4 * (inputSize * hiddenSize + hiddenSize * hiddenSize + hiddenSize * 2))
-      } else {
+      } else if (nodeType === "gruNode") {
         // GRU has 3 gates
         analysis.parameters = numLayers * (3 * (inputSize * hiddenSize + hiddenSize * hiddenSize + hiddenSize * 2))
+      } else { // rnnNode
+        // Simple RNN has 1 "gate"
+        analysis.parameters = numLayers * (1 * (inputSize * hiddenSize + hiddenSize * hiddenSize + hiddenSize * 2))
       }
 
       const rnnSeqLen = typeof inputShape.sequence === "number" ? inputShape.sequence : 100

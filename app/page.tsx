@@ -98,6 +98,7 @@ import { AddNode } from "@/components/nodes/AddNode"
 import { MultiplyNode } from "@/components/nodes/MultiplyNode"
 import { LSTMNode } from "@/components/nodes/LSTMNode"
 import { GRUNode } from "@/components/nodes/GRUNode"
+import { RNNNode } from "@/components/nodes/RNNNode"
 import { Conv1DNode } from "@/components/nodes/Conv1DNode"
 import { Conv3DNode } from "@/components/nodes/Conv3DNode"
 import { ConvTranspose1DNode } from "@/components/nodes/ConvTranspose1DNode"
@@ -171,6 +172,7 @@ const nodeTypes: NodeTypes = {
   multiplyNode: MultiplyNode,
   lstmNode: LSTMNode,
   gruNode: GRUNode,
+  rnnNode: RNNNode,
   multiheadattentionNode: MultiheadAttentionNode,
   transformerencoderlayerNode: TransformerEncoderLayerNode,
   transformerdecoderlayerNode: TransformerDecoderLayerNode,
@@ -902,6 +904,7 @@ export default function NeuralNetworkDesigner() {
           Dropout3d: "dropout3dNode",
           LSTM: "lstmNode",
           GRU: "gruNode",
+          RNN: "rnnNode",
           MultiheadAttention: "multiheadattentionNode",
           TransformerEncoderLayer: "transformerencoderlayerNode",
           TransformerDecoderLayer: "transformerdecoderlayerNode",
@@ -1653,6 +1656,15 @@ export default function NeuralNetworkDesigner() {
                       <span className="text-sm font-medium text-sidebar-foreground">GRU</span>
                     </div>
                   </Card>
+                  <Card
+                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
+                    onClick={() => addNode("rnnNode", { input_size: 128, hidden_size: 64 })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Network className="h-4 w-4 text-pink-500" />
+                      <span className="text-sm font-medium text-sidebar-foreground">RNN</span>
+                    </div>
+                  </Card>
                 </div>
               </div>
               {/* Attention Section */}
@@ -2285,6 +2297,32 @@ export default function NeuralNetworkDesigner() {
                     </>
                   )}
                   {selectedNode.type === "gruNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Input Size"
+                        value={selectedNode.data.input_size as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { input_size: value })}
+                        disabled={isInputConnected}
+                      />
+                      <EditableNumberInput
+                        label="Hidden Size"
+                        value={selectedNode.data.hidden_size as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { hidden_size: value })}
+                      />
+                      <EditableNumberInput
+                        label="Number of Layers"
+                        value={selectedNode.data.num_layers as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_layers: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "rnnNode" && (
                     <>
                       <EditableNumberInput
                         label="Input Size"

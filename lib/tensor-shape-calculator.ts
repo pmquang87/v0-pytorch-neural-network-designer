@@ -121,13 +121,15 @@ export function validateTensorShapes(
       break;
 
     case "gruNode":
-    case "lstmNode": {
-      const lstmInputSize = nodeData.input_size;
+    case "lstmNode":
+    case "rnnNode": {
+      const inputSize = nodeData.input_size;
       const inputFeatures = inputShapes[0]?.features || inputShapes[0]?.width;
-      if (lstmInputSize && inputFeatures && lstmInputSize !== inputFeatures && inputFeatures !== "dynamic") {
+      if (inputSize && inputFeatures && inputSize !== inputFeatures && inputFeatures !== "dynamic") {
+        const nodeName = nodeType.replace('Node', '').toUpperCase();
         return {
           isValid: false,
-          error: `Input features mismatch. LSTM layer expects input_size=${lstmInputSize}, but received ${inputFeatures}.`,
+          error: `Input features mismatch. ${nodeName} layer expects input_size=${inputSize}, but received ${inputFeatures}.`,
         };
       }
       break;
@@ -516,6 +518,7 @@ export function calculateOutputShape(
 
     case "gruNode":
     case "lstmNode":
+    case "rnnNode":
       const sequenceLength = inputShape.sequence || inputShape.channels;
       return {
         sequence: sequenceLength,

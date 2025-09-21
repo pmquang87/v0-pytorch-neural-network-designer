@@ -38,6 +38,7 @@ import SiameseNetwork from "./examples/Siamese-Network.json";
 import SimpleMLP from "./examples/Simple-MLP.json";
 import SimpleYOLO from "./examples/Simple-YOLO.json";
 import StyleGANGenerator from "./examples/StyleGAN-Generator.json";
+import Transformer from "./examples/Transformer.json";
 import TransformerBlock from "./examples/Transformer-Block.json";
 import TransformerDecoder from "./examples/Transformer-Decoder.json";
 import TransformerEncoder from "./examples/Transformer-Encoder.json";
@@ -82,6 +83,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
   SimpleMLP,
   SimpleYOLO,
   StyleGANGenerator,
+  Transformer,
   TransformerBlock,
   TransformerDecoder,
   TransformerEncoder,
