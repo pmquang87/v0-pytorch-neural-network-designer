@@ -19,6 +19,7 @@ export function Conv2DNode({ data }: { data: any }) {
           <div>In: {inputShape.channels || "?"}</div>
           <div>Out: {data.out_channels || "?"}</div>
           <div>Kernel: {data.kernel_size || "?"}</div>
+          <div>Stride: {data.stride || 1}</div>
           <div>Padding: {data.padding || 0}</div>
         </div>
         <div className="mt-2 pt-2 border-t border-border">

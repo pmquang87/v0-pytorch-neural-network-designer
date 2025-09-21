@@ -1,0 +1,211 @@
+{
+    "name": "Transformer Encoder",
+    "description": "A detailed view of a Transformer Encoder layer, showing the internal components: Multi-Head Attention and a Position-wise Feed-Forward Network.",
+    "nodes": [
+        {
+            "id": "input-1",
+            "type": "inputNode",
+            "position": {
+                "x": -200,
+                "y": 450
+            },
+            "data": {
+                "channels": 1,
+                "height": 100,
+                "width": 512
+            }
+        },
+        {
+            "id": "mha-1",
+            "type": "multiheadattentionNode",
+            "position": {
+                "x": 200,
+                "y": 300
+            },
+            "data": {
+                "embed_dim": 512,
+                "num_heads": 8,
+                "dropout": 0.1,
+                "batch_first": true
+            }
+        },
+        {
+            "id": "add-1",
+            "type": "addNode",
+            "position": {
+                "x": 500,
+                "y": 450
+            },
+            "data": {}
+        },
+        {
+            "id": "layernorm-1",
+            "type": "layernormNode",
+            "position": {
+                "x": 700,
+                "y": 450
+            },
+            "data": {
+                "normalized_shape": [
+                    512
+                ]
+            }
+        },
+        {
+            "id": "ffn-linear-1",
+            "type": "timeDistributedLinearNode",
+            "position": {
+                "x": 950,
+                "y": 450
+            },
+            "data": {
+                "in_features": 512,
+                "out_features": 2048
+            }
+        },
+        {
+            "id": "ffn-relu",
+            "type": "reluNode",
+            "position": {
+                "x": 1150,
+                "y": 450
+            },
+            "data": {}
+        },
+        {
+            "id": "ffn-dropout",
+            "type": "dropoutNode",
+            "position": {
+                "x": 1350,
+                "y": 450
+            },
+            "data": {
+                "p": 0.1
+            }
+        },
+        {
+            "id": "ffn-linear-2",
+            "type": "timeDistributedLinearNode",
+            "position": {
+                "x": 1550,
+                "y": 450
+            },
+            "data": {
+                "in_features": 2048,
+                "out_features": 512
+            }
+        },
+        {
+            "id": "add-2",
+            "type": "addNode",
+            "position": {
+                "x": 1800,
+                "y": 450
+            },
+            "data": {}
+        },
+        {
+            "id": "layernorm-2",
+            "type": "layernormNode",
+            "position": {
+                "x": 2000,
+                "y": 450
+            },
+            "data": {
+                "normalized_shape": [
+                    512
+                ]
+            }
+        },
+        {
+            "id": "output-1",
+            "type": "outputNode",
+            "position": {
+                "x": 2250,
+                "y": 450
+            },
+            "data": {
+                "label": "Output"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "e-input-mha-q",
+            "source": "input-1",
+            "target": "mha-1",
+            "targetHandle": "query"
+        },
+        {
+            "id": "e-input-mha-k",
+            "source": "input-1",
+            "target": "mha-1",
+            "targetHandle": "key"
+        },
+        {
+            "id": "e-input-mha-v",
+            "source": "input-1",
+            "target": "mha-1",
+            "targetHandle": "value"
+        },
+        {
+            "id": "e-input-add1",
+            "source": "input-1",
+            "target": "add-1",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "e-mha-add1",
+            "source": "mha-1",
+            "target": "add-1",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "e-add1-ln1",
+            "source": "add-1",
+            "target": "layernorm-1"
+        },
+        {
+            "id": "e-ln1-ffn-linear1",
+            "source": "layernorm-1",
+            "target": "ffn-linear-1"
+        },
+        {
+            "id": "e-ffn-linear1-relu",
+            "source": "ffn-linear-1",
+            "target": "ffn-relu"
+        },
+        {
+            "id": "e-ffn-relu-dropout",
+            "source": "ffn-relu",
+            "target": "ffn-dropout"
+        },
+        {
+            "id": "e-ffn-dropout-linear2",
+            "source": "ffn-dropout",
+            "target": "ffn-linear-2"
+        },
+        {
+            "id": "e-ln1-add2",
+            "source": "layernorm-1",
+            "target": "add-2",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "e-ffn-linear2-add2",
+            "source": "ffn-linear-2",
+            "target": "add-2",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "e-add2-ln2",
+            "source": "add-2",
+            "target": "layernorm-2"
+        },
+        {
+            "id": "e-ln2-output",
+            "source": "layernorm-2",
+            "target": "output-1"
+        }
+    ]
+}

@@ -74,7 +74,7 @@ export function validateTensorShapes(
           const nodeName = nodeType === 'addNode' ? 'Add' : 'Multiply';
           return {
             isValid: false,
-            error: `${nodeName} error: Input ${i + 1} shape does not match the first input shape. All inputs must be identical for element-wise operations.`,
+            error: `${nodeName} error: Input ${i + 1} shape is not compatible for broadcasting with the first input shape.`,
           };
         }
       }
@@ -135,7 +135,7 @@ export function validateTensorShapes(
 
     case "linearNode":
       const in_features = nodeData.in_features;
-      const input_features = inputShapes[0]?.features || inputShapes[0]?.channels;
+      const input_features = inputShapes[0]?.features || inputShapes[0]?.width || inputShapes[0]?.channels;
       if (in_features && input_features && in_features !== input_features && input_features !== "dynamic") {
         return {
           isValid: false,
@@ -144,13 +144,24 @@ export function validateTensorShapes(
       }
       break;
 
-    case "multiheadattentionNode":
-      const embedDim = nodeData.embed_dim || 128;
-      if (inputShapes[0]?.features !== embedDim && inputShapes[0]?.channels !== embedDim) {
+    case "timeDistributedLinearNode":
+      const td_in_features = nodeData.in_features;
+      const td_input_features = inputShapes[0]?.features || inputShapes[0]?.width;
+      if (td_in_features && td_input_features && td_in_features !== td_input_features && td_input_features !== "dynamic") {
         return {
           isValid: false,
-          error: `MultiheadAttention expects input dimension ${embedDim}, got ${inputShapes[0]?.features ||
-            inputShapes[0]?.channels}`,
+          error: `Input features ${td_input_features} do not match layer\'s in_features ${td_in_features}`,
+        };
+      }
+      break;
+
+    case "multiheadattentionNode":
+      const embedDim = nodeData.embed_dim || 128;
+      const inferredFeatureDim = inputShapes[0]?.features || inputShapes[0]?.width || inputShapes[0]?.channels;
+      if (inferredFeatureDim !== undefined && inferredFeatureDim !== "dynamic" && inferredFeatureDim !== embedDim) {
+        return {
+          isValid: false,
+          error: `MultiheadAttention expects input dimension ${embedDim}, got ${inferredFeatureDim}`,
         };
       }
       break;
@@ -164,8 +175,10 @@ function shapesCompatible(shape1: TensorShape, shape2: TensorShape): boolean {
   for (const key of keys) {
     const val1 = (shape1 as any)[key];
     const val2 = (shape2 as any)[key];
-    if (val1 !== undefined && val2 !== undefined && val1 !== val2 && val1 !== "dynamic" && val2 !== "dynamic") {
-      return false;
+    if (val1 !== undefined && val2 !== undefined && val1 !== "dynamic" && val2 !== "dynamic") {
+      if (val1 !== 1 && val2 !== 1 && val1 !== val2) {
+        return false;
+      }
     }
   }
   return true;
@@ -179,11 +192,26 @@ export function calculateOutputShape(
   const inputShape = inputShapes[0] || {};
   switch (nodeType) {
     case "inputNode":
-      return {
-        channels: nodeData.channels,
-        height: nodeData.height,
-        width: nodeData.width ?? 28,
-      };
+      const outputShape: TensorShape = {};
+      const possibleDims: (keyof TensorShape)[] = [
+        "channels",
+        "depth",
+        "height",
+        "width",
+        "sequence",
+        "length",
+        "features",
+      ];
+      for (const dim of possibleDims) {
+        if (nodeData[dim] !== undefined) {
+          (outputShape as any)[dim] = nodeData[dim];
+        }
+      }
+      return outputShape;
+
+    case "outputNode":
+      // Output node is a sink; pass through the incoming shape unchanged
+      return { ...inputShape };
 
     case "conv2dNode":
     case "depthwiseconv2dNode":
@@ -288,6 +316,13 @@ export function calculateOutputShape(
     case "linearNode":
       return {
         features: nodeData.out_features || 64,
+      };
+
+    case "timeDistributedLinearNode":
+      return {
+        ...inputShape,
+        features: nodeData.out_features || 64,
+        width: nodeData.out_features || 64, // Also update width for (C, H, W) format
       };
 
     case "maxpool2dNode":
@@ -488,6 +523,14 @@ export function calculateOutputShape(
       };
 
     case "multiheadattentionNode":
+      // Preserve spatial/sequence layout used in examples: (C=1, H=sequence, W=embed)
+      if (inputShape.width !== undefined) {
+        return {
+          ...inputShape,
+          width: nodeData.embed_dim || 128,
+        };
+      }
+      // Fallback to (sequence, features) representation
       return {
         sequence: inputShape.sequence,
         features: nodeData.embed_dim || 128,
@@ -527,16 +570,32 @@ export function calculateOutputShape(
       return inputShape;
 
     case "addNode":
-    case "multiplyNode":
-      // For element-wise addition, all inputs must have the same shape
-      // Return the shape of the first valid input
-      if (inputShapes.length > 0) {
-        const firstValidShape = inputShapes.find(shape => shape && Object.keys(shape).length > 0);
-        if (firstValidShape) {
-          return { ...firstValidShape };
+    case "multiplyNode": {
+      if (inputShapes.length === 0) return {};
+      const outputShape: TensorShape = {};
+      const allKeys = new Set<keyof TensorShape>();
+      inputShapes.forEach(s => {
+        if (s) Object.keys(s).forEach(k => allKeys.add(k as keyof TensorShape));
+      });
+
+      for (const key of allKeys) {
+        let maxVal: number | "dynamic" = 1;
+        for (const shape of inputShapes) {
+          if (shape && shape[key] !== undefined) {
+            const val = shape[key];
+            if (val === "dynamic") {
+              maxVal = "dynamic";
+              break;
+            }
+            if (val > maxVal) {
+              maxVal = val;
+            }
+          }
         }
+        outputShape[key] = maxVal;
       }
-      return {}; // Return empty shape if no valid input shapes
+      return outputShape;
+    }
 
     case "concatenateNode":
       const concatDimUi = nodeData.dim ?? 1;

@@ -19,6 +19,7 @@ export function DepthwiseConv2DNode({ data }: { data: any }) {
           <div>In Channels: {data.in_channels || "?"}</div>
           <div>Out Channels: {data.out_channels || "?"}</div>
           <div>Kernel Size: {data.kernel_size || "?"}</div>
+          <div>Stride: {data.stride || 1}</div>
           <div>Groups: {data.groups || "?"}</div>
         </div>
         <div className="mt-2 pt-2 border-t border-border">

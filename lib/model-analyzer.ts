@@ -67,7 +67,7 @@ export function analyzeLayer(
         batchSize *
         outChannels *
         (typeof outputShape.height === "number" ? outputShape.height : 1) *
-        (typeof outputShape.width === "number" ? output_shape.width : 1) *
+        (typeof outputShape.width === "number" ? outputShape.width : 1) *
         4
       const weightMemory = analysis.parameters * 4
       analysis.memoryMB = (inputMemory + outputMemory + weightMemory) / (1024 * 1024)

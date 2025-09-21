@@ -1,0 +1,31 @@
+{
+  "name": "MultiheadAttention Node",
+  "description": "An example of the internal components of a MultiheadAttention layer. It consists of linear projections for Query, Key, and Value, followed by Scaled Dot-Product Attention, and a final linear layer.",
+  "nodes": [
+    { "id": "q-input", "type": "inputNode", "data": { "label": "Query", "channels": 1, "height": 28, "width": 28 }, "position": { "x": -200, "y": 0 } },
+    { "id": "k-input", "type": "inputNode", "data": { "label": "Key", "channels": 1, "height": 28, "width": 28 }, "position": { "x": -200, "y": 200 } },
+    { "id": "v-input", "type": "inputNode", "data": { "label": "Value", "channels": 1, "height": 28, "width": 28 }, "position": { "x": -200, "y": 400 } },
+    { "id": "q-flatten", "type": "flattenNode", "data": {}, "position": { "x": 50, "y": 0 } },
+    { "id": "k-flatten", "type": "flattenNode", "data": {}, "position": { "x": 50, "y": 200 } },
+    { "id": "v-flatten", "type": "flattenNode", "data": {}, "position": { "x": 50, "y": 400 } },
+    { "id": "w_q-linear", "type": "linearNode", "data": { "in_features": 784, "out_features": 512 }, "position": { "x": 250, "y": 0 } },
+    { "id": "w_k-linear", "type": "linearNode", "data": { "in_features": 784, "out_features": 512 }, "position": { "x": 250, "y": 200 } },
+    { "id": "w_v-linear", "type": "linearNode", "data": { "in_features": 784, "out_features": 512 }, "position": { "x": 250, "y": 400 } },
+    { "id": "add-qk", "type": "addNode", "data": {}, "position": { "x": 550, "y": 100 } },
+    { "id": "add-qkv", "type": "addNode", "data": {}, "position": { "x": 550, "y": 300 } },
+    { "id": "output-linear", "type": "linearNode", "data": { "in_features": 512, "out_features": 512 }, "position": { "x": 850, "y": 300 } }
+  ],
+  "edges": [
+    { "id": "e-q-qf", "source": "q-input", "target": "q-flatten" },
+    { "id": "e-k-kf", "source": "k-input", "target": "k-flatten" },
+    { "id": "e-v-vf", "source": "v-input", "target": "v-flatten" },
+    { "id": "e-qf-wq", "source": "q-flatten", "target": "w_q-linear" },
+    { "id": "e-kf-wk", "source": "k-flatten", "target": "w_k-linear" },
+    { "id": "e-vf-wv", "source": "v-flatten", "target": "w_v-linear" },
+    { "id": "e-wq-addqk", "source": "w_q-linear", "target": "add-qk", "targetHandle": "input1" },
+    { "id": "e-wk-addqk", "source": "w_k-linear", "target": "add-qk", "targetHandle": "input2" },
+    { "id": "e-addqk-addqkv", "source": "add-qk", "target": "add-qkv", "targetHandle": "input1" },
+    { "id": "e-wv-addqkv", "source": "w_v-linear", "target": "add-qkv", "targetHandle": "input2" },
+    { "id": "e-addqkv-out", "source": "add-qkv", "target": "output-linear" }
+  ]
+}

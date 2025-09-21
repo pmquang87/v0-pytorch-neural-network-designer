@@ -2,7 +2,7 @@
 
 An interactive visual tool for designing, analyzing, and exporting PyTorch neural network models directly in your browser.
 
-Built with the help of v0.app, Claude and Gemini.
+Built with the help of v0.app, Claude, Junie, and Gemini.
 
 ![img.png](img.png)
 

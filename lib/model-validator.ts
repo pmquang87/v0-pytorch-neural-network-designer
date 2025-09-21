@@ -165,6 +165,12 @@ export class ModelValidator {
             inputShapes.push(undefined)
           }
         }
+      } else if (node.type === "multiheadattentionNode") {
+        const queryEdge = inputEdges.find((e) => e.targetHandle === "query")
+        if (queryEdge) {
+          const sourceNode = nodeMap.get(queryEdge.source)
+          inputShapes.push(sourceNode?.data.outputShape)
+        }
       } else {
         inputShapes = inputEdges.map((edge) => {
           const sourceNode = nodeMap.get(edge.source)
@@ -182,26 +188,6 @@ export class ModelValidator {
         const result = validateTensorShapes(node.type || "", cleanInputShapes, node.data)
         if (result && !result.isValid && result.error) {
           errors.push(`Node '${node.data.label || node.id}' (${node.type}): ${result.error}`)
-        }
-      }
-    }
-
-    // Specific, helpful error messages for common patterns
-    for (const edge of edges) {
-      const sourceNode = nodeMap.get(edge.source)
-      const targetNode = nodeMap.get(edge.target)
-
-      if (sourceNode && targetNode && sourceNode.data.outputShape) {
-        const outputShape = sourceNode.data.outputShape
-
-        if (targetNode.type === "linearNode") {
-          if (outputShape.height || outputShape.width || outputShape.depth) {
-            if (sourceNode.type !== "flattenNode") {
-              errors.push(
-                `Shape mismatch: Output of '${sourceNode.data.label || sourceNode.id}' is multi-dimensional, but Linear layer '${targetNode.data.label || targetNode.id}' expects a 1D (flattened) input. Consider adding a Flatten node.`,
-              )
-            }
-          }
         }
       }
     }

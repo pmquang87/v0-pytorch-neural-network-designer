@@ -1,0 +1,295 @@
+{
+    "name": "Transformer Decoder",
+    "description": "A detailed view of a Transformer Decoder layer, showing the internal components: Masked Multi-Head Attention, Multi-Head Attention, and a Position-wise Feed-Forward Network.",
+    "nodes": [
+        {
+            "id": "input-target",
+            "type": "inputNode",
+            "position": {
+                "x": -400,
+                "y": 250
+            },
+            "data": {
+                "channels": 1,
+                "height": 100,
+                "width": 512
+            }
+        },
+        {
+            "id": "input-encoder",
+            "type": "inputNode",
+            "position": {
+                "x": 0,
+                "y": 850
+            },
+            "data": {
+                "channels": 1,
+                "height": 100,
+                "width": 512
+            }
+        },
+        {
+            "id": "mha-self",
+            "type": "multiheadattentionNode",
+            "position": {
+                "x": 0,
+                "y": 100
+            },
+            "data": {
+                "embed_dim": 512,
+                "num_heads": 8,
+                "dropout": 0.1,
+                "batch_first": true
+            }
+        },
+        {
+            "id": "add-1",
+            "type": "addNode",
+            "position": {
+                "x": 300,
+                "y": 250
+            },
+            "data": {}
+        },
+        {
+            "id": "layernorm-1",
+            "type": "layernormNode",
+            "position": {
+                "x": 500,
+                "y": 250
+            },
+            "data": {
+                "normalized_shape": [
+                    512
+                ]
+            }
+        },
+        {
+            "id": "mha-cross",
+            "type": "multiheadattentionNode",
+            "position": {
+                "x": 800,
+                "y": 400
+            },
+            "data": {
+                "embed_dim": 512,
+                "num_heads": 8,
+                "dropout": 0.1,
+                "batch_first": true
+            }
+        },
+        {
+            "id": "add-2",
+            "type": "addNode",
+            "position": {
+                "x": 1100,
+                "y": 250
+            },
+            "data": {}
+        },
+        {
+            "id": "layernorm-2",
+            "type": "layernormNode",
+            "position": {
+                "x": 1300,
+                "y": 250
+            },
+            "data": {
+                "normalized_shape": [
+                    512
+                ]
+            }
+        },
+        {
+            "id": "ffn-linear-1",
+            "type": "timeDistributedLinearNode",
+            "position": {
+                "x": 1550,
+                "y": 250
+            },
+            "data": {
+                "in_features": 512,
+                "out_features": 2048
+            }
+        },
+        {
+            "id": "ffn-relu",
+            "type": "reluNode",
+            "position": {
+                "x": 1750,
+                "y": 250
+            },
+            "data": {}
+        },
+        {
+            "id": "ffn-dropout",
+            "type": "dropoutNode",
+            "position": {
+                "x": 1950,
+                "y": 250
+            },
+            "data": {
+                "p": 0.1
+            }
+        },
+        {
+            "id": "ffn-linear-2",
+            "type": "timeDistributedLinearNode",
+            "position": {
+                "x": 2150,
+                "y": 250
+            },
+            "data": {
+                "in_features": 2048,
+                "out_features": 512
+            }
+        },
+        {
+            "id": "add-3",
+            "type": "addNode",
+            "position": {
+                "x": 2400,
+                "y": 250
+            },
+            "data": {}
+        },
+        {
+            "id": "layernorm-3",
+            "type": "layernormNode",
+            "position": {
+                "x": 2600,
+                "y": 250
+            },
+            "data": {
+                "normalized_shape": [
+                    512
+                ]
+            }
+        },
+        {
+            "id": "output-decoder",
+            "type": "outputNode",
+            "position": {
+                "x": 2850,
+                "y": 250
+            },
+            "data": {
+                "label": "Output"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "e-target-mha-q",
+            "source": "input-target",
+            "target": "mha-self",
+            "targetHandle": "query"
+        },
+        {
+            "id": "e-target-mha-k",
+            "source": "input-target",
+            "target": "mha-self",
+            "targetHandle": "key"
+        },
+        {
+            "id": "e-target-mha-v",
+            "source": "input-target",
+            "target": "mha-self",
+            "targetHandle": "value"
+        },
+        {
+            "id": "e-target-add1",
+            "source": "input-target",
+            "target": "add-1",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "e-mha-add1",
+            "source": "mha-self",
+            "target": "add-1",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "e-add1-ln1",
+            "source": "add-1",
+            "target": "layernorm-1"
+        },
+        {
+            "id": "e-ln1-mhacross-q",
+            "source": "layernorm-1",
+            "target": "mha-cross",
+            "targetHandle": "query"
+        },
+        {
+            "id": "e-encoder-mhacross-k",
+            "source": "input-encoder",
+            "target": "mha-cross",
+            "targetHandle": "key"
+        },
+        {
+            "id": "e-encoder-mhacross-v",
+            "source": "input-encoder",
+            "target": "mha-cross",
+            "targetHandle": "value"
+        },
+        {
+            "id": "e-ln1-add2",
+            "source": "layernorm-1",
+            "target": "add-2",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "e-mhacross-add2",
+            "source": "mha-cross",
+            "target": "add-2",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "e-add2-ln2",
+            "source": "add-2",
+            "target": "layernorm-2"
+        },
+        {
+            "id": "e-ln2-ffn-linear1",
+            "source": "layernorm-2",
+            "target": "ffn-linear-1"
+        },
+        {
+            "id": "e-ffn-linear1-relu",
+            "source": "ffn-linear-1",
+            "target": "ffn-relu"
+        },
+        {
+            "id": "e-ffn-relu-dropout",
+            "source": "ffn-relu",
+            "target": "ffn-dropout"
+        },
+        {
+            "id": "e-ffn-dropout-linear2",
+            "source": "ffn-dropout",
+            "target": "ffn-linear-2"
+        },
+        {
+            "id": "e-ln2-add3",
+            "source": "layernorm-2",
+            "target": "add-3",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "e-ffn-linear2-add3",
+            "source": "ffn-linear-2",
+            "target": "add-3",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "e-add3-ln3",
+            "source": "add-3",
+            "target": "layernorm-3"
+        },
+        {
+            "id": "e-ln3-output",
+            "source": "layernorm-3",
+            "target": "output-decoder"
+        }
+    ]
+}

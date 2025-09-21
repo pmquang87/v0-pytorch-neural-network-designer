@@ -77,6 +77,7 @@ import { EditableNumberInput } from "@/components/ui/EditableNumberInput"
 import { InputNode } from "@/components/nodes/InputNode"
 import { ConstantNode } from "@/components/nodes/ConstantNode"
 import { LinearNode } from "@/components/nodes/LinearNode"
+import { TimeDistributedLinearNode } from "@/components/nodes/TimeDistributedLinearNode"
 import { Conv2DNode } from "@/components/nodes/Conv2DNode"
 import { ReLUNode } from "@/components/nodes/ReLUNode"
 import { SigmoidNode } from "@/components/nodes/SigmoidNode"
@@ -117,6 +118,7 @@ import { TransformerEncoderLayerNode } from "@/components/nodes/TransformerEncod
 import { TransformerDecoderLayerNode } from "@/components/nodes/TransformerDecoderLayerNode"
 import { TransposeNode } from "@/components/nodes/TransposeNode"
 import { SelectNode } from "@/components/nodes/SelectNode"
+import { OutputNode } from "@/components/nodes/OutputNode"
 
 const initialNodes: Node[] = [
   {
@@ -133,6 +135,7 @@ const nodeTypes: NodeTypes = {
   inputNode: InputNode,
   constantNode: ConstantNode,
   linearNode: LinearNode,
+  timeDistributedLinearNode: TimeDistributedLinearNode,
   conv2dNode: Conv2DNode,
   conv1dNode: Conv1DNode,
   conv3dNode: Conv3DNode,
@@ -173,6 +176,7 @@ const nodeTypes: NodeTypes = {
   transformerdecoderlayerNode: TransformerDecoderLayerNode,
   transposeNode: TransposeNode,
   selectNode: SelectNode,
+  outputNode: OutputNode,
 }
 
 export default function NeuralNetworkDesigner() {
@@ -555,6 +559,12 @@ export default function NeuralNetworkDesigner() {
       title: "Canvas Reset",
       description: "Canvas has been reset to initial state",
     })
+
+    setTimeout(() => {
+      if (reactFlowInstanceRef.current) {
+        reactFlowInstanceRef.current.fitView({ padding: 0.1, duration: 200 })
+      }
+    }, 100)
   }, [setNodes, setEdges, toast, setCurrentModelName, takeSnapshot])
 
   const analyzeCurrentModel = useCallback(() => {
@@ -602,7 +612,7 @@ export default function NeuralNetworkDesigner() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast({ title: "Model Exported", description: `Model "${modelName}" has been exported as a JSON file.` });
+    toast({ title: "Model Exported", description: `Model \"${modelName}\" has been exported as a JSON file.` });
     setShowSaveDialog(false);
   }, [modelName, nodes, edges, toast, setShowSaveDialog]);
 
@@ -627,7 +637,7 @@ export default function NeuralNetworkDesigner() {
           setEdges(importedData.edges);
           const importedModelName = importedData.name || file.name.replace('.json', '');
           setCurrentModelName(importedModelName);
-          toast({ title: "Model Imported", description: `Successfully imported "${importedModelName}".` });
+          toast({ title: "Model Imported", description: `Successfully imported \"${importedModelName}\".` });
           setShowLoadDialog(false);
         } else {
           throw new Error("Invalid model file format.");
@@ -1223,7 +1233,7 @@ export default function NeuralNetworkDesigner() {
                 <div className="space-y-2">
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("conv1dNode", { in_channels: 1, out_channels: 32, kernel_size: 3 })}
+                    onClick={() => addNode("conv1dNode", { in_channels: 1, out_channels: 32, kernel_size: 3, stride: 1 })}
                   >
                     <div className="flex items-center gap-2">
                       <Layers className="h-4 w-4 text-green-500" />
@@ -1232,7 +1242,7 @@ export default function NeuralNetworkDesigner() {
                   </Card>
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("conv2dNode", { in_channels: 3, out_channels: 32, kernel_size: 3 })}
+                    onClick={() => addNode("conv2dNode", { in_channels: 3, out_channels: 32, kernel_size: 3, stride: 1 })}
                   >
                     <div className="flex items-center gap-2">
                       <Layers className="h-4 w-4 text-green-500" />
@@ -1241,7 +1251,7 @@ export default function NeuralNetworkDesigner() {
                   </Card>
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("conv3dNode", { in_channels: 3, out_channels: 32, kernel_size: 3 })}
+                    onClick={() => addNode("conv3dNode", { in_channels: 3, out_channels: 32, kernel_size: 3, stride: 1 })}
                   >
                     <div className="flex items-center gap-2">
                       <Layers className="h-4 w-4 text-green-500" />
@@ -1251,7 +1261,7 @@ export default function NeuralNetworkDesigner() {
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
                     onClick={() =>
-                      addNode("depthwiseconv2dNode", { in_channels: 32, out_channels: 32, kernel_size: 3, groups: 32 })
+                      addNode("depthwiseconv2dNode", { in_channels: 32, out_channels: 32, kernel_size: 3, stride: 1, groups: 32 })
                     }
                   >
                     <div className="flex items-center gap-2">
@@ -1262,7 +1272,7 @@ export default function NeuralNetworkDesigner() {
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
                     onClick={() =>
-                      addNode("separableconv2dNode", { in_channels: 32, out_channels: 64, kernel_size: 3 })
+                      addNode("separableconv2dNode", { in_channels: 32, out_channels: 64, kernel_size: 3, stride: 1 })
                     }
                   >
                     <div className="flex items-center gap-2">
@@ -1280,7 +1290,7 @@ export default function NeuralNetworkDesigner() {
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
                     onClick={() =>
-                      addNode("convtranspose1dNode", { in_channels: 32, out_channels: 16, kernel_size: 3 })
+                      addNode("convtranspose1dNode", { in_channels: 32, out_channels: 16, kernel_size: 3, stride: 1 })
                     }
                   >
                     <div className="flex items-center gap-2">
@@ -1291,7 +1301,7 @@ export default function NeuralNetworkDesigner() {
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
                     onClick={() =>
-                      addNode("convtranspose2dNode", { in_channels: 32, out_channels: 16, kernel_size: 3 })
+                      addNode("convtranspose2dNode", { in_channels: 32, out_channels: 16, kernel_size: 3, stride: 2 })
                     }
                   >
                     <div className="flex items-center gap-2">
@@ -1302,7 +1312,7 @@ export default function NeuralNetworkDesigner() {
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
                     onClick={() =>
-                      addNode("convtranspose3dNode", { in_channels: 32, out_channels: 16, kernel_size: 3 })
+                      addNode("convtranspose3dNode", { in_channels: 32, out_channels: 16, kernel_size: 3, stride: 1 })
                     }
                   >
                     <div className="flex items-center gap-2">
@@ -1768,6 +1778,46 @@ export default function NeuralNetworkDesigner() {
                       />
                     </>
                   )}
+                  {selectedNode.type === "conv1dNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Input Channels"
+                        value={selectedNode.data.in_channels as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { in_channels: value })}
+                        disabled={isInputConnected}
+                      />
+                      <EditableNumberInput
+                        label="Output Channels"
+                        value={selectedNode.data.out_channels as number | undefined}
+                        defaultValue={32}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { out_channels: value })}
+                      />
+                      <EditableNumberInput
+                        label="Kernel Size"
+                        value={selectedNode.data.kernel_size as number | undefined}
+                        defaultValue={3}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { kernel_size: value })}
+                      />
+                      <EditableNumberInput
+                        label="Stride"
+                        value={selectedNode.data.stride as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { stride: value })}
+                      />
+                      <EditableNumberInput
+                        label="Padding"
+                        value={selectedNode.data.padding as number | undefined}
+                        defaultValue={0}
+                        min={0}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { padding: value })}
+                      />
+                    </>
+                  )}
                   {selectedNode.type === "conv2dNode" && (
                     <>
                       <EditableNumberInput
@@ -1793,11 +1843,105 @@ export default function NeuralNetworkDesigner() {
                         onUpdate={(value) => updateNodeData(selectedNode.id, { kernel_size: value })}
                       />
                       <EditableNumberInput
+                        label="Stride"
+                        value={selectedNode.data.stride as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { stride: value })}
+                      />
+                      <EditableNumberInput
                         label="Padding"
                         value={selectedNode.data.padding as number | undefined}
                         defaultValue={0}
                         min={0}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { padding: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "conv3dNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Input Channels"
+                        value={selectedNode.data.in_channels as number | undefined}
+                        defaultValue={3}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { in_channels: value })}
+                        disabled={isInputConnected}
+                      />
+                      <EditableNumberInput
+                        label="Output Channels"
+                        value={selectedNode.data.out_channels as number | undefined}
+                        defaultValue={32}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { out_channels: value })}
+                      />
+                      <EditableNumberInput
+                        label="Kernel Size"
+                        value={selectedNode.data.kernel_size as number | undefined}
+                        defaultValue={3}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { kernel_size: value })}
+                      />
+                      <EditableNumberInput
+                        label="Stride"
+                        value={selectedNode.data.stride as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { stride: value })}
+                      />
+                      <EditableNumberInput
+                        label="Padding"
+                        value={selectedNode.data.padding as number | undefined}
+                        defaultValue={0}
+                        min={0}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { padding: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "depthwiseconv2dNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Input Channels"
+                        value={selectedNode.data.in_channels as number | undefined}
+                        defaultValue={32}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { in_channels: value })}
+                        disabled={isInputConnected}
+                      />
+                      <EditableNumberInput
+                        label="Output Channels"
+                        value={selectedNode.data.out_channels as number | undefined}
+                        defaultValue={32}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { out_channels: value })}
+                      />
+                      <EditableNumberInput
+                        label="Kernel Size"
+                        value={selectedNode.data.kernel_size as number | undefined}
+                        defaultValue={3}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { kernel_size: value })}
+                      />
+                      <EditableNumberInput
+                        label="Stride"
+                        value={selectedNode.data.stride as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { stride: value })}
+                      />
+                      <EditableNumberInput
+                        label="Padding"
+                        value={selectedNode.data.padding as number | undefined}
+                        defaultValue={0}
+                        min={0}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { padding: value })}
+                      />
+                       <EditableNumberInput
+                        label="Groups"
+                        value={selectedNode.data.groups as number | undefined}
+                        defaultValue={32}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { groups: value })}
                       />
                     </>
                   )}
@@ -2859,7 +3003,7 @@ class MyModel(nn.Module):
                     <strong>To Save:</strong> Click the "Save" button, enter a name, and save it to your browser's local storage.
                   </p>
                   <p>
-                    <strong>To Load:</strong> Click the "Open" button and select a previously saved model from the list.
+                    <strong>To Load:</strong> Click the "Open" button, and select a previously saved model from the list.
                   </p>
                   <p>
                     <strong>To Export:</strong> Click the "Save" button, enter a name, and click "Export" to download your model as a `.json` file.
