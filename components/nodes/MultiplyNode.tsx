@@ -1,26 +1,32 @@
-import { Handle, Position } from "@xyflow/react"
-import { Card } from "@/components/ui/card"
-import { X } from "lucide-react"
-import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
+import { Handle, Position, useUpdateNodeInternals } from "@xyflow/react";
+import { Card } from "@/components/ui/card";
+import { X } from "lucide-react";
+import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator";
+import { useEffect } from "react";
 
-export function MultiplyNode({ data }: { data: any }) {
-  const numInputs = data.num_inputs || 2
-
+export function MultiplyNode({ id, data }: { id: string; data: any }) {
+  const updateNodeInternals = useUpdateNodeInternals();
   // data.inputShape is an array of shapes (or undefined) populated by propagateTensorShapes
-  const inputShapes: (TensorShape | undefined)[] = Array.isArray(data.inputShape) ? data.inputShape : []
+  const inputShapes: (TensorShape | undefined)[] = Array.isArray(data.inputShape) ? data.inputShape : [];
 
-  // Find the first valid input shape for display
-  const firstValidInputShape = inputShapes.find(s => s && Object.keys(s).length > 0)
+  // The number of handles to render is determined by the length of the inputShapes array,
+  // which is dynamically calculated in the main page component. Default to 2 for a new node.
+  const numInputs = inputShapes.length > 0 ? inputShapes.length : 2;
 
-  // Get all defined input shapes for output calculation
-  const definedInputShapes = inputShapes.filter((s): s is TensorShape => s && Object.keys(s).length > 0)
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [id, numInputs, updateNodeInternals]);
+
+  // Get all defined input shapes for output calculation and display
+  const definedInputShapes = inputShapes.filter((s): s is TensorShape => s && Object.keys(s).length > 0);
+  const firstValidInputShape = definedInputShapes[0];
 
   // Calculate output shape using the tensor shape calculator
-  const outputShape = calculateOutputShape("multiplyNode", definedInputShapes, data)
+  const outputShape = calculateOutputShape("multiplyNode", definedInputShapes, data);
 
-  const inputHandles = []
+  const inputHandles = [];
   for (let i = 1; i <= numInputs; i++) {
-    const topPercentage = (i / (numInputs + 1)) * 100
+    const topPercentage = (i / (numInputs + 1)) * 100;
     inputHandles.push(
       <Handle
         key={`input${i}`}
@@ -30,7 +36,7 @@ export function MultiplyNode({ data }: { data: any }) {
         style={{ top: `${topPercentage}%` }}
         className="w-3 h-3 bg-purple-500 border-2 border-background"
       />,
-    )
+    );
   }
 
   return (
@@ -42,10 +48,10 @@ export function MultiplyNode({ data }: { data: any }) {
           <X className="h-4 w-4 text-purple-500" />
           <span className="font-medium text-sm">Multiply</span>
         </div>
-        <div className="text-xs text-muted-foreground">inputs: {numInputs}</div>
+        <div className="text-xs text-muted-foreground">inputs: {definedInputShapes.length}</div>
         <div className="mt-2 pt-2 border-t border-border">
           <div className="text-xs text-muted-foreground">
-            <div className="text-purple-600">
+            <div className="text-orange-600">
               In: {formatTensorShape(firstValidInputShape || {})}
             </div>
             <div className="text-blue-600">Out: {formatTensorShape(outputShape)}</div>
@@ -55,5 +61,5 @@ export function MultiplyNode({ data }: { data: any }) {
 
       <Handle type="source" position={Position.Right} className="w-3 h-3 bg-purple-500 border-2 border-background" />
     </Card>
-  )
+  );
 }

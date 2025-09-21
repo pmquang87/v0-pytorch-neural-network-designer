@@ -287,75 +287,91 @@ export default function NeuralNetworkDesigner() {
   }, [nodes, edges, validateModel])
 
   const propagateTensorShapes = useCallback(() => {
-    if (isUpdatingShapes.current) return
-    isUpdatingShapes.current = true
+    if (isUpdatingShapes.current) return;
+    isUpdatingShapes.current = true;
 
     setNodes((currentNodes) => {
-      const updatedNodes = currentNodes.map((node) => ({ ...node, data: { ...node.data } }))
-      const nodeMap = new Map(updatedNodes.map((node) => [node.id, node]))
+      const newNodes = structuredClone(currentNodes);
+      const nodeMap = new Map(newNodes.map((node) => [node.id, node]));
 
-      const visited = new Set<string>()
-      const processing = new Set<string>()
-      const sorted: string[] = []
+      const visited = new Set<string>();
+      const processing = new Set<string>();
+      const sorted: string[] = [];
 
       const visit = (nodeId: string) => {
-        if (processing.has(nodeId)) return
-        if (visited.has(nodeId)) return
-        processing.add(nodeId)
-        const outgoingEdges = edges.filter((edge) => edge.source === nodeId)
-        for (const edge of outgoingEdges) {
-          visit(edge.target)
+        if (processing.has(nodeId)) {
+          console.warn("Cycle detected in graph, aborting shape propagation.");
+          return;
         }
-        processing.delete(nodeId)
-        visited.add(nodeId)
-        sorted.unshift(nodeId)
-      }
+        if (visited.has(nodeId)) return;
 
-      for (const node of updatedNodes) {
-        visit(node.id)
+        processing.add(nodeId);
+        const outgoingEdges = edges.filter((edge) => edge.source === nodeId);
+        for (const edge of outgoingEdges) {
+          if (nodeMap.has(edge.target)) {
+            visit(edge.target);
+          }
+        }
+        processing.delete(nodeId);
+        visited.add(nodeId);
+        sorted.unshift(nodeId);
+      };
+
+      for (const node of newNodes) {
+        if (!visited.has(node.id)) {
+          visit(node.id);
+        }
       }
 
       for (const nodeId of sorted) {
-        const node = nodeMap.get(nodeId)
-        if (!node) continue
+        const node = nodeMap.get(nodeId);
+        if (!node) continue;
 
         if (node.type === "inputNode" || node.type === "constantNode") {
-          const isInput = node.type === "inputNode"
+          const isInput = node.type === "inputNode";
           const shape: TensorShape = {
             channels: (node.data as any).channels ?? (isInput ? 3 : 1),
             height: (node.data as any).height ?? (isInput ? 28 : 1),
             width: (node.data as any).width ?? (isInput ? 28 : 1),
-          }
-          node.data = { ...node.data, inputShape: shape, outputShape: shape }
-          continue
+          };
+          node.data.inputShape = shape;
+          node.data.outputShape = shape;
+          continue;
         }
 
-        const inputEdges = edges.filter((edge) => edge.target === nodeId)
-        let allInputShapes: (TensorShape | undefined)[] = []
+        const inputEdges = edges.filter((edge) => edge.target === nodeId);
+        let allInputShapes: (TensorShape | undefined)[] = [];
 
         if (node.type === "concatenateNode" || node.type === "addNode" || node.type === "multiplyNode") {
-          const numInputs = node.data.num_inputs || 2
+          const connectedHandles = inputEdges
+            .map((edge) => edge.targetHandle)
+            .filter((handle): handle is string => handle !== null && handle !== undefined)
+            .map((handle) => parseInt(handle.replace("input", ""), 10));
+    
+          const highestConnectedHandle = connectedHandles.length > 0 ? Math.max(...connectedHandles) : 0;
+          const numConnected = inputEdges.length;
+          const numInputs = Math.max(2, numConnected + 1, highestConnectedHandle);
+    
           for (let i = 1; i <= numInputs; i++) {
-            const handleId = `input${i}`
-            const edge = inputEdges.find((e) => e.targetHandle === handleId)
+            const handleId = `input${i}`;
+            const edge = inputEdges.find((e) => e.targetHandle === handleId);
             if (edge) {
-              const sourceNode = nodeMap.get(edge.source)
-              allInputShapes.push(sourceNode?.data.outputShape)
+              const sourceNode = nodeMap.get(edge.source);
+              allInputShapes.push(sourceNode?.data.outputShape);
             } else {
-              allInputShapes.push(undefined)
+              allInputShapes.push(undefined);
             }
           }
         } else {
           allInputShapes = inputEdges.map((edge) => {
-            const sourceNode = nodeMap.get(edge.source)
-            return sourceNode?.data.outputShape
-          })
+            const sourceNode = nodeMap.get(edge.source);
+            return sourceNode?.data.outputShape;
+          });
         }
 
-        const cleanInputShapes = allInputShapes.filter((s): s is TensorShape => !!s)
-
-        const data = { ...node.data }
-        const firstInputShape = cleanInputShapes[0]
+        const cleanInputShapes = allInputShapes.filter((s): s is TensorShape => !!s);
+        const data = node.data;
+        const firstInputShape = cleanInputShapes[0];
 
         if (firstInputShape && firstInputShape.channels) {
           if (
@@ -368,7 +384,7 @@ export default function NeuralNetworkDesigner() {
             node.type === "depthwiseconv2dNode" ||
             node.type === "separableconv2dNode"
           ) {
-            data.in_channels = firstInputShape.channels
+            data.in_channels = firstInputShape.channels;
           } else if (
             node.type === "batchnorm1dNode" ||
             node.type === "batchnorm2dNode" ||
@@ -376,43 +392,42 @@ export default function NeuralNetworkDesigner() {
             node.type === "instancenorm2dNode" ||
             node.type === "instancenorm3dNode"
           ) {
-            data.num_features = firstInputShape.channels
+            data.num_features = firstInputShape.channels;
           } else if (node.type === "groupnormNode") {
-            data.num_channels = firstInputShape.channels
+            data.num_channels = firstInputShape.channels;
           }
         }
 
         if (node.type === "linearNode" && firstInputShape) {
           if (typeof firstInputShape.features === "number") {
-            data.in_features = firstInputShape.features
+            data.in_features = firstInputShape.features;
           } else if (firstInputShape.features === undefined) {
             const flattenedSize =
-              (firstInputShape.channels || 1) * (firstInputShape.height || 1) * (firstInputShape.width || 1)
-            data.in_features = flattenedSize
+              (firstInputShape.channels || 1) * (firstInputShape.height || 1) * (firstInputShape.width || 1);
+            data.in_features = flattenedSize;
           }
         }
 
-        const outputShape = calcOutputShape(node.type || "", cleanInputShapes, data)
+        const outputShape = calcOutputShape(node.type || "", cleanInputShapes, data);
 
         if (node.type === "concatenateNode" || node.type === "addNode" || node.type === "multiplyNode") {
-          node.data = {
-            ...data,
-            inputShape: allInputShapes,
-            outputShape,
-          }
+          node.data.inputShape = allInputShapes;
+          node.data.outputShape = outputShape;
         } else {
-          node.data = {
-            ...data,
-            inputShape: cleanInputShapes[0],
-            outputShape,
-          }
+          node.data.inputShape = cleanInputShapes[0];
+          node.data.outputShape = outputShape;
         }
       }
 
-      isUpdatingShapes.current = false
-      return updatedNodes
-    })
-  }, [edges, setNodes])
+      isUpdatingShapes.current = false;
+
+      if (JSON.stringify(currentNodes) !== JSON.stringify(newNodes)) {
+        return newNodes;
+      }
+      
+      return currentNodes;
+    });
+  }, [edges, setNodes]);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -424,6 +439,24 @@ export default function NeuralNetworkDesigner() {
       })
     },
     [setEdges, toast, takeSnapshot],
+  )
+
+  const isValidConnection = useCallback(
+    (connection: Connection) => {
+      // For nodes with a specific target handle (e.g., multi-input nodes),
+      // check if that specific handle is already connected.
+      if (connection.targetHandle) {
+        return !edges.some(
+          (edge) =>
+            edge.target === connection.target && edge.targetHandle === connection.targetHandle,
+        )
+      }
+
+      // For nodes without a specific target handle (e.g., single-input nodes),
+      // check if the node is already a target for any edge.
+      return !edges.some((edge) => edge.target === connection.target)
+    },
+    [edges],
   )
 
   const addNode = useCallback(
@@ -494,8 +527,7 @@ export default function NeuralNetworkDesigner() {
   )
 
   useEffect(() => {
-    const timer = setTimeout(() => propagateTensorShapes(), 50)
-    return () => clearTimeout(timer)
+    propagateTensorShapes()
   }, [nodes, edges, propagateTensorShapes])
 
   const loadExample = useCallback(
@@ -1571,7 +1603,7 @@ export default function NeuralNetworkDesigner() {
                 <div className="space-y-2">
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("addNode", { num_inputs: 2 })}
+                    onClick={() => addNode("addNode", {})}
                   >
                     <div className="flex items-center gap-2">
                       <Plus className="h-4 w-4 text-orange-500" />
@@ -1580,7 +1612,7 @@ export default function NeuralNetworkDesigner() {
                   </Card>
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("multiplyNode", { num_inputs: 2 })}
+                    onClick={() => addNode("multiplyNode", {})}
                   >
                     <div className="flex items-center gap-2">
                       <X className="h-4 w-4 text-purple-500" />
@@ -1589,7 +1621,7 @@ export default function NeuralNetworkDesigner() {
                   </Card>
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
-                    onClick={() => addNode("concatenateNode", { dim: 1, num_inputs: 2 })}
+                    onClick={() => addNode("concatenateNode", { dim: 1 })}
                   >
                     <div className="flex items-center gap-2">
                       <GitBranch className="h-4 w-4 text-indigo-500" />
@@ -1669,6 +1701,7 @@ export default function NeuralNetworkDesigner() {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
+              isValidConnection={isValidConnection}
               onNodeClick={onNodeClick}
               onPaneClick={() => setSelectedNode(null)}
               onEdgeClick={() => setSelectedNode(null)}
@@ -2114,37 +2147,8 @@ export default function NeuralNetworkDesigner() {
                       />
                     </>
                   )}
-                  {selectedNode.type === "addNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Number of Inputs"
-                        value={selectedNode.data.num_inputs as number | undefined}
-                        defaultValue={2}
-                        min={2}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_inputs: value })}
-                      />
-                    </>
-                  )}
-                  {selectedNode.type === "multiplyNode" && (
-                    <>
-                      <EditableNumberInput
-                        label="Number of Inputs"
-                        value={selectedNode.data.num_inputs as number | undefined}
-                        defaultValue={2}
-                        min={2}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_inputs: value })}
-                      />
-                    </>
-                  )}
                   {selectedNode.type === "concatenateNode" && (
                     <>
-                      <EditableNumberInput
-                        label="Number of Inputs"
-                        value={selectedNode.data.num_inputs as number | undefined}
-                        defaultValue={2}
-                        min={2}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_inputs: value })}
-                      />
                       <div>
                         <label className="text-sm font-medium text-sidebar-foreground">Dimension (dim)</label>
                         <select

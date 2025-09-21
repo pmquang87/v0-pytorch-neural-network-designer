@@ -10,7 +10,6 @@ export interface ExampleNetwork {
 import AlexNet from "./examples/AlexNet.json";
 import Autoencoder from "./examples/Autoencoder.json";
 import BERT from "./examples/BERT.json";
-import DeepSeek from "./examples/DeepSeek.json";
 import DenseNetBlock from "./examples/DenseNet-Block.json";
 import DenseNet121 from "./examples/DenseNet-121.json";
 import DenseNet169 from "./examples/DenseNet-169.json";
@@ -55,7 +54,6 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
   AlexNet,
   Autoencoder,
   BERT,
-  DeepSeek,
   DenseNetBlock,
   DenseNet121,
   DenseNet169,
