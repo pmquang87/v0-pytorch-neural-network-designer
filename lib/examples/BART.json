@@ -1,0 +1,471 @@
+{
+    "name": "BART",
+    "description": "BART (Bidirectional and Auto-Regressive Transformers) is a denoising autoencoder for pretraining sequence-to-sequence models. It uses a standard Transformer-based neural machine translation architecture.",
+    "nodes": [
+        {
+            "id": "enc-input-1",
+            "type": "inputNode",
+            "position": {
+                "x": -240,
+                "y": 540
+            },
+            "data": {
+                "channels": 1,
+                "height": 100,
+                "width": 512,
+                "label": "Encoder Input"
+            }
+        },
+        {
+            "id": "enc-mha-1",
+            "type": "multiheadattentionNode",
+            "position": {
+                "x": 240,
+                "y": 360
+            },
+            "data": {
+                "embed_dim": 512,
+                "num_heads": 8,
+                "dropout": 0.1,
+                "batch_first": true
+            }
+        },
+        {
+            "id": "enc-add-1",
+            "type": "addNode",
+            "position": {
+                "x": 600,
+                "y": 540
+            },
+            "data": {}
+        },
+        {
+            "id": "enc-layernorm-1",
+            "type": "layernormNode",
+            "position": {
+                "x": 840,
+                "y": 540
+            },
+            "data": {
+                "normalized_shape": [
+                    512
+                ]
+            }
+        },
+        {
+            "id": "enc-ffn-linear-1",
+            "type": "timeDistributedLinearNode",
+            "position": {
+                "x": 1140,
+                "y": 540
+            },
+            "data": {
+                "in_features": 512,
+                "out_features": 2048
+            }
+        },
+        {
+            "id": "enc-ffn-relu",
+            "type": "reluNode",
+            "position": {
+                "x": 1380,
+                "y": 540
+            },
+            "data": {}
+        },
+        {
+            "id": "enc-ffn-dropout",
+            "type": "dropoutNode",
+            "position": {
+                "x": 1620,
+                "y": 540
+            },
+            "data": {
+                "p": 0.1
+            }
+        },
+        {
+            "id": "enc-ffn-linear-2",
+            "type": "timeDistributedLinearNode",
+            "position": {
+                "x": 1860,
+                "y": 540
+            },
+            "data": {
+                "in_features": 2048,
+                "out_features": 512
+            }
+        },
+        {
+            "id": "enc-add-2",
+            "type": "addNode",
+            "position": {
+                "x": 2160,
+                "y": 540
+            },
+            "data": {}
+        },
+        {
+            "id": "enc-layernorm-2",
+            "type": "layernormNode",
+            "position": {
+                "x": 2400,
+                "y": 540
+            },
+            "data": {
+                "normalized_shape": [
+                    512
+                ]
+            }
+        },
+        {
+            "id": "dec-input-target",
+            "type": "inputNode",
+            "position": {
+                "x": 2700,
+                "y": 300
+            },
+            "data": {
+                "channels": 1,
+                "height": 100,
+                "width": 512,
+                "label": "Decoder Input"
+            }
+        },
+        {
+            "id": "dec-mha-self",
+            "type": "multiheadattentionNode",
+            "position": {
+                "x": 3180,
+                "y": 120
+            },
+            "data": {
+                "embed_dim": 512,
+                "num_heads": 8,
+                "dropout": 0.1,
+                "batch_first": true
+            }
+        },
+        {
+            "id": "dec-add-1",
+            "type": "addNode",
+            "position": {
+                "x": 3540,
+                "y": 300
+            },
+            "data": {}
+        },
+        {
+            "id": "dec-layernorm-1",
+            "type": "layernormNode",
+            "position": {
+                "x": 3780,
+                "y": 300
+            },
+            "data": {
+                "normalized_shape": [
+                    512
+                ]
+            }
+        },
+        {
+            "id": "dec-mha-cross",
+            "type": "multiheadattentionNode",
+            "position": {
+                "x": 4140,
+                "y": 480
+            },
+            "data": {
+                "embed_dim": 512,
+                "num_heads": 8,
+                "dropout": 0.1,
+                "batch_first": true
+            }
+        },
+        {
+            "id": "dec-add-2",
+            "type": "addNode",
+            "position": {
+                "x": 4500,
+                "y": 300
+            },
+            "data": {}
+        },
+        {
+            "id": "dec-layernorm-2",
+            "type": "layernormNode",
+            "position": {
+                "x": 4740,
+                "y": 300
+            },
+            "data": {
+                "normalized_shape": [
+                    512
+                ]
+            }
+        },
+        {
+            "id": "dec-ffn-linear-1",
+            "type": "timeDistributedLinearNode",
+            "position": {
+                "x": 5040,
+                "y": 300
+            },
+            "data": {
+                "in_features": 512,
+                "out_features": 2048
+            }
+        },
+        {
+            "id": "dec-ffn-relu",
+            "type": "reluNode",
+            "position": {
+                "x": 5280,
+                "y": 300
+            },
+            "data": {}
+        },
+        {
+            "id": "dec-ffn-dropout",
+            "type": "dropoutNode",
+            "position": {
+                "x": 5520,
+                "y": 300
+            },
+            "data": {
+                "p": 0.1
+            }
+        },
+        {
+            "id": "dec-ffn-linear-2",
+            "type": "timeDistributedLinearNode",
+            "position": {
+                "x": 5760,
+                "y": 300
+            },
+            "data": {
+                "in_features": 2048,
+                "out_features": 512
+            }
+        },
+        {
+            "id": "dec-add-3",
+            "type": "addNode",
+            "position": {
+                "x": 6060,
+                "y": 300
+            },
+            "data": {}
+        },
+        {
+            "id": "dec-layernorm-3",
+            "type": "layernormNode",
+            "position": {
+                "x": 6300,
+                "y": 300
+            },
+            "data": {
+                "normalized_shape": [
+                    512
+                ]
+            }
+        },
+        {
+            "id": "dec-output-decoder",
+            "type": "outputNode",
+            "position": {
+                "x": 6600,
+                "y": 300
+            },
+            "data": {
+                "label": "Final Output"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "enc-e-input-mha-q",
+            "source": "enc-input-1",
+            "target": "enc-mha-1",
+            "targetHandle": "query"
+        },
+        {
+            "id": "enc-e-input-mha-k",
+            "source": "enc-input-1",
+            "target": "enc-mha-1",
+            "targetHandle": "key"
+        },
+        {
+            "id": "enc-e-input-mha-v",
+            "source": "enc-input-1",
+            "target": "enc-mha-1",
+            "targetHandle": "value"
+        },
+        {
+            "id": "enc-e-input-add1",
+            "source": "enc-input-1",
+            "target": "enc-add-1",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "enc-e-mha-add1",
+            "source": "enc-mha-1",
+            "target": "enc-add-1",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "enc-e-add1-ln1",
+            "source": "enc-add-1",
+            "target": "enc-layernorm-1"
+        },
+        {
+            "id": "enc-e-ln1-ffn-linear1",
+            "source": "enc-layernorm-1",
+            "target": "enc-ffn-linear-1"
+        },
+        {
+            "id": "enc-e-ffn-linear1-relu",
+            "source": "enc-ffn-linear-1",
+            "target": "enc-ffn-relu"
+        },
+        {
+            "id": "enc-e-ffn-relu-dropout",
+            "source": "enc-ffn-relu",
+            "target": "enc-ffn-dropout"
+        },
+        {
+            "id": "enc-e-ffn-dropout-linear2",
+            "source": "enc-ffn-dropout",
+            "target": "enc-ffn-linear-2"
+        },
+        {
+            "id": "enc-e-ln1-add2",
+            "source": "enc-layernorm-1",
+            "target": "enc-add-2",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "enc-e-ffn-linear2-add2",
+            "source": "enc-ffn-linear-2",
+            "target": "enc-add-2",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "enc-e-add2-ln2",
+            "source": "enc-add-2",
+            "target": "enc-layernorm-2"
+        },
+        {
+            "id": "dec-e-target-mha-q",
+            "source": "dec-input-target",
+            "target": "dec-mha-self",
+            "targetHandle": "query"
+        },
+        {
+            "id": "dec-e-target-mha-k",
+            "source": "dec-input-target",
+            "target": "dec-mha-self",
+            "targetHandle": "key"
+        },
+        {
+            "id": "dec-e-target-mha-v",
+            "source": "dec-input-target",
+            "target": "dec-mha-self",
+            "targetHandle": "value"
+        },
+        {
+            "id": "dec-e-target-add1",
+            "source": "dec-input-target",
+            "target": "dec-add-1",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "dec-e-mha-add1",
+            "source": "dec-mha-self",
+            "target": "dec-add-1",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "dec-e-add1-ln1",
+            "source": "dec-add-1",
+            "target": "dec-layernorm-1"
+        },
+        {
+            "id": "dec-e-ln1-mhacross-q",
+            "source": "dec-layernorm-1",
+            "target": "dec-mha-cross",
+            "targetHandle": "query"
+        },
+        {
+            "id": "dec-e-encoder-mhacross-k",
+            "source": "enc-layernorm-2",
+            "target": "dec-mha-cross",
+            "targetHandle": "key"
+        },
+        {
+            "id": "dec-e-encoder-mhacross-v",
+            "source": "enc-layernorm-2",
+            "target": "dec-mha-cross",
+            "targetHandle": "value"
+        },
+        {
+            "id": "dec-e-ln1-add2",
+            "source": "dec-layernorm-1",
+            "target": "dec-add-2",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "dec-e-mhacross-add2",
+            "source": "dec-mha-cross",
+            "target": "dec-add-2",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "dec-e-add2-ln2",
+            "source": "dec-add-2",
+            "target": "dec-layernorm-2"
+        },
+        {
+            "id": "dec-e-ln2-ffn-linear1",
+            "source": "dec-layernorm-2",
+            "target": "dec-ffn-linear-1"
+        },
+        {
+            "id": "dec-e-ffn-linear1-relu",
+            "source": "dec-ffn-linear-1",
+            "target": "dec-ffn-relu"
+        },
+        {
+            "id": "dec-e-ffn-relu-dropout",
+            "source": "dec-ffn-relu",
+            "target": "dec-ffn-dropout"
+        },
+        {
+            "id": "dec-e-ffn-dropout-linear2",
+            "source": "dec-ffn-dropout",
+            "target": "dec-ffn-linear-2"
+        },
+        {
+            "id": "dec-e-ln2-add3",
+            "source": "dec-layernorm-2",
+            "target": "dec-add-3",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "dec-e-ffn-linear2-add3",
+            "source": "dec-ffn-linear-2",
+            "target": "dec-add-3",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "dec-e-add3-ln3",
+            "source": "dec-add-3",
+            "target": "dec-layernorm-3"
+        },
+        {
+            "id": "dec-e-ln3-output",
+            "source": "dec-layernorm-3",
+            "target": "dec-output-decoder"
+        }
+    ]
+}

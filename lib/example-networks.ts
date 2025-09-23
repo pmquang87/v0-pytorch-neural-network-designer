@@ -9,6 +9,7 @@ export interface ExampleNetwork {
 
 import AlexNet from "./examples/AlexNet.json";
 import Autoencoder from "./examples/Autoencoder.json";
+import BART from "./examples/BART.json";
 import BERT from "./examples/BERT.json";
 import DenseNetBlock from "./examples/DenseNet-Block.json";
 import DenseNet121 from "./examples/DenseNet-121.json";
@@ -39,6 +40,7 @@ import SiameseNetwork from "./examples/Siamese-Network.json";
 import SimpleMLP from "./examples/Simple-MLP.json";
 import SimpleYOLO from "./examples/Simple-YOLO.json";
 import StyleGANGenerator from "./examples/StyleGAN-Generator.json";
+import T5 from "./examples/T5.json";
 import Transformer from "./examples/Transformer.json";
 import TransformerBlock from "./examples/Transformer-Block.json";
 import TransformerDecoder from "./examples/Transformer-Decoder.json";
@@ -55,6 +57,7 @@ import YOLOv8n from "./examples/YOLOv8n.json";
 export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
   AlexNet,
   Autoencoder,
+  BART,
   BERT,
   DenseNetBlock,
   DenseNet121,
@@ -85,6 +88,7 @@ export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
   SimpleMLP,
   SimpleYOLO,
   StyleGANGenerator,
+  T5,
   Transformer,
   TransformerBlock,
   TransformerDecoder,

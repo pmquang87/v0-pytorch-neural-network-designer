@@ -1,0 +1,351 @@
+{
+    "name": "T5",
+    "description": "T5-small model with 6 encoder and 6 decoder layers.",
+    "nodes": [
+        {
+            "id": "t5-encoder-input-1",
+            "type": "inputNode",
+            "position": {
+                "x": 100,
+                "y": 200
+            },
+            "data": {
+                "channels": 512,
+                "height": 1,
+                "width": 512
+            }
+        },
+        {
+            "id": "t5-encoder-layer1-2",
+            "type": "transformerencoderlayerNode",
+            "position": {
+                "x": 400,
+                "y": 200
+            },
+            "data": {
+                "d_model": 512,
+                "nhead": 8,
+                "dim_feedforward": 2048,
+                "dropout": 0.1
+            }
+        },
+        {
+            "id": "t5-encoder-layer2-3",
+            "type": "transformerencoderlayerNode",
+            "position": {
+                "x": 700,
+                "y": 200
+            },
+            "data": {
+                "d_model": 512,
+                "nhead": 8,
+                "dim_feedforward": 2048,
+                "dropout": 0.1
+            }
+        },
+        {
+            "id": "t5-encoder-layer3-4",
+            "type": "transformerencoderlayerNode",
+            "position": {
+                "x": 1000,
+                "y": 200
+            },
+            "data": {
+                "d_model": 512,
+                "nhead": 8,
+                "dim_feedforward": 2048,
+                "dropout": 0.1
+            }
+        },
+        {
+            "id": "t5-encoder-layer4-5",
+            "type": "transformerencoderlayerNode",
+            "position": {
+                "x": 1300,
+                "y": 200
+            },
+            "data": {
+                "d_model": 512,
+                "nhead": 8,
+                "dim_feedforward": 2048,
+                "dropout": 0.1
+            }
+        },
+        {
+            "id": "t5-encoder-layer5-6",
+            "type": "transformerencoderlayerNode",
+            "position": {
+                "x": 1600,
+                "y": 200
+            },
+            "data": {
+                "d_model": 512,
+                "nhead": 8,
+                "dim_feedforward": 2048,
+                "dropout": 0.1
+            }
+        },
+        {
+            "id": "t5-encoder-layer6-7",
+            "type": "transformerencoderlayerNode",
+            "position": {
+                "x": 1900,
+                "y": 200
+            },
+            "data": {
+                "d_model": 512,
+                "nhead": 8,
+                "dim_feedforward": 2048,
+                "dropout": 0.1
+            }
+        },
+        {
+            "id": "t5-decoder-input-8",
+            "type": "inputNode",
+            "position": {
+                "x": 100,
+                "y": 600
+            },
+            "data": {
+                "channels": 512,
+                "height": 1,
+                "width": 512
+            }
+        },
+        {
+            "id": "t5-decoder-layer1-9",
+            "type": "transformerdecoderlayerNode",
+            "position": {
+                "x": 400,
+                "y": 600
+            },
+            "data": {
+                "d_model": 512,
+                "nhead": 8,
+                "dim_feedforward": 2048,
+                "dropout": 0.1
+            }
+        },
+        {
+            "id": "t5-decoder-layer2-10",
+            "type": "transformerdecoderlayerNode",
+            "position": {
+                "x": 700,
+                "y": 600
+            },
+            "data": {
+                "d_model": 512,
+                "nhead": 8,
+                "dim_feedforward": 2048,
+                "dropout": 0.1
+            }
+        },
+        {
+            "id": "t5-decoder-layer3-11",
+            "type": "transformerdecoderlayerNode",
+            "position": {
+                "x": 1000,
+                "y": 600
+            },
+            "data": {
+                "d_model": 512,
+                "nhead": 8,
+                "dim_feedforward": 2048,
+                "dropout": 0.1
+            }
+        },
+        {
+            "id": "t5-decoder-layer4-12",
+            "type": "transformerdecoderlayerNode",
+            "position": {
+                "x": 1300,
+                "y": 600
+            },
+            "data": {
+                "d_model": 512,
+                "nhead": 8,
+                "dim_feedforward": 2048,
+                "dropout": 0.1
+            }
+        },
+        {
+            "id": "t5-decoder-layer5-13",
+            "type": "transformerdecoderlayerNode",
+            "position": {
+                "x": 1600,
+                "y": 600
+            },
+            "data": {
+                "d_model": 512,
+                "nhead": 8,
+                "dim_feedforward": 2048,
+                "dropout": 0.1
+            }
+        },
+        {
+            "id": "t5-decoder-layer6-14",
+            "type": "transformerdecoderlayerNode",
+            "position": {
+                "x": 1900,
+                "y": 600
+            },
+            "data": {
+                "d_model": 512,
+                "nhead": 8,
+                "dim_feedforward": 2048,
+                "dropout": 0.1
+            }
+        },
+        {
+            "id": "t5-flatten-17",
+            "type": "flattenNode",
+            "position": {
+                "x": 2200,
+                "y": 600
+            },
+            "data": {}
+        },
+        {
+            "id": "t5-linear-15",
+            "type": "linearNode",
+            "position": {
+                "x": 2500,
+                "y": 600
+            },
+            "data": {
+                "in_features": 262144,
+                "out_features": 32128
+            }
+        },
+        {
+            "id": "t5-softmax-16",
+            "type": "softmaxNode",
+            "position": {
+                "x": 2800,
+                "y": 600
+            },
+            "data": {
+                "dim": -1
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "te1-2",
+            "source": "t5-encoder-input-1",
+            "target": "t5-encoder-layer1-2"
+        },
+        {
+            "id": "te2-3",
+            "source": "t5-encoder-layer1-2",
+            "target": "t5-encoder-layer2-3"
+        },
+        {
+            "id": "te3-4",
+            "source": "t5-encoder-layer2-3",
+            "target": "t5-encoder-layer3-4"
+        },
+        {
+            "id": "te4-5",
+            "source": "t5-encoder-layer3-4",
+            "target": "t5-encoder-layer4-5"
+        },
+        {
+            "id": "te5-6",
+            "source": "t5-encoder-layer4-5",
+            "target": "t5-encoder-layer5-6"
+        },
+        {
+            "id": "te6-7",
+            "source": "t5-encoder-layer5-6",
+            "target": "t5-encoder-layer6-7"
+        },
+        {
+            "id": "td1-2",
+            "source": "t5-decoder-input-8",
+            "target": "t5-decoder-layer1-9",
+            "targetHandle": "tgt"
+        },
+        {
+            "id": "te-d1",
+            "source": "t5-encoder-layer6-7",
+            "target": "t5-decoder-layer1-9",
+            "targetHandle": "memory"
+        },
+        {
+            "id": "td2-3",
+            "source": "t5-decoder-layer1-9",
+            "target": "t5-decoder-layer2-10",
+            "targetHandle": "tgt"
+        },
+        {
+            "id": "te-d2",
+            "source": "t5-encoder-layer6-7",
+            "target": "t5-decoder-layer2-10",
+            "targetHandle": "memory"
+        },
+        {
+            "id": "td3-4",
+            "source": "t5-decoder-layer2-10",
+            "target": "t5-decoder-layer3-11",
+            "targetHandle": "tgt"
+        },
+        {
+            "id": "te-d3",
+            "source": "t5-encoder-layer6-7",
+            "target": "t5-decoder-layer3-11",
+            "targetHandle": "memory"
+        },
+        {
+            "id": "td4-5",
+            "source": "t5-decoder-layer3-11",
+            "target": "t5-decoder-layer4-12",
+            "targetHandle": "tgt"
+        },
+        {
+            "id": "te-d4",
+            "source": "t5-encoder-layer6-7",
+            "target": "t5-decoder-layer4-12",
+            "targetHandle": "memory"
+        },
+        {
+            "id": "td5-6",
+            "source": "t5-decoder-layer4-12",
+            "target": "t5-decoder-layer5-13",
+            "targetHandle": "tgt"
+        },
+        {
+            "id": "te-d5",
+            "source": "t5-encoder-layer6-7",
+            "target": "t5-decoder-layer5-13",
+            "targetHandle": "memory"
+        },
+        {
+            "id": "td6-7",
+            "source": "t5-decoder-layer5-13",
+            "target": "t5-decoder-layer6-14",
+            "targetHandle": "tgt"
+        },
+        {
+            "id": "te-d6",
+            "source": "t5-encoder-layer6-7",
+            "target": "t5-decoder-layer6-14",
+            "targetHandle": "memory"
+        },
+        {
+            "id": "td7-8",
+            "source": "t5-decoder-layer6-14",
+            "target": "t5-flatten-17"
+        },
+        {
+            "id": "td8-9",
+            "source": "t5-linear-15",
+            "target": "t5-softmax-16"
+        },
+        {
+            "id": "t5-flatten-linear-17-15",
+            "source": "t5-flatten-17",
+            "target": "t5-linear-15"
+        }
+    ]
+}
