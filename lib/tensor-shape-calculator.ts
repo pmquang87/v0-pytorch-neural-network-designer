@@ -35,90 +35,184 @@ function getOrderedDimensions(shape: TensorShape): (keyof TensorShape)[] {
     return CANONICAL_DIM_ORDER.filter(dim => shape[dim] !== undefined);
 }
 
-function mergeShapes(shapes: TensorShape[]): TensorShape {
-  const result: TensorShape = {};
-  for (const shape of shapes) {
-    if (!shape) continue;
-    for (const key of CANONICAL_DIM_ORDER) {
-      if (shape[key] !== undefined) {
-        if (result[key] === undefined || result[key] === 'dynamic') {
-          result[key] = shape[key];
-        }
-      }
-    }
-  }
-  return result;
-}
-
 export function validateTensorShapes(
   nodeType: string,
-  inputShapes: TensorShape[],
+  inputShapes: (TensorShape | undefined)[], // Allow undefined for disconnected inputs
   nodeData: any,
 ): ShapeValidationResult {
   switch (nodeType) {
     case "addNode":
-    case "multiplyNode":
-      if (inputShapes.length < 2) {
-        return { isValid: true }; 
-      }
-      const firstInputShape = inputShapes[0];
-      if (!firstInputShape) {
-        return { isValid: true }; // Cannot validate if first input is undefined
+    case "multiplyNode": {
+      const definedInputs = inputShapes
+        .map((shape, index) => ({ shape, index }))
+        .filter(item => item.shape && Object.keys(item.shape).length > 0);
+
+      if (definedInputs.length < 2) {
+        return { isValid: true }; // Not enough inputs to have a mismatch
       }
 
-      for (let i = 1; i < inputShapes.length; i++) {
-        const currentInputShape = inputShapes[i];
-        if (!currentInputShape) continue;
+      const allKeys = new Set<keyof TensorShape>();
+      definedInputs.forEach(({ shape }) => {
+        if (shape) {
+          (Object.keys(shape) as (keyof TensorShape)[]).forEach(key => {
+            allKeys.add(key);
+          });
+        }
+      });
 
-        if (!shapesCompatible(firstInputShape, currentInputShape)) {
-          const nodeName = nodeType === 'addNode' ? 'Add' : 'Multiply';
+      for (const key of allKeys) {
+        const sizes = new Set<number>();
+        const contributingInputs = new Map<number, number>(); // size -> input index
+
+        for (const { shape, index } of definedInputs) {
+          const val = shape?.[key];
+          // Treat undefined dimension as 1 for broadcasting
+          const dim = val === undefined ? 1 : val;
+
+          if (typeof dim === "number" && dim !== 1) {
+            sizes.add(dim);
+            if (!contributingInputs.has(dim)) {
+              // Use the original index + 1 for user-facing handle ID
+              contributingInputs.set(dim, index + 1);
+            }
+          }
+        }
+
+        if (sizes.size > 1) {
+          const nodeName = nodeType === "addNode" ? "Add" : "Multiply";
+          const sizeArray = Array.from(sizes).sort((a, b) => a - b);
+          const errorDetails = sizeArray.map(s => `${s} (from input ${contributingInputs.get(s)})`).join(" vs ");
           return {
             isValid: false,
-            error: `${nodeName} error: Input ${i + 1} shape is not compatible for broadcasting with the first input shape.`,
+            error: `${nodeName} error: Incompatible sizes for broadcasting on dimension '${key}'. Got ${errorDetails}.`,
           };
         }
       }
       break;
+    }
 
-    case "concatenateNode":
-      if (inputShapes.length < 2) {
-        return { isValid: true }; // Not an error if not fully connected
+    case "concatenateNode": {
+      const definedInputs = inputShapes
+        .map((shape, index) => ({ shape, index }))
+        .filter(item => item.shape);
+
+      if (definedInputs.length < 2) {
+        return { isValid: true };
       }
+
+      const firstInput = definedInputs[0];
+      if (!firstInput.shape) break;
+      const firstDims = getOrderedDimensions(firstInput.shape);
+
+      // Check that all inputs have the same dimension keys
+      for (let i = 1; i < definedInputs.length; i++) {
+        const currentInput = definedInputs[i];
+        if (!currentInput.shape) continue;
+        const currentDims = getOrderedDimensions(currentInput.shape);
+        if (firstDims.length !== currentDims.length || !firstDims.every((dim, idx) => dim === currentDims[idx])) {
+          return {
+            isValid: false,
+            error: `Concatenation error: All inputs must have the same dimensions. Input ${firstInput.index + 1} has [${firstDims.join(
+              ", ",
+            )}], but input ${currentInput.index + 1} has [${currentDims.join(", ")}].`,
+          };
+        }
+      }
+
       const dim = nodeData.dim ?? 1;
       if (dim === 0) {
         return { isValid: false, error: "Concatenation on dim=0 (batch dimension) is not supported." };
       }
-      const codeDim = dim - 1; // UI is 1-based, code is 0-based
+      const codeDim = dim - 1;
 
-      const firstShape = inputShapes[0];
-      if (!firstShape) break;
-      const orderedDims = getOrderedDimensions(firstShape);
-
-      if (codeDim < 0 || codeDim >= orderedDims.length) {
-        return { isValid: false, error: `Invalid dimension ${dim} for a tensor with ${orderedDims.length} dimensions (channels, height, width, etc.).` };
+      if (codeDim < 0 || codeDim >= firstDims.length) {
+        return {
+          isValid: false,
+          error: `Invalid dimension ${dim} for a tensor with ${firstDims.length} dimensions.`,
+        };
       }
 
-      for (let i = 1; i < inputShapes.length; i++) {
-        const currentShape = inputShapes[i];
-        if (!currentShape) continue;
-        const currentOrderedDims = getOrderedDimensions(currentShape);
+      const concatDimName = firstDims[codeDim];
 
-        if (orderedDims.length !== currentOrderedDims.length) {
-            return { isValid: false, error: `Concatenation error: All inputs must have the same number of dimensions. Input 1 has ${orderedDims.length}, but input ${i+1} has ${currentOrderedDims.length}.` };
+      // Check that all non-concatenated dimensions match
+      for (const dimName of firstDims) {
+        if (dimName === concatDimName) continue;
+
+        const dimensionValues = new Map<number, number[]>(); // size -> list of input indices
+        for (const { shape, index } of definedInputs) {
+          const val = shape?.[dimName];
+          if (typeof val === "number") {
+            if (!dimensionValues.has(val)) {
+              dimensionValues.set(val, []);
+            }
+            dimensionValues.get(val)!.push(index + 1);
+          }
         }
 
-        for (let j = 0; j < orderedDims.length; j++) {
-          if (j !== codeDim) {
-            const dimName = orderedDims[j];
-            const val1 = firstShape[dimName];
-            const val2 = currentShape[dimName];
-            if (val1 !== "dynamic" && val2 !== "dynamic" && val1 !== val2) {
-              return { isValid: false, error: `Concatenation error: Input ${i+1} has a mismatch on dimension '${dimName}'. Expected size ${val1}, but got ${val2}. All non-concatenation dimensions must match.` };
-            }
-          }
+        if (dimensionValues.size > 1) {
+          const errorDetails = Array.from(dimensionValues.entries())
+            .map(([size, inputs]) => `${size} (on input${inputs.length > 1 ? "s" : ""} ${inputs.join(", ")})`)
+            .join(" vs ");
+          return {
+            isValid: false,
+            error: `Concatenation error: Incompatible sizes for dimension '${dimName}'. All non-concatenated dimensions must match. Found: ${errorDetails}.`,
+          };
         }
       }
       break;
+    }
+
+    case "reshapeNode": {
+      const targetShapeStr = (nodeData.targetShape || "").trim();
+      if (!targetShapeStr) {
+        return { isValid: true }; // No shape to validate yet
+      }
+      const inputShape = inputShapes[0];
+      if (!inputShape || Object.keys(inputShape).length === 0) {
+        return { isValid: true, warning: "Connect an input to validate reshape." };
+      }
+
+      let targetDims: number[];
+      try {
+        const jsonFriendlyStr = targetShapeStr.replace(/'/g, '"').replace(/,(\s*?)]/g, ']');
+        const parsed = JSON.parse(jsonFriendlyStr);
+        if (!Array.isArray(parsed) || !parsed.every(d => typeof d === 'number')) {
+          return { isValid: false, error: "Invalid format. Shape must be a list of integers, e.g., [-1, 784]." };
+        }
+        targetDims = parsed;
+      } catch (e) {
+        return { isValid: false, error: "Invalid format. Use a list of integers like [-1, 784]." };
+      }
+
+      if (targetDims.filter(d => d === -1).length > 1) {
+        return { isValid: false, error: "Invalid shape: can only have one '-1' dimension." };
+      }
+
+      const inputDimValues = Object.values(inputShape).filter(v => typeof v === 'number' || v === 'dynamic');
+      if (inputDimValues.some(v => v === "dynamic")) {
+        if (targetDims.includes(-1)) {
+          return { isValid: true, warning: "Cannot infer '-1' dimension when input shape is dynamic." };
+        }
+        return { isValid: true };
+      }
+
+      const totalInputSize = inputDimValues.filter((v): v is number => typeof v === 'number').reduce((acc, val) => acc * val, 1);
+      const inferredDimIndex = targetDims.indexOf(-1);
+
+      if (inferredDimIndex !== -1) {
+        const productOfKnownDims = targetDims.reduce((acc, val) => (val !== -1 ? acc * val : acc), 1);
+        if (productOfKnownDims > 0 && totalInputSize % productOfKnownDims !== 0) {
+          return { isValid: false, error: `Cannot reshape tensor of size ${totalInputSize} into shape with product ${productOfKnownDims}.` };
+        }
+      } else {
+        const totalOutputSize = targetDims.reduce((acc, val) => acc * val, 1);
+        if (totalInputSize !== totalOutputSize) {
+          return { isValid: false, error: `Shape mismatch. Input has ${totalInputSize} elements, target has ${totalOutputSize}.` };
+        }
+      }
+
+      return { isValid: true };
+    }
 
     case "gruNode":
     case "lstmNode":
@@ -129,7 +223,7 @@ export function validateTensorShapes(
         const nodeName = nodeType.replace('Node', '').toUpperCase();
         return {
           isValid: false,
-          error: `Input features mismatch. ${nodeName} layer expects input_size=${inputSize}, but received ${inputFeatures}.`,
+          error: `${nodeName} layer expects input_size=${inputSize}, but received ${inputFeatures}.`,
         };
       }
       break;
@@ -170,20 +264,6 @@ export function validateTensorShapes(
   }
 
   return { isValid: true };
-}
-
-function shapesCompatible(shape1: TensorShape, shape2: TensorShape): boolean {
-  const keys = new Set([...Object.keys(shape1), ...Object.keys(shape2)]);
-  for (const key of keys) {
-    const val1 = (shape1 as any)[key];
-    const val2 = (shape2 as any)[key];
-    if (val1 !== undefined && val2 !== undefined && val1 !== "dynamic" && val2 !== "dynamic") {
-      if (val1 !== 1 && val2 !== 1 && val1 !== val2) {
-        return false;
-      }
-    }
-  }
-  return true;
 }
 
 export function calculateOutputShape(
@@ -449,57 +529,121 @@ export function calculateOutputShape(
       }
       return inputShape;
 
-    case "flattenNode":
-      const start_dim = nodeData.start_dim ?? 0;
-      const end_dim = nodeData.end_dim ?? -1;
+    case "flattenNode": {
+      const start_dim_ui = nodeData.start_dim ?? 1;
+      const end_dim_ui = nodeData.end_dim ?? -1;
+      const start_dim = start_dim_ui - 1;
 
-      const orderedDims: (keyof TensorShape)[] = [
-        "channels",
-        "depth",
-        "height",
-        "width",
-        "sequence",
-        "length",
-        "features",
-      ];
-      const dimsWithValue = orderedDims.filter(d => inputShape[d] !== undefined);
+      const standardDims = getOrderedDimensions(inputShape);
+      const genericKeys = Object.keys(inputShape)
+        .filter(k => k.startsWith("dim"))
+        .sort((a, b) => {
+          const numA = parseInt(a.replace("dim", ""), 10);
+          const numB = parseInt(b.replace("dim", ""), 10);
+          return isNaN(numA) || isNaN(numB) ? a.localeCompare(b) : numA - numB;
+        });
 
-      if (dimsWithValue.length === 0) {
+      const dimsToProcess = standardDims.length > 0 ? standardDims : (genericKeys as (keyof TensorShape)[]);
+      const isGenericInput = standardDims.length === 0 && genericKeys.length > 0;
+
+      if (dimsToProcess.length === 0) {
         return { features: "dynamic" };
       }
 
-      const realEndDim = end_dim === -1 ? dimsWithValue.length - 1 : end_dim;
+      const realEndDim = end_dim_ui === -1 ? dimsToProcess.length - 1 : end_dim_ui - 1;
+
+      if (start_dim >= dimsToProcess.length || realEndDim < 0 || start_dim > realEndDim) {
+        return inputShape;
+      }
 
       const output: Partial<TensorShape> = {};
       let flattenedDim: number | "dynamic" = 1;
       let firstFlattenedDimName: keyof TensorShape | undefined;
 
-      for (let i = 0; i < dimsWithValue.length; i++) {
-        const dimName = dimsWithValue[i];
+      for (let i = 0; i < dimsToProcess.length; i++) {
+        const dimName = dimsToProcess[i];
         if (i >= start_dim && i <= realEndDim) {
           if (!firstFlattenedDimName) {
             firstFlattenedDimName = dimName;
           }
-          const val = inputShape[dimName];
+          const val = (inputShape as any)[dimName];
           if (val === "dynamic" || flattenedDim === "dynamic") {
             flattenedDim = "dynamic";
           } else if (val !== undefined) {
             flattenedDim *= Number(val);
           }
         } else {
-          ;(output as any)[dimName] = inputShape[dimName];
+          (output as any)[dimName] = (inputShape as any)[dimName];
         }
       }
 
       if (firstFlattenedDimName) {
-        const isFullFlatten = start_dim === 0 && realEndDim === dimsWithValue.length - 1;
-        const newDimName = isFullFlatten ? "features" : firstFlattenedDimName;
-        ;(output as any)[newDimName] = flattenedDim;
+        const isFullFlatten = start_dim === 0 && realEndDim === dimsToProcess.length - 1;
+        const newDimName = isGenericInput || isFullFlatten ? "features" : firstFlattenedDimName;
+        (output as any)[newDimName] = flattenedDim;
       } else {
         return inputShape;
       }
 
       return output as TensorShape;
+    }
+
+    case "reshapeNode": {
+      const targetShapeStr = (nodeData.targetShape || "").trim();
+      if (!inputShape || Object.keys(inputShape).length === 0 || !targetShapeStr) {
+        return {};
+      }
+
+      let targetDims: number[];
+      try {
+        const jsonFriendlyStr = targetShapeStr.replace(/'/g, '"').replace(/,(\s*?)]/g, ']');
+        targetDims = JSON.parse(jsonFriendlyStr);
+        if (!Array.isArray(targetDims) || !targetDims.every(d => typeof d === 'number')) {
+            return { error: "invalid" } as any;
+        }
+      } catch (e) {
+        return { error: "invalid" } as any;
+      }
+
+      if (targetDims.filter(d => d === -1).length > 1) {
+        return { error: "multiple -1s" } as any;
+      }
+
+      const inputDimValues = Object.values(inputShape).filter(v => typeof v === 'number' || v === 'dynamic');
+
+      if (inputDimValues.some(v => v === "dynamic")) {
+        const newShape: { [key: string]: string | number } = {};
+        targetDims.forEach((dim, i) => {
+          newShape[`dim${i}`] = dim === -1 ? "dynamic" : dim;
+        });
+        return newShape as any;
+      }
+
+      const totalInputSize = inputDimValues.filter((v): v is number => typeof v === 'number').reduce((acc, val) => acc * val, 1);
+      const inferredDimIndex = targetDims.indexOf(-1);
+
+      let finalDims: number[];
+      if (inferredDimIndex !== -1) {
+        const productOfKnownDims = targetDims.reduce((acc, val) => (val !== -1 ? acc * val : acc), 1);
+        if (productOfKnownDims === 0 || totalInputSize % productOfKnownDims !== 0) {
+          return { error: "mismatch" } as any;
+        }
+        const inferredDimValue = totalInputSize / productOfKnownDims;
+        finalDims = targetDims.map(d => (d === -1 ? inferredDimValue : d));
+      } else {
+        const totalOutputSize = targetDims.reduce((acc, val) => acc * val, 1);
+        if (totalInputSize !== totalOutputSize) {
+            return { error: "mismatch" } as any;
+        }
+        finalDims = targetDims;
+      }
+      
+      const newShape: { [key: string]: number } = {};
+      finalDims.forEach((dim, i) => {
+        newShape[`dim${i}`] = dim;
+      });
+      return newShape as any;
+    }
 
     case "adaptiveavgpool2dNode":
       const outputSize = nodeData.output_size;
@@ -574,30 +718,34 @@ export function calculateOutputShape(
 
     case "addNode":
     case "multiplyNode": {
-      if (inputShapes.length === 0) return {};
-      const outputShape: TensorShape = {};
+      const definedShapes = inputShapes.filter(s => s && Object.keys(s).length > 0);
+      if (definedShapes.length === 0) return {};
+
+      const broadcastShape: TensorShape = {};
       const allKeys = new Set<keyof TensorShape>();
-      inputShapes.forEach(s => {
-        if (s) Object.keys(s).forEach(k => allKeys.add(k as keyof TensorShape));
+      definedShapes.forEach(s => {
+        if (s) {
+          (Object.keys(s) as (keyof TensorShape)[]).forEach(k => allKeys.add(k));
+        }
       });
 
       for (const key of allKeys) {
-        let maxVal: number | "dynamic" = 1;
-        for (const shape of inputShapes) {
-          if (shape && shape[key] !== undefined) {
-            const val = shape[key];
-            if (val === "dynamic") {
-              maxVal = "dynamic";
-              break;
-            }
-            if (val > maxVal) {
-              maxVal = val;
+        let outputDimSize: number | "dynamic" = 1;
+        for (const shape of definedShapes) {
+          const size = shape?.[key];
+          if (size === "dynamic") {
+            outputDimSize = "dynamic";
+            break;
+          }
+          if (typeof size === "number") {
+            if (outputDimSize !== "dynamic") {
+              outputDimSize = Math.max(outputDimSize, size);
             }
           }
         }
-        outputShape[key] = maxVal;
+        broadcastShape[key] = outputDimSize;
       }
-      return outputShape;
+      return broadcastShape;
     }
 
     case "concatenateNode":
@@ -606,12 +754,12 @@ export function calculateOutputShape(
 
       const firstConcatShape = inputShapes.find(s => s && Object.keys(s).length > 0);
       if (!firstConcatShape) return {};
-      
+
       const orderedConcatDimsCalc = getOrderedDimensions(firstConcatShape);
       const concatDim = concatDimUi - 1; // UI is 1-based, code is 0-based
 
       if (concatDim < 0 || concatDim >= orderedConcatDimsCalc.length) {
-          return firstConcatShape;
+        return firstConcatShape;
       }
 
       const targetConcatDim = orderedConcatDimsCalc[concatDim];
@@ -656,21 +804,17 @@ export function calculateOutputShape(
       return { ...inputShape, channels: nodeData.out_channels || 64 };
 
     default:
-      return {
-        channels: inputShape.channels,
-        height: inputShape.height ?? "dynamic",
-        width: inputShape.width ?? "dynamic",
-        depth: inputShape.depth ?? "dynamic",
-        features: inputShape.features ?? "dynamic",
-        sequence: inputShape.sequence ?? "dynamic",
-        length: inputShape.length ?? "dynamic",
-      };
+      return inputShape;
   }
 }
 
 export function formatTensorShape(shape: TensorShape | {} | undefined): string {
   if (!shape || Object.keys(shape).length === 0) {
     return "[?]";
+  }
+
+  if ('error' in shape) {
+    return "[err]";
   }
 
   const typedShape = shape as TensorShape;
@@ -692,15 +836,29 @@ export function formatTensorShape(shape: TensorShape | {} | undefined): string {
       return val === "dynamic" ? "?" : `${val}`;
     });
 
-  if (parts.length === 0) {
-    const allValues = Object.values(typedShape).filter(v => v !== undefined);
-    if (allValues.length > 0) {
-      return `[${allValues.map(v => (v === "dynamic" ? "?" : v)).join(", ")}]`;
-    }
-    return "[?]";
+  if (parts.length > 0) {
+    return `[${parts.join(", ")}]`;
   }
 
-  return `[${parts.join(", ")}]`;
+  // Fallback for generic shapes (e.g., from reshape)
+  const genericKeys = Object.keys(typedShape).sort((a, b) => {
+      const numA = parseInt(a.replace('dim', ''), 10);
+      const numB = parseInt(b.replace('dim', ''), 10);
+      if (!isNaN(numA) && !isNaN(numB)) {
+          return numA - numB;
+      }
+      return a.localeCompare(b);
+  });
+  
+  if (genericKeys.length > 0) {
+    const allValues = genericKeys.map(key => (typedShape as any)[key]);
+     if (allValues.some(v => typeof v !== 'number' && v !== 'dynamic')) {
+        return "[err]"; // Contains non-numeric/dynamic values
+    }
+    return `[${allValues.map(v => (v === "dynamic" ? "?" : v)).join(", ")}]`;
+  }
+
+  return "[?]";
 }
 
 export function inferDynamicShape(

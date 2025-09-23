@@ -144,16 +144,13 @@ export class ModelValidator {
     const errors: string[] = []
     const nodeMap = new Map(nodes.map((node) => [node.id, node]))
 
-    // General validation using the centralized `validateTensorShapes` function
     for (const node of nodes) {
       if (node.type === "inputNode") continue
 
       const inputEdges = edges.filter((edge) => edge.target === node.id)
-      if (inputEdges.length === 0) continue
-
       let inputShapes: (TensorShape | undefined)[] = []
 
-      if (node.type === "concatenateNode" || node.type === "addNode") {
+      if (node.type === "concatenateNode" || node.type === "addNode" || node.type === "multiplyNode") {
         const numInputs = node.data.num_inputs || node.data.inputs || 2
         for (let i = 1; i <= numInputs; i++) {
           const handleId = `input${i}`
@@ -172,23 +169,65 @@ export class ModelValidator {
           inputShapes.push(sourceNode?.data.outputShape)
         }
       } else {
+        if (inputEdges.length === 0) continue
         inputShapes = inputEdges.map((edge) => {
           const sourceNode = nodeMap.get(edge.source)
           return sourceNode?.data.outputShape
         })
       }
 
-      const cleanInputShapes = inputShapes.filter((s): s is TensorShape => !!s)
+      const connectedShapes = inputShapes.filter((s): s is TensorShape => !!s)
 
-      if (cleanInputShapes.length > 0) {
-        if ((node.type === "concatenateNode" || node.type === "addNode") && cleanInputShapes.length < 2) {
+      if (node.type === "addNode" || node.type === "multiplyNode") {
+        if (connectedShapes.length > 1) {
+          const firstShape = JSON.stringify(connectedShapes[0]);
+          for (let i = 1; i < connectedShapes.length; i++) {
+            if (JSON.stringify(connectedShapes[i]) !== firstShape) {
+              errors.push(`Node '${node.data.label || node.id}' (${node.type}): Input shapes must be identical.`);
+              break; 
+            }
+          }
+        }
+      } else if (node.type === "concatenateNode") {
+        if (connectedShapes.length > 1) {
+          const firstShape = connectedShapes[0];
+          const dim = node.data.dim ?? 0; 
+          let mismatchFound = false;
+          for (const shape of connectedShapes.slice(1)) {
+            if (shape.length !== firstShape.length) {
+              errors.push(
+                `Node '${node.data.label || node.id}' (concatenateNode): Input tensors must have the same number of dimensions.`
+              );
+              mismatchFound = true;
+              break;
+            }
+            for (let i = 0; i < shape.length; i++) {
+              if (i !== dim && shape[i] !== firstShape[i]) {
+                errors.push(
+                  `Node '${node.data.label || node.id}' (concatenateNode): Input tensor shapes must match except in the concatenation dimension (dim=${dim}).`
+                );
+                mismatchFound = true;
+                break;
+              }
+            }
+            if (mismatchFound) break;
+          }
+        }
+      }
+
+      if (node.type === "addNode" || node.type === "multiplyNode" || node.type === "concatenateNode") {
+        if (connectedShapes.length < 2) {
           continue
         }
-
-        const result = validateTensorShapes(node.type || "", cleanInputShapes, node.data)
-        if (result && !result.isValid && result.error) {
-          errors.push(`Node '${node.data.label || node.id}' (${node.type}): ${result.error}`)
+      } else {
+        if (connectedShapes.length === 0) {
+          continue
         }
+      }
+
+      const result = validateTensorShapes(node.type || "", inputShapes, node.data)
+      if (result && !result.isValid && result.error) {
+        errors.push(`Node '${node.data.label || node.id}' (${node.type}): ${result.error}`)
       }
     }
 

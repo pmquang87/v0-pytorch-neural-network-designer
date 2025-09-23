@@ -49,6 +49,7 @@ export function ConcatenateNode({ id, data }: { id: string; data: any }) {
           <span className="font-medium text-sm">Concatenate</span>
         </div>
         <div className="text-xs text-muted-foreground">inputs: {definedInputShapes.length}</div>
+        <div className="text-xs text-muted-foreground">dim: {data.dim}</div>
         <div className="mt-2 pt-2 border-t border-border">
           <div className="text-xs text-muted-foreground">
             <div className="text-orange-600">

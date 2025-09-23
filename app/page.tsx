@@ -120,10 +120,11 @@ import { TransformerDecoderLayerNode } from "@/components/nodes/TransformerDecod
 import { TransposeNode } from "@/components/nodes/TransposeNode"
 import { SelectNode } from "@/components/nodes/SelectNode"
 import { OutputNode } from "@/components/nodes/OutputNode"
+import { ReshapeNode } from "@/components/nodes/ReshapeNode"
 
 const initialNodes: Node[] = [
   {
-    id: "input-1",
+    id: "inputNode_1",
     type: "inputNode",
     position: { x: 100, y: 100 },
     data: { channels: 3, height: 28, width: 28 },
@@ -179,6 +180,7 @@ const nodeTypes: NodeTypes = {
   transposeNode: TransposeNode,
   selectNode: SelectNode,
   outputNode: OutputNode,
+  reshapeNode: ReshapeNode,
 }
 
 export default function NeuralNetworkDesigner() {
@@ -247,6 +249,7 @@ export default function NeuralNetworkDesigner() {
   const [modelName, setModelName] = useState("")
   const [currentModelName, setCurrentModelName] = useState<string | null>(null)
   const [savedModels, setSavedModels] = useState<Array<{ key: string; name: string; timestamp: number }>>([])
+  const [editingNodeId, setEditingNodeId] = useState("")
 
   const reactFlowInstanceRef = useRef<any>(null)
   const autoSave = useAutoSave()
@@ -282,6 +285,12 @@ export default function NeuralNetworkDesigner() {
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (selectedNode) {
+      setEditingNodeId(selectedNode.id)
+    }
+  }, [selectedNode])
 
   useEffect(() => {
     const results = validateModel(nodes, edges)
@@ -481,13 +490,34 @@ export default function NeuralNetworkDesigner() {
         position = targetPosition;
       }
 
-      const newNode: Node = {
-        id: `${type}_${Date.now()}`,
-        type,
-        position,
-        data,
-      }
-      setNodes((nds) => [...nds, newNode])
+      setNodes((nds) => {
+        const existingIds = new Set(nds.map((n) => n.id));
+        let maxNumericId = 0;
+        nds.forEach((n) => {
+          const match = n.id.match(/(?:[_-])(\d+)$/);
+          if (match && match[1]) {
+            const numericPart = parseInt(match[1], 10);
+            if (numericPart > maxNumericId) {
+              maxNumericId = numericPart;
+            }
+          }
+        });
+
+        let newNodeId = "";
+        let counter = maxNumericId + 1;
+        do {
+          newNodeId = `${type}_${counter}`;
+          counter++;
+        } while (existingIds.has(newNodeId));
+        
+        const newNode: Node = {
+            id: newNodeId,
+            type,
+            position,
+            data,
+        };
+        return [...nds, newNode];
+      });
     },
     [setNodes, takeSnapshot],
   )
@@ -526,6 +556,22 @@ export default function NeuralNetworkDesigner() {
       })
     },
     [setNodes, selectedNode, takeSnapshot],
+  )
+
+  const updateNodeId = useCallback(
+    (oldId: string, newId: string) => {
+      takeSnapshot()
+      setNodes((nds) => nds.map((n) => (n.id === oldId ? { ...n, id: newId } : n)))
+      setEdges((eds) =>
+        eds.map((e) => {
+          const source = e.source === oldId ? newId : e.source
+          const target = e.target === oldId ? newId : e.target
+          return { ...e, source, target }
+        }),
+      )
+      setSelectedNode((sn) => (sn && sn.id === oldId ? { ...sn, id: newId } : sn))
+    },
+    [setNodes, setEdges, setSelectedNode, takeSnapshot],
   )
 
   useEffect(() => {
@@ -671,7 +717,7 @@ export default function NeuralNetworkDesigner() {
           setEdges(importedData.edges);
           const importedModelName = importedData.name || file.name.replace('.json', '');
           setCurrentModelName(importedModelName);
-          toast({ title: "Model Imported", description: `Successfully imported \"${importedModelName}\".` });
+          toast({ title: "Model Imported", description: `Successfully imported \"${importedModelName}\"` });
           setShowLoadDialog(false);
         } else {
           throw new Error("Invalid model file format.");
@@ -1030,7 +1076,7 @@ export default function NeuralNetworkDesigner() {
     for (let i = 0; i < params.length; i++) {
       const char = params[i]
 
-      if (!inQuotes && (char === "'" || char === '\"')) {
+      if (!inQuotes && (char === "'" || char === '"')) {
         inQuotes = true
         quoteChar = char
       } else if (inQuotes && char === quoteChar) {
@@ -1081,7 +1127,7 @@ export default function NeuralNetworkDesigner() {
       return tupleValues.length === 1 ? tupleValues[0] : tupleValues
     }
 
-    if ((trimmedValue.startsWith("'") && trimmedValue.endsWith("'")) || (trimmedValue.startsWith('\"') && trimmedValue.endsWith('\"'))) {
+    if ((trimmedValue.startsWith("'") && trimmedValue.endsWith("'")) || (trimmedValue.startsWith('"') && trimmedValue.endsWith('"'))) {
       return trimmedValue.slice(1, -1)
     }
 
@@ -1590,6 +1636,15 @@ export default function NeuralNetworkDesigner() {
                   </Card>
                   <Card
                     className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
+                    onClick={() => addNode("reshapeNode", { targetShape: "[-1, 784]" })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-green-500" />
+                      <span className="text-sm font-medium text-sidebar-foreground">Reshape</span>
+                    </div>
+                  </Card>
+                  <Card
+                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
                     onClick={() => addNode("transposeNode", { dim0: 0, dim1: 1 })}
                   >
                     <div className="flex items-center gap-2">
@@ -1744,7 +1799,42 @@ export default function NeuralNetworkDesigner() {
                   <Badge variant="secondary" className="mb-2">
                     {selectedNode.type}
                   </Badge>
-                  <div className="text-sm text-sidebar-foreground/70">ID: {selectedNode.id}</div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-sidebar-foreground/70">Node ID</label>
+                    <Input
+                      value={editingNodeId}
+                      onChange={(e) => setEditingNodeId(e.target.value)}
+                      onBlur={() => {
+                        if (!selectedNode) return
+                        const newId = editingNodeId.trim()
+                        if (newId && newId !== selectedNode.id) {
+                          if (nodes.some((n) => n.id === newId)) {
+                            toast({
+                              title: "ID already exists",
+                              description: "Please choose a unique ID.",
+                              variant: "destructive",
+                            })
+                            setEditingNodeId(selectedNode.id)
+                          } else {
+                            updateNodeId(selectedNode.id, newId)
+                          }
+                        } else if (newId !== selectedNode.id) {
+                          setEditingNodeId(selectedNode.id)
+                        }
+                      }}
+                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                        if (e.key === "Enter") {
+                          ;(e.target as HTMLInputElement).blur()
+                        } else if (e.key === "Escape") {
+                          if (selectedNode) {
+                            setEditingNodeId(selectedNode.id)
+                          }
+                          ;(e.target as HTMLInputElement).blur()
+                        }
+                      }}
+                      className="w-full bg-background text-foreground"
+                    />
+                  </div>
                 </div>
                 <Separator />
                 <div className="space-y-3">
@@ -2462,6 +2552,22 @@ export default function NeuralNetworkDesigner() {
                       />
                     </>
                   )}
+                  {selectedNode.type === "reshapeNode" && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium text-sidebar-foreground/70">Target Shape</label>
+                        <Input
+                          value={selectedNode.data.targetShape || ""}
+                          onChange={(e) => updateNodeData(selectedNode.id, { targetShape: e.target.value })}
+                          placeholder="e.g., [-1, 784]"
+                          className="w-full bg-background text-foreground"
+                        />
+                        <p className="text-xs text-sidebar-foreground/70 mt-1">
+                          Enter the target shape as a comma-separated list of integers, enclosed in square brackets. Use -1 to infer a dimension. e.g., [-1, 784] or [1, 28, 28]
+                        </p>
+                      </div>
+                    </>
+                  )}
                   {selectedNode.type === "selectNode" && (
                     <>
                       <EditableNumberInput
@@ -3157,6 +3263,7 @@ class MyModel(nn.Module):
                       <strong>Operations:</strong> Add, Concatenate, Flatten
                     </p>
                   </div>
+,
                 </div>
               </div>
 
