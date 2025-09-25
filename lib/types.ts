@@ -16,6 +16,7 @@ export interface BaseNodeData {
   name?: string
   inputShape?: TensorShape
   outputShape?: TensorShape
+  [key: string]: any
 }
 
 // Input node data
@@ -194,6 +195,7 @@ export interface GraphEdge {
   source: string
   target: string
   type?: string
+  targetHandle?: string
 }
 
 // API Request/Response types

@@ -1,9 +1,9 @@
 import { type GraphIR, type GraphNode, type GraphEdge, PYTORCH_LAYER_MANIFEST } from "./types"
 
 export class ModelGenerator {
-  private nodes: GraphNode[]
-  private edges: GraphEdge[]
-  private inputNode: GraphNode | null = null
+  private readonly nodes: GraphNode[]
+  private readonly edges: GraphEdge[]
+  private readonly inputNode: GraphNode | null = null
 
   constructor(graph: GraphIR) {
     this.nodes = graph.nodes
@@ -44,19 +44,24 @@ export class ModelGenerator {
     return { valid: true }
   }
 
-  topologicalSort(): GraphNode[] {
-    const inDegree = new Map<string, number>()
-    const adjList = new Map<string, string[]>()
+  private buildGraphStructures(): { adjList: Map<string, string[]>; inDegree: Map<string, number> } {
+    const inDegree = new Map<string, number>();
+    const adjList = new Map<string, string[]>();
 
     for (const node of this.nodes) {
-      inDegree.set(node.id, 0)
-      adjList.set(node.id, [])
+      inDegree.set(node.id, 0);
+      adjList.set(node.id, []);
     }
 
     for (const edge of this.edges) {
-      adjList.get(edge.source)?.push(edge.target)
-      inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1)
+      adjList.get(edge.source)?.push(edge.target);
+      inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1);
     }
+    return { adjList, inDegree };
+  }
+
+  topologicalSort(): GraphNode[] {
+    const { adjList, inDegree } = this.buildGraphStructures();
 
     const queue: string[] = []
     const result: GraphNode[] = []
@@ -96,7 +101,14 @@ export class ModelGenerator {
 
     const hasSsmNode = this.nodes.some(node => node.type === 'ssmNode');
     if (hasSsmNode) {
-        code += `\n\n# Mamba-based SSM module.\n# Make sure to install the mamba-ssm package: pip install mamba-ssm\ntry:\n    from mamba_ssm import Mamba\nexcept ImportError:\n    Mamba = None\n\nclass SSM(nn.Module):\n    def __init__(self, d_model, d_state, d_conv, expand):\n        super().__init__()\n        if Mamba is None:\n            raise ImportError("mamba-ssm package not found. Please install with 'pip install mamba-ssm'")\n        self.mamba = Mamba(\n            d_model=d_model,\n            d_state=d_state,\n            d_conv=d_conv,\n            expand=expand,\n        )\n\n    def forward(self, x):\n        # Input x is expected to be (batch, length, dim)\n        return self.mamba(x)\n`
+        code += `\n\nclass SSM(nn.Module):\n    def __init__(self, d_model, d_state):\n        super().__init__()\n        self.d_model = d_model\n        self.d_state = d_state\n
+        # Learnable parameters A, B, C\n        # A: State transition matrix\n        # B: Input to state matrix\n        # C: State to output matrix\n        self.A = nn.Parameter(torch.randn(d_state, d_state))\n        self.B = nn.Parameter(torch.randn(d_state, d_model))\n        self.C = nn.Parameter(torch.randn(d_model, d_state))\n
+    def forward(self, x):\n        # x: input tensor of shape (batch_size, sequence_length, d_model)\n        batch_size, sequence_length, d_model = x.shape\n
+        # Initialize the hidden state\n        h = torch.zeros(batch_size, self.d_state, device=x.device)\n
+        outputs = []\n        for t in range(sequence_length):\n            # Get the input at the current time step\n            x_t = x[:, t, :]\n
+            # Update the hidden state (linear recurrence)\n            h = torch.tanh(torch.matmul(self.A, h.unsqueeze(-1)).squeeze(-1) + torch.matmul(self.B, x_t.unsqueeze(-1)).squeeze(-1))\n
+            # Compute the output at the current time step\n            y_t = torch.matmul(self.C, h.unsqueeze(-1)).squeeze(-1)\n
+            outputs.append(y_t)\n        \n        return torch.stack(outputs, dim=1)\n`
     }
 
     code += `\n\nclass GeneratedModel(nn.Module):\n    def __init__(self):\n        super(GeneratedModel, self).__init__()\n        \n`
@@ -118,8 +130,8 @@ export class ModelGenerator {
       } else if (node.type === "siluNode") {
         code += `        self.${layerName} = nn.SiLU()\n`
       } else if (node.type === "ssmNode") {
-        const { d_model, d_state, d_conv, expand } = node.data;
-        code += `        self.${layerName} = SSM(d_model=${d_model}, d_state=${d_state}, d_conv=${d_conv}, expand=${expand})\n`
+        const { d_model, d_state } = node.data;
+        code += `        self.${layerName} = SSM(d_model=${d_model}, d_state=${d_state})\n`
       } else if (manifest && manifest.className) {
         if (node.type === "depthwiseconv2dNode") {
           const params = this.buildParameterString(node, manifest.params)
@@ -156,7 +168,7 @@ export class ModelGenerator {
       const shape = [1, channels, height, width].filter(d => d !== undefined)
       if (shape.length > 1) {
           const shapeString = JSON.stringify(shape).slice(1, -1)
-          code += `\n\n\n# Usage example:\n# model = GeneratedModel()\n# input_tensor = torch.randn(1, ${shapeString})\n# output = model(input_tensor)\n# print(f"Input shape: {input_tensor.shape}")\n# print(f"Output shape: {output.shape}")\n`
+          code += `\n\n\n# Usage example:\n# model = GeneratedModel()\n# input_tensor = torch.randn(1, ${shapeString})\n# output = model(input_tensor)\n# print(f\"Input shape: {input_tensor.shape}\")\n# print(f\"Output shape: {output.shape}\")\n`
       }
     }
 
@@ -171,7 +183,7 @@ export class ModelGenerator {
         if (Array.isArray(value)) {
           params.push(`${paramName}=${JSON.stringify(value)}`)
         } else if (typeof value === "string") {
-          params.push(`${paramName}="${value}"`)
+          params.push(`${paramName}=\"${value}\"`)
         } else {
           params.push(`${paramName}=${value}`)
         }
