@@ -125,6 +125,16 @@ export interface OperationNodeData extends BaseNodeData {
   end_dim?: number
 }
 
+// MBConv node data
+export interface MBConvNodeData extends BaseNodeData {
+  in_channels: number;
+  out_channels: number;
+  kernel_size: number;
+  stride: number;
+  expand_ratio: number;
+  se_ratio?: number;
+}
+
 // Union type for all node data
 export type NodeData = 
   | InputNodeData
@@ -138,6 +148,7 @@ export type NodeData =
   | AttentionNodeData
   | TransformerNodeData
   | OperationNodeData
+  | MBConvNodeData
 
 // Network state for undo/redo
 export interface NetworkState {
@@ -379,6 +390,10 @@ export const PYTORCH_LAYER_MANIFEST = {
   separableconv2dNode: {
     className: null, // Special handling in generator
     params: ["in_channels", "out_channels", "kernel_size", "stride", "padding"]
+  },
+  mbconvNode: {
+    className: null, // Special handling in generator
+    params: ["in_channels", "out_channels", "kernel_size", "stride", "expand_ratio", "se_ratio"]
   },
   addNode: {
     className: null, // Special handling in generator

@@ -18,6 +18,8 @@ import {
   type NodeTypes,
   BackgroundVariant,
   Group,
+  Handle,
+  Position,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 
@@ -124,6 +126,52 @@ import { OutputNode } from "@/components/nodes/OutputNode"
 import { ReshapeNode } from "@/components/nodes/ReshapeNode"
 import { ChunkNode } from "@/components/nodes/ChunkNode"
 import { SsmNode } from "@/components/nodes/SsmNode"
+import { MBConvNode } from "@/components/nodes/MBConvNode"
+
+// Placeholder for conceptual nodes in examples
+const DefaultNode = ({ data }: { data: { label: string } }) => (
+  <div style={{
+    padding: '10px',
+    border: '1px solid #91d5ff',
+    borderRadius: '5px',
+    background: '#e6f7ff',
+    textAlign: 'center'
+  }}>
+    <Handle type="target" position={Position.Left} />
+    <p style={{ margin: 0, fontSize: '12px', fontWeight: 'bold', color: '#1890ff' }}>{data.label || 'Node'}</p>
+    <Handle type="source" position={Position.Right} />
+  </div>
+);
+
+const ContentLossNode = () => (
+    <div style={{
+        padding: '10px',
+        border: '1px solid #ff4d4d',
+        borderRadius: '5px',
+        background: '#fff0f0',
+        textAlign: 'center'
+    }}>
+        <Handle type="target" id="a" position={Position.Left} style={{ top: '30%' }} />
+        <Handle type="target" id="b" position={Position.Left} style={{ top: '70%' }} />
+        <p style={{ margin: 0, fontSize: '12px', color: '#d4380d' }}>Content Loss</p>
+        <Handle type="source" position={Position.Right} />
+    </div>
+);
+
+const StyleLossNode = () => (
+    <div style={{
+        padding: '10px',
+        border: '1px solid #4d94ff',
+        borderRadius: '5px',
+        background: '#f0f5ff',
+        textAlign: 'center'
+    }}>
+        <Handle type="target" id="a" position={Position.Left} style={{ top: '30%' }} />
+        <Handle type="target" id="b" position={Position.Left} style={{ top: '70%' }} />
+        <p style={{ margin: 0, fontSize: '12px', color: '#0052cc' }}>Style Loss</p>
+        <Handle type="source" position={Position.Right} />
+    </div>
+);
 
 const initialNodes: Node[] = [
   {
@@ -187,6 +235,10 @@ const nodeTypes: NodeTypes = {
   chunkNode: ChunkNode,
   ssmNode: SsmNode,
   groupNode: Group,
+  mbconvNode: MBConvNode,
+  defaultNode: DefaultNode,
+  contentLossNode: ContentLossNode,
+  styleLossNode: StyleLossNode,
 }
 
 export default function NeuralNetworkDesigner() {
@@ -399,7 +451,8 @@ export default function NeuralNetworkDesigner() {
             node.type === "convtranspose2dNode" ||
             node.type === "convtranspose3dNode" ||
             node.type === "depthwiseconv2dNode" ||
-            node.type === "separableconv2dNode"
+            node.type === "separableconv2dNode" ||
+            node.type === "mbconvNode"
           ) {
             data.in_channels = firstInputShape.channels;
           } else if (
@@ -603,7 +656,11 @@ export default function NeuralNetworkDesigner() {
       }
 
       try {
-        const example = await import(`@/lib/examples/${exampleMetadata.filename}`);
+        const response = await fetch(`/api/examples/${exampleMetadata.filename}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const example = await response.json();
         const { name, nodes, edges } = example;
 
         if (!name || !Array.isArray(nodes) || !Array.isArray(edges)) {
@@ -694,9 +751,7 @@ export default function NeuralNetworkDesigner() {
 
         if (error instanceof Error) {
           if (error.message.toLowerCase().includes('failed to fetch')) {
-            description = `Could not fetch the example file: '${fileName}'. Please check your network connection and ensure the file exists on the server at the expected location ('/lib/examples/${fileName}').`;
-          } else if (error.message.toLowerCase().includes('cannot find module')) {
-            description = `The example file '${fileName}' could not be found. Please check that the file exists in the '/lib/examples/' directory.`;
+            description = `Could not fetch the example file: '${fileName}'. Please check your network connection and ensure the file exists on the server at the expected location ('/api/examples/${fileName}').`;
           } else {
             description = `There was an issue processing the example file '${fileName}': ${error.message}`;
           }
@@ -712,7 +767,7 @@ export default function NeuralNetworkDesigner() {
       }
     },
     [setNodes, setEdges, toast, nodeTypes, setCurrentModelName, takeSnapshot],
-  );
+  )
 
   const resetCanvas = useCallback(() => {
     takeSnapshot()
@@ -1797,6 +1852,15 @@ export default function NeuralNetworkDesigner() {
                       <span className="text-sm font-medium text-sidebar-foreground">Concatenate</span>
                     </div>
                   </Card>
+                  <Card
+                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
+                    onClick={() => addNode("mbconvNode", { in_channels: 32, out_channels: 16, kernel_size: 3, stride: 1, expand_ratio: 1, se_ratio: 0.25 })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-purple-500" />
+                      <span className="text-sm font-medium text-sidebar-foreground">MBConv</span>
+                    </div>
+                  </Card>
                 </div>
               </div>
 
@@ -2238,6 +2302,55 @@ export default function NeuralNetworkDesigner() {
                       />
                     </>
                   )}
+                  {selectedNode.type === "mbconvNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Input Channels"
+                        value={selectedNode.data.in_channels as number | undefined}
+                        defaultValue={32}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { in_channels: value })}
+                        disabled={isInputConnected}
+                      />
+                      <EditableNumberInput
+                        label="Output Channels"
+                        value={selectedNode.data.out_channels as number | undefined}
+                        defaultValue={16}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { out_channels: value })}
+                      />
+                      <EditableNumberInput
+                        label="Kernel Size"
+                        value={selectedNode.data.kernel_size as number | undefined}
+                        defaultValue={3}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { kernel_size: value })}
+                      />
+                      <EditableNumberInput
+                        label="Stride"
+                        value={selectedNode.data.stride as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { stride: value })}
+                      />
+                      <EditableNumberInput
+                        label="Expand Ratio"
+                        value={selectedNode.data.expand_ratio as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { expand_ratio: value })}
+                      />
+                      <EditableNumberInput
+                        label="SE Ratio"
+                        value={selectedNode.data.se_ratio as number | undefined}
+                        defaultValue={0.25}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { se_ratio: value })}
+                      />
+                    </>
+                  )}
                   {selectedNode.type === "dropoutNode" && (
                     <>
                       <EditableNumberInput
@@ -2512,7 +2625,7 @@ export default function NeuralNetworkDesigner() {
                         value={selectedNode.data.hidden_size as number | undefined}
                         defaultValue={1}
                         min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { hidden_size: value })}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { hidden_sizen: value })}
                       />
                       <EditableNumberInput
                         label="Number of Layers"
@@ -3377,6 +3490,7 @@ class MyModel(nn.Module):
                 </div>
               </div>
 
+              {/* Feedback & Contact */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">📧 Feedback & Contact</h3>
                 <div className="space-y-2 text-sm text-gray-700">

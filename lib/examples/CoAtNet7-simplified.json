@@ -1,0 +1,45 @@
+{
+  "name": "CoAtNet-7 (Simplified)",
+  "description": "A hybrid model combining convolution and self-attention, structured with primitive layer nodes.",
+  "nodes": [
+    { "id": "input", "type": "inputNode", "position": { "x": 100, "y": 400 }, "data": { "channels": 3, "height": 224, "width": 224 } },
+    { "id": "s0_conv", "type": "conv2dNode", "position": { "x": 500, "y": 400 }, "data": { "in_channels": 3, "out_channels": 64, "kernel_size": 7, "stride": 2, "padding": 3 } },
+    { "id": "s0_bn", "type": "batchnorm2dNode", "position": { "x": 900, "y": 400 }, "data": { "num_features": 64 } },
+    { "id": "s0_relu", "type": "reluNode", "position": { "x": 1300, "y": 400 }, "data": {} },
+    { "id": "s0_pool", "type": "maxpool2dNode", "position": { "x": 1700, "y": 400 }, "data": { "kernel_size": 3, "stride": 2 } },
+    { "id": "s1_block", "type": "conv2dNode", "position": { "x": 2100, "y": 400 }, "data": { "in_channels": 64, "out_channels": 128, "kernel_size": 3, "stride": 2, "padding": 1 } },
+
+    { "id": "s2_conv_downsample", "type": "conv2dNode", "position": { "x": 2500, "y": 100 }, "data": { "in_channels": 128, "out_channels": 256, "kernel_size": 3, "stride": 2, "padding": 1 } },
+    { "id": "s2_transformer", "type": "transformerencoderlayerNode", "position": { "x": 2500, "y": 700 }, "data": { "d_model": 256, "nhead": 8 } },
+
+    { "id": "s3_conv_downsample", "type": "conv2dNode", "position": { "x": 2900, "y": 100 }, "data": { "in_channels": 256, "out_channels": 512, "kernel_size": 3, "stride": 2, "padding": 1 } },
+    { "id": "s3_transformer", "type": "transformerencoderlayerNode", "position": { "x": 2900, "y": 700 }, "data": { "d_model": 512, "nhead": 8 } },
+
+    { "id": "s4_conv_downsample", "type": "conv2dNode", "position": { "x": 3300, "y": 100 }, "data": { "in_channels": 512, "out_channels": 1024, "kernel_size": 3, "stride": 2, "padding": 1 } },
+    { "id": "s4_transformer", "type": "transformerencoderlayerNode", "position": { "x": 3300, "y": 700 }, "data": { "d_model": 1024, "nhead": 8 } },
+
+    { "id": "pool", "type": "adaptiveavgpool2dNode", "position": { "x": 3700, "y": 400 }, "data": { "output_size": [1, 1] } },
+    { "id": "flatten", "type": "flattenNode", "position": { "x": 4100, "y": 400 }, "data": {} },
+    { "id": "linear", "type": "linearNode", "position": { "x": 4500, "y": 400 }, "data": { "in_features": 1024, "out_features": 1000 } }
+  ],
+  "edges": [
+    { "id": "e1-2", "source": "input", "target": "s0_conv" },
+    { "id": "e2-3", "source": "s0_conv", "target": "s0_bn" },
+    { "id": "e3-4", "source": "s0_bn", "target": "s0_relu" },
+    { "id": "e4-5", "source": "s0_relu", "target": "s0_pool" },
+    { "id": "e5-6", "source": "s0_pool", "target": "s1_block" },
+
+    { "id": "e6-s2c", "source": "s1_block", "target": "s2_conv_downsample" },
+    { "id": "es2c-s2t", "source": "s2_conv_downsample", "target": "s2_transformer" },
+    { "id": "es2t-s3c", "source": "s2_transformer", "target": "s3_conv_downsample" },
+
+    { "id": "es3c-s3t", "source": "s3_conv_downsample", "target": "s3_transformer" },
+    { "id": "es3t-s4c", "source": "s3_transformer", "target": "s4_conv_downsample" },
+
+    { "id": "es4c-s4t", "source": "s4_conv_downsample", "target": "s4_transformer" },
+    { "id": "es4t-pool", "source": "s4_transformer", "target": "pool" },
+
+    { "id": "e9-10", "source": "pool", "target": "flatten" },
+    { "id": "e10-11", "source": "flatten", "target": "linear" }
+  ]
+}

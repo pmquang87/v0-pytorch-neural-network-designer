@@ -1,0 +1,45 @@
+{
+  "name": "Style Transfer (Detailed)",
+  "description": "A detailed graph of a style transfer network using a VGG-like feature extractor and custom loss nodes. This is a conceptual representation.",
+  "nodes": [
+    { "id": "content_image", "type": "inputNode", "position": { "x": 0, "y": 200 }, "data": { "label": "Content Image" } },
+    { "id": "style_image", "type": "inputNode", "position": { "x": 0, "y": 600 }, "data": { "label": "Style Image" } },
+    { "id": "generated_image", "type": "inputNode", "position": { "x": 400, "y": 0 }, "data": { "label": "Generated Image (Input/Output)" } },
+
+    { "id": "vgg_block_1", "type": "defaultNode", "position": { "x": 400, "y": 300 }, "data": { "label": "VGG Block 1" } },
+    { "id": "vgg_block_2", "type": "defaultNode", "position": { "x": 700, "y": 300 }, "data": { "label": "VGG Block 2 (Content Features)" } },
+    { "id": "vgg_block_3", "type": "defaultNode", "position": { "x": 1000, "y": 300 }, "data": { "label": "VGG Block 3" } },
+
+    { "id": "content_loss", "type": "contentLossNode", "position": { "x": 700, "y": 100 }, "data": {} },
+    { "id": "style_loss_1", "type": "styleLossNode", "position": { "x": 400, "y": 500 }, "data": {} },
+    { "id": "style_loss_2", "type": "styleLossNode", "position": { "x": 700, "y": 500 }, "data": {} },
+    { "id": "style_loss_3", "type": "styleLossNode", "position": { "x": 1000, "y": 500 }, "data": {} },
+
+    { "id": "total_loss", "type": "addNode", "position": { "x": 1300, "y": 300 }, "data": {} },
+    { "id": "optimizer", "type": "defaultNode", "position": { "x": 1500, "y": 300 }, "data": { "label": "Optimizer" } }
+  ],
+  "edges": [
+    { "id": "e-gen-vgg1", "source": "generated_image", "target": "vgg_block_1" },
+    { "id": "e-vgg1-vgg2", "source": "vgg_block_1", "target": "vgg_block_2" },
+    { "id": "e-vgg2-vgg3", "source": "vgg_block_2", "target": "vgg_block_3" },
+
+    { "id": "e-vgg2-cl", "source": "vgg_block_2", "target": "content_loss", "targetHandle": "a" },
+    { "id": "e-content-cl", "source": "content_image", "target": "content_loss", "targetHandle": "b" },
+    { "id": "e-cl-total", "source": "content_loss", "target": "total_loss", "targetHandle": "input1" },
+
+    { "id": "e-vgg1-sl1", "source": "vgg_block_1", "target": "style_loss_1", "targetHandle": "a" },
+    { "id": "e-style-sl1", "source": "style_image", "target": "style_loss_1", "targetHandle": "b" },
+    { "id": "e-sl1-total", "source": "style_loss_1", "target": "total_loss", "targetHandle": "input2" },
+
+    { "id": "e-vgg2-sl2", "source": "vgg_block_2", "target": "style_loss_2", "targetHandle": "a" },
+    { "id": "e-style-sl2", "source": "style_image", "target": "style_loss_2", "targetHandle": "b" },
+    { "id": "e-sl2-total", "source": "style_loss_2", "target": "total_loss", "targetHandle": "input3" },
+
+    { "id": "e-vgg3-sl3", "source": "vgg_block_3", "target": "style_loss_3", "targetHandle": "a" },
+    { "id": "e-style-sl3", "source": "style_image", "target": "style_loss_3", "targetHandle": "b" },
+    { "id": "e-sl3-total", "source": "style_loss_3", "target": "total_loss", "targetHandle": "input4" },
+
+    { "id": "e-total-opt", "source": "total_loss", "target": "optimizer" },
+    { "id": "e-opt-gen", "source": "optimizer", "target": "generated_image", "label": "update" }
+  ]
+}

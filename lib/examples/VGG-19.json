@@ -1,0 +1,448 @@
+{
+    "name": "VGG-19",
+    "description": "VGG-19 from the paper 'Very Deep Convolutional Networks for Large-Scale Image Recognition'",
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "inputNode",
+        "position": { "x": 100, "y": 400 },
+        "data": { "channels": 3, "height": 224, "width": 224 }
+      },
+      {
+        "id": "conv1-2",
+        "type": "conv2dNode",
+        "position": { "x": 300, "y": 400 },
+        "data": { "in_channels": 3, "out_channels": 64, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn1-3",
+        "type": "batchnorm2dNode",
+        "position": { "x": 550, "y": 400 },
+        "data": { "num_features": 64 }
+      },
+      {
+        "id": "relu1-4",
+        "type": "reluNode",
+        "position": { "x": 800, "y": 400 },
+        "data": {}
+      },
+      {
+        "id": "conv2-5",
+        "type": "conv2dNode",
+        "position": { "x": 1050, "y": 400 },
+        "data": { "in_channels": 64, "out_channels": 64, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn2-6",
+        "type": "batchnorm2dNode",
+        "position": { "x": 1300, "y": 400 },
+        "data": { "num_features": 64 }
+      },
+      {
+        "id": "relu2-7",
+        "type": "reluNode",
+        "position": { "x": 1550, "y": 400 },
+        "data": {}
+      },
+      {
+        "id": "pool1-8",
+        "type": "maxpool2dNode",
+        "position": { "x": 1800, "y": 400 },
+        "data": { "kernel_size": 2, "stride": 2 }
+      },
+      {
+        "id": "conv3-9",
+        "type": "conv2dNode",
+        "position": { "x": 300, "y": 800 },
+        "data": { "in_channels": 64, "out_channels": 128, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn3-10",
+        "type": "batchnorm2dNode",
+        "position": { "x": 550, "y": 800 },
+        "data": { "num_features": 128 }
+      },
+      {
+        "id": "relu3-11",
+        "type": "reluNode",
+        "position": { "x": 800, "y": 800 },
+        "data": {}
+      },
+      {
+        "id": "conv4-12",
+        "type": "conv2dNode",
+        "position": { "x": 1050, "y": 800 },
+        "data": { "in_channels": 128, "out_channels": 128, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn4-13",
+        "type": "batchnorm2dNode",
+        "position": { "x": 1300, "y": 800 },
+        "data": { "num_features": 128 }
+      },
+      {
+        "id": "relu4-14",
+        "type": "reluNode",
+        "position": { "x": 1550, "y": 800 },
+        "data": {}
+      },
+      {
+        "id": "pool2-15",
+        "type": "maxpool2dNode",
+        "position": { "x": 1800, "y": 800 },
+        "data": { "kernel_size": 2, "stride": 2 }
+      },
+      {
+        "id": "conv5-16",
+        "type": "conv2dNode",
+        "position": { "x": 300, "y": 1200 },
+        "data": { "in_channels": 128, "out_channels": 256, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn5-17",
+        "type": "batchnorm2dNode",
+        "position": { "x": 550, "y": 1200 },
+        "data": { "num_features": 256 }
+      },
+      {
+        "id": "relu5-18",
+        "type": "reluNode",
+        "position": { "x": 800, "y": 1200 },
+        "data": {}
+      },
+      {
+        "id": "conv6-19",
+        "type": "conv2dNode",
+        "position": { "x": 1050, "y": 1200 },
+        "data": { "in_channels": 256, "out_channels": 256, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn6-20",
+        "type": "batchnorm2dNode",
+        "position": { "x": 1300, "y": 1200 },
+        "data": { "num_features": 256 }
+      },
+      {
+        "id": "relu6-21",
+        "type": "reluNode",
+        "position": { "x": 1550, "y": 1200 },
+        "data": {}
+      },
+      {
+        "id": "conv7-22",
+        "type": "conv2dNode",
+        "position": { "x": 1800, "y": 1200 },
+        "data": { "in_channels": 256, "out_channels": 256, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn7-23",
+        "type": "batchnorm2dNode",
+        "position": { "x": 2050, "y": 1200 },
+        "data": { "num_features": 256 }
+      },
+      {
+        "id": "relu7-24",
+        "type": "reluNode",
+        "position": { "x": 2300, "y": 1200 },
+        "data": {}
+      },
+      {
+        "id": "conv8-55",
+        "type": "conv2dNode",
+        "position": { "x": 2550, "y": 1200 },
+        "data": { "in_channels": 256, "out_channels": 256, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn8-56",
+        "type": "batchnorm2dNode",
+        "position": { "x": 2800, "y": 1200 },
+        "data": { "num_features": 256 }
+      },
+      {
+        "id": "relu8-57",
+        "type": "reluNode",
+        "position": { "x": 3050, "y": 1200 },
+        "data": {}
+      },
+      {
+        "id": "pool3-25",
+        "type": "maxpool2dNode",
+        "position": { "x": 3300, "y": 1200 },
+        "data": { "kernel_size": 2, "stride": 2 }
+      },
+      {
+        "id": "conv9-26",
+        "type": "conv2dNode",
+        "position": { "x": 300, "y": 1600 },
+        "data": { "in_channels": 256, "out_channels": 512, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn9-27",
+        "type": "batchnorm2dNode",
+        "position": { "x": 550, "y": 1600 },
+        "data": { "num_features": 512 }
+      },
+      {
+        "id": "relu9-28",
+        "type": "reluNode",
+        "position": { "x": 800, "y": 1600 },
+        "data": {}
+      },
+      {
+        "id": "conv10-29",
+        "type": "conv2dNode",
+        "position": { "x": 1050, "y": 1600 },
+        "data": { "in_channels": 512, "out_channels": 512, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn10-30",
+        "type": "batchnorm2dNode",
+        "position": { "x": 1300, "y": 1600 },
+        "data": { "num_features": 512 }
+      },
+      {
+        "id": "relu10-31",
+        "type": "reluNode",
+        "position": { "x": 1550, "y": 1600 },
+        "data": {}
+      },
+      {
+        "id": "conv11-32",
+        "type": "conv2dNode",
+        "position": { "x": 1800, "y": 1600 },
+        "data": { "in_channels": 512, "out_channels": 512, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn11-33",
+        "type": "batchnorm2dNode",
+        "position": { "x": 2050, "y": 1600 },
+        "data": { "num_features": 512 }
+      },
+      {
+        "id": "relu11-34",
+        "type": "reluNode",
+        "position": { "x": 2300, "y": 1600 },
+        "data": {}
+      },
+      {
+        "id": "conv12-58",
+        "type": "conv2dNode",
+        "position": { "x": 2550, "y": 1600 },
+        "data": { "in_channels": 512, "out_channels": 512, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn12-59",
+        "type": "batchnorm2dNode",
+        "position": { "x": 2800, "y": 1600 },
+        "data": { "num_features": 512 }
+      },
+      {
+        "id": "relu12-60",
+        "type": "reluNode",
+        "position": { "x": 3050, "y": 1600 },
+        "data": {}
+      },
+      {
+        "id": "pool4-35",
+        "type": "maxpool2dNode",
+        "position": { "x": 3300, "y": 1600 },
+        "data": { "kernel_size": 2, "stride": 2 }
+      },
+      {
+        "id": "conv13-36",
+        "type": "conv2dNode",
+        "position": { "x": 300, "y": 2000 },
+        "data": { "in_channels": 512, "out_channels": 512, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn13-37",
+        "type": "batchnorm2dNode",
+        "position": { "x": 550, "y": 2000 },
+        "data": { "num_features": 512 }
+      },
+      {
+        "id": "relu13-38",
+        "type": "reluNode",
+        "position": { "x": 800, "y": 2000 },
+        "data": {}
+      },
+      {
+        "id": "conv14-39",
+        "type": "conv2dNode",
+        "position": { "x": 1050, "y": 2000 },
+        "data": { "in_channels": 512, "out_channels": 512, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn14-40",
+        "type": "batchnorm2dNode",
+        "position": { "x": 1300, "y": 2000 },
+        "data": { "num_features": 512 }
+      },
+      {
+        "id": "relu14-41",
+        "type": "reluNode",
+        "position": { "x": 1550, "y": 2000 },
+        "data": {}
+      },
+      {
+        "id": "conv15-42",
+        "type": "conv2dNode",
+        "position": { "x": 1800, "y": 2000 },
+        "data": { "in_channels": 512, "out_channels": 512, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn15-43",
+        "type": "batchnorm2dNode",
+        "position": { "x": 2050, "y": 2000 },
+        "data": { "num_features": 512 }
+      },
+      {
+        "id": "relu15-44",
+        "type": "reluNode",
+        "position": { "x": 2300, "y": 2000 },
+        "data": {}
+      },
+      {
+        "id": "conv16-61",
+        "type": "conv2dNode",
+        "position": { "x": 2550, "y": 2000 },
+        "data": { "in_channels": 512, "out_channels": 512, "kernel_size": 3, "stride": 1, "padding": 1 }
+      },
+      {
+        "id": "bn16-62",
+        "type": "batchnorm2dNode",
+        "position": { "x": 2800, "y": 2000 },
+        "data": { "num_features": 512 }
+      },
+      {
+        "id": "relu16-63",
+        "type": "reluNode",
+        "position": { "x": 3050, "y": 2000 },
+        "data": {}
+      },
+      {
+        "id": "pool5-45",
+        "type": "maxpool2dNode",
+        "position": { "x": 3300, "y": 2000 },
+        "data": { "kernel_size": 2, "stride": 2 }
+      },
+      {
+        "id": "flatten-46",
+        "type": "flattenNode",
+        "position": { "x": 300, "y": 2400 },
+        "data": {}
+      },
+      {
+        "id": "linear1-47",
+        "type": "linearNode",
+        "position": { "x": 550, "y": 2400 },
+        "data": { "in_features": 25088, "out_features": 4096 }
+      },
+      {
+        "id": "relu17-48",
+        "type": "reluNode",
+        "position": { "x": 800, "y": 2400 },
+        "data": {}
+      },
+      {
+        "id": "dropout1-49",
+        "type": "dropoutNode",
+        "position": { "x": 1050, "y": 2400 },
+        "data": { "p": 0.5 }
+      },
+      {
+        "id": "linear2-50",
+        "type": "linearNode",
+        "position": { "x": 1300, "y": 2400 },
+        "data": { "in_features": 4096, "out_features": 4096 }
+      },
+      {
+        "id": "relu18-51",
+        "type": "reluNode",
+        "position": { "x": 1550, "y": 2400 },
+        "data": {}
+      },
+      {
+        "id": "dropout2-52",
+        "type": "dropoutNode",
+        "position": { "x": 1800, "y": 2400 },
+        "data": { "p": 0.5 }
+      },
+      {
+        "id": "linear3-53",
+        "type": "linearNode",
+        "position": { "x": 2050, "y": 2400 },
+        "data": { "in_features": 4096, "out_features": 1000 }
+      },
+      {
+        "id": "softmax-54",
+        "type": "softmaxNode",
+        "position": { "x": 2300, "y": 2400 },
+        "data": { "dim": 1 }
+      }
+    ],
+    "edges": [
+        { "id": "e1-2", "source": "input-1", "target": "conv1-2" },
+        { "id": "e2-3", "source": "conv1-2", "target": "bn1-3" },
+        { "id": "e3-4", "source": "bn1-3", "target": "relu1-4" },
+        { "id": "e4-5", "source": "relu1-4", "target": "conv2-5" },
+        { "id": "e5-6", "source": "conv2-5", "target": "bn2-6" },
+        { "id": "e6-7", "source": "bn2-6", "target": "relu2-7" },
+        { "id": "e7-8", "source": "relu2-7", "target": "pool1-8" },
+        { "id": "e8-9", "source": "pool1-8", "target": "conv3-9" },
+        { "id": "e9-10", "source": "conv3-9", "target": "bn3-10" },
+        { "id": "e10-11", "source": "bn3-10", "target": "relu3-11" },
+        { "id": "e11-12", "source": "relu3-11", "target": "conv4-12" },
+        { "id": "e12-13", "source": "conv4-12", "target": "bn4-13" },
+        { "id": "e13-14", "source": "bn4-13", "target": "relu4-14" },
+        { "id": "e14-15", "source": "relu4-14", "target": "pool2-15" },
+        { "id": "e15-16", "source": "pool2-15", "target": "conv5-16" },
+        { "id": "e16-17", "source": "conv5-16", "target": "bn5-17" },
+        { "id": "e17-18", "source": "bn5-17", "target": "relu5-18" },
+        { "id": "e18-19", "source": "relu5-18", "target": "conv6-19" },
+        { "id": "e19-20", "source": "conv6-19", "target": "bn6-20" },
+        { "id": "e20-21", "source": "bn6-20", "target": "relu6-21" },
+        { "id": "e21-22", "source": "relu6-21", "target": "conv7-22" },
+        { "id": "e22-23", "source": "conv7-22", "target": "bn7-23" },
+        { "id": "e23-24", "source": "bn7-23", "target": "relu7-24" },
+        { "id": "e24-55", "source": "relu7-24", "target": "conv8-55" },
+        { "id": "e55-56", "source": "conv8-55", "target": "bn8-56" },
+        { "id": "e56-57", "source": "bn8-56", "target": "relu8-57" },
+        { "id": "e57-25", "source": "relu8-57", "target": "pool3-25" },
+        { "id": "e25-26", "source": "pool3-25", "target": "conv9-26" },
+        { "id": "e26-27", "source": "conv9-26", "target": "bn9-27" },
+        { "id": "e27-28", "source": "bn9-27", "target": "relu9-28" },
+        { "id": "e28-29", "source": "relu9-28", "target": "conv10-29" },
+        { "id": "e29-30", "source": "conv10-29", "target": "bn10-30" },
+        { "id": "e30-31", "source": "bn10-30", "target": "relu10-31" },
+        { "id": "e31-32", "source": "relu10-31", "target": "conv11-32" },
+        { "id": "e32-33", "source": "conv11-32", "target": "bn11-33" },
+        { "id": "e33-34", "source": "bn11-33", "target": "relu11-34" },
+        { "id": "e34-58", "source": "relu11-34", "target": "conv12-58" },
+        { "id": "e58-59", "source": "conv12-58", "target": "bn12-59" },
+        { "id": "e59-60", "source": "bn12-59", "target": "relu12-60" },
+        { "id": "e60-35", "source": "relu12-60", "target": "pool4-35" },
+        { "id": "e35-36", "source": "pool4-35", "target": "conv13-36" },
+        { "id": "e36-37", "source": "conv13-36", "target": "bn13-37" },
+        { "id": "e37-38", "source": "bn13-37", "target": "relu13-38" },
+        { "id": "e38-39", "source": "relu13-38", "target": "conv14-39" },
+        { "id": "e39-40", "source": "conv14-39", "target": "bn14-40" },
+        { "id": "e40-41", "source": "bn14-40", "target": "relu14-41" },
+        { "id": "e41-42", "source": "relu14-41", "target": "conv15-42" },
+        { "id": "e42-43", "source": "conv15-42", "target": "bn15-43" },
+        { "id": "e43-44", "source": "bn15-43", "target": "relu15-44" },
+        { "id": "e44-61", "source": "relu15-44", "target": "conv16-61" },
+        { "id": "e61-62", "source": "conv16-61", "target": "bn16-62" },
+        { "id": "e62-63", "source": "bn16-62", "target": "relu16-63" },
+        { "id": "e63-45", "source": "relu16-63", "target": "pool5-45" },
+        { "id": "e45-46", "source": "pool5-45", "target": "flatten-46" },
+        { "id": "e46-47", "source": "flatten-46", "target": "linear1-47" },
+        { "id": "e47-48", "source": "linear1-47", "target": "relu17-48" },
+        { "id": "e48-49", "source": "relu17-48", "target": "dropout1-49" },
+        { "id": "e49-50", "source": "dropout1-49", "target": "linear2-50" },
+        { "id": "e50-51", "source": "linear2-50", "target": "relu18-51" },
+        { "id": "e51-52", "source": "relu18-51", "target": "dropout2-52" },
+        { "id": "e52-53", "source": "dropout2-52", "target": "linear3-53" },
+        { "id": "e53-54", "source": "linear3-53", "target": "softmax-54" }
+    ]
+}

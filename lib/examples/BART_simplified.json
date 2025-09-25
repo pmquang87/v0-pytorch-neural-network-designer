@@ -1,5 +1,5 @@
 {
-    "name": "BART",
+    "name": "BART Block",
     "description": "BART (Bidirectional and Auto-Regressive Transformers) is a denoising autoencoder for pretraining sequence-to-sequence models. It uses a standard Transformer-based neural machine translation architecture.",
     "nodes": [
         {
