@@ -1,0 +1,64 @@
+{
+  "name": "Mamba Block",
+  "description": "A simplified Mamba block from the paper 'Mamba: Linear-Time Sequence Modeling with Selective State Spaces'. Mamba is a state space model that achieves linear-time inference and has been shown to be effective on a variety of sequence modeling tasks.",
+  "nodes": [
+    {
+      "id": "input",
+      "type": "inputNode",
+      "data": { "label": "Input (L=64, D=1024)", "channels": 64, "height": 1, "width": 1024 },
+      "position": { "x": -400, "y": 200 }
+    },
+    {
+      "id": "x_proj",
+      "type": "timeDistributedLinearNode",
+      "data": { "label": "x projection", "in_features": 1024, "out_features": 64 },
+      "position": { "x": -150, "y": 100 }
+    },
+    {
+      "id": "res_proj",
+      "type": "timeDistributedLinearNode",
+      "data": { "label": "residual projection", "in_features": 1024, "out_features": 64 },
+      "position": { "x": -150, "y": 300 }
+    },
+    {
+      "id": "conv1d",
+      "type": "conv1dNode",
+      "data": { "in_channels": 64, "out_channels": 64, "kernel_size": 3, "stride": 1, "padding": 1, "groups": 64 },
+      "position": { "x": 300, "y": 100 }
+    },
+    {
+      "id": "silu",
+      "type": "siluNode",
+      "data": {},
+      "position": { "x": 700, "y": 100 }
+    },
+    {
+      "id": "ssm",
+      "type": "ssmNode",
+      "data": { "d_model": 64, "d_state": 16, "d_conv": 4, "expand": 2 },
+      "position": { "x": 850, "y": 100 }
+    },
+    {
+      "id": "out_proj",
+      "type": "timeDistributedLinearNode",
+      "data": { "in_features": 64, "out_features": 64 },
+      "position": { "x": 1050, "y": 100 }
+    },
+    {
+      "id": "add",
+      "type": "addNode",
+      "data": {},
+      "position": { "x": 1250, "y": 200 }
+    }
+  ],
+  "edges": [
+    { "source": "input", "target": "x_proj", "id": "input-to-x_proj" },
+    { "source": "input", "target": "res_proj", "id": "input-to-res_proj" },
+    { "source": "x_proj", "target": "conv1d", "id": "x_proj-to-conv1d" },
+    { "source": "res_proj", "target": "add", "targetHandle": "input2", "id": "res_proj-to-add", "label": "res" },
+    { "source": "conv1d", "target": "silu", "id": "conv1d-to-silu" },
+    { "source": "silu", "target": "ssm", "id": "silu-to-ssm" },
+    { "source": "ssm", "target": "out_proj", "id": "ssm-to-out_proj" },
+    { "source": "out_proj", "target": "add", "targetHandle": "input1", "id": "out_proj-to-add" }
+  ]
+}

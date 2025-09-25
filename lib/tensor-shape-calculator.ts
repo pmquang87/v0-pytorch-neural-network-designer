@@ -163,25 +163,34 @@ export function validateTensorShapes(
     }
 
     case "reshapeNode": {
-      const targetShapeStr = (nodeData.targetShape || "").trim();
-      if (!targetShapeStr) {
+      const targetShapeInput = nodeData.targetShape;
+      if (!targetShapeInput) {
         return { isValid: true }; // No shape to validate yet
-      }
-      const inputShape = inputShapes[0];
-      if (!inputShape || Object.keys(inputShape).length === 0) {
-        return { isValid: true, warning: "Connect an input to validate reshape." };
       }
 
       let targetDims: number[];
-      try {
-        const jsonFriendlyStr = targetShapeStr.replace(/'/g, '\'').replace(/,(\s*?)]/g, ']');
-        const parsed = JSON.parse(jsonFriendlyStr);
-        if (!Array.isArray(parsed) || !parsed.every(d => typeof d === 'number')) {
-          return { isValid: false, error: "Invalid format. Shape must be a list of integers, e.g., [-1, 784]." };
+      if (Array.isArray(targetShapeInput)) {
+        targetDims = targetShapeInput;
+      } else if (typeof targetShapeInput === 'string') {
+        const targetShapeStr = targetShapeInput.trim();
+        if (!targetShapeStr) return { isValid: true };
+        try {
+          const jsonFriendlyStr = targetShapeStr.replace(/'/g, '"').replace(/,(\s*?)]/g, ']');
+          const parsed = JSON.parse(jsonFriendlyStr);
+          if (!Array.isArray(parsed) || !parsed.every(d => typeof d === 'number')) {
+            return { isValid: false, error: "Invalid format. Shape must be a list of integers, e.g., [-1, 784]." };
+          }
+          targetDims = parsed;
+        } catch (e) {
+          return { isValid: false, error: "Invalid format. Use a list of integers like [-1, 784]." };
         }
-        targetDims = parsed;
-      } catch (e) {
-        return { isValid: false, error: "Invalid format. Use a list of integers like [-1, 784]." };
+      } else {
+        return { isValid: false, error: "Invalid target shape format." };
+      }
+
+      const inputShape = inputShapes[0];
+      if (!inputShape || Object.keys(inputShape).length === 0) {
+        return { isValid: true, warning: "Connect an input to validate reshape." };
       }
 
       if (targetDims.filter(d => d === -1).length > 1) {
@@ -335,24 +344,28 @@ export function calculateOutputShape(
       }
       return { ...inputShape, channels: nodeData.out_channels || 32 };
 
-    case "conv1dNode":
+    case "conv1dNode": {
       const conv1dPadding = nodeData.padding || 0;
       const conv1dStride = nodeData.stride || 1;
       const conv1dKernel = nodeData.kernel_size || 3;
       const conv1dDilation = nodeData.dilation || 1;
 
-      if (inputShape.length) {
+      const lengthDim = inputShape.length !== undefined ? "length" : "width";
+      const inputLength = inputShape[lengthDim];
+
+      if (inputLength && typeof inputLength === 'number') {
         const newLength = Math.floor(
-          (Number(inputShape.length) + 2 * conv1dPadding - conv1dDilation * (conv1dKernel - 1) - 1) /
+          (inputLength + 2 * conv1dPadding - conv1dDilation * (conv1dKernel - 1) - 1) /
             conv1dStride +
             1,
         );
-        return {
-          channels: nodeData.out_channels || 32,
-          length: isNaN(newLength) ? "dynamic" : Math.max(1, newLength),
-        };
+        const newShape: TensorShape = { ...inputShape };
+        newShape.channels = nodeData.out_channels || 32;
+        (newShape as any)[lengthDim] = isNaN(newLength) ? "dynamic" : Math.max(1, newLength);
+        return newShape;
       }
       return { ...inputShape, channels: nodeData.out_channels || 32 };
+    }
 
     case "conv3dNode":
       const conv3dPadding = nodeData.padding || 0;
@@ -418,11 +431,15 @@ export function calculateOutputShape(
         features: nodeData.out_features || 64,
       };
 
-    case "timeDistributedLinearNode":
-      return {
-        ...inputShape,
-        width: nodeData.out_features || 64, // Also update width for (C, H, W) format
-      };
+    case "timeDistributedLinearNode": {
+      const shape = { ...inputShape };
+      if (shape.features !== undefined) {
+        shape.features = nodeData.out_features || 64;
+      } else {
+        shape.width = nodeData.out_features || 64;
+      }
+      return shape;
+    }
 
     case "maxpool2dNode":
     case "avgpool2dNode":
@@ -606,20 +623,28 @@ export function calculateOutputShape(
     }
 
     case "reshapeNode": {
-      const targetShapeStr = (nodeData.targetShape || "").trim();
-      if (!inputShape || Object.keys(inputShape).length === 0 || !targetShapeStr) {
+      const targetShapeInput = nodeData.targetShape;
+      if (!targetShapeInput) {
         return {};
       }
 
       let targetDims: (number | string)[];
-      try {
-        const jsonFriendlyStr = targetShapeStr.replace(/'/g, '\'').replace(/,(\s*?)]/g, ']');
-        const parsed = JSON.parse(jsonFriendlyStr);
-        if (!Array.isArray(parsed) || !parsed.every(d => typeof d === 'number' || d === "dynamic")) {
+      if (Array.isArray(targetShapeInput)) {
+        targetDims = targetShapeInput;
+      } else if (typeof targetShapeInput === 'string') {
+        const targetShapeStr = targetShapeInput.trim();
+        if (!targetShapeStr) return {};
+        try {
+          const jsonFriendlyStr = targetShapeStr.replace(/'/g, '"').replace(/,(\s*?)]/g, ']');
+          const parsed = JSON.parse(jsonFriendlyStr);
+          if (!Array.isArray(parsed) || !parsed.every(d => typeof d === 'number' || d === "dynamic")) {
+            return { error: "invalid" } as any;
+          }
+          targetDims = parsed;
+        } catch (e) {
           return { error: "invalid" } as any;
         }
-        targetDims = parsed;
-      } catch (e) {
+      } else {
         return { error: "invalid" } as any;
       }
 
@@ -627,56 +652,36 @@ export function calculateOutputShape(
         return { error: "multiple -1s" } as any;
       }
 
-      const inputDimValues = Object.values(inputShape).filter(v => typeof v === 'number' || v === 'dynamic');
+      let finalDims: (number | string)[] = targetDims;
 
-      if (inputDimValues.some(v => v === "dynamic")) {
-        const finalDims = targetDims.map(d => (d === -1 ? "dynamic" : d));
-        const newShape: Partial<TensorShape> = {};
-        switch (finalDims.length) {
-            case 1:
-              newShape.features = finalDims[0];
-              break;
-            case 2:
-              newShape.sequence = finalDims[0];
-              newShape.features = finalDims[1];
-              break;
-            case 3:
-              newShape.channels = finalDims[0];
-              newShape.height = finalDims[1];
-              newShape.width = finalDims[2];
-              break;
-            case 4:
-              newShape.channels = finalDims[0];
-              newShape.depth = finalDims[1];
-              newShape.height = finalDims[2];
-              newShape.width = finalDims[3];
-              break;
-            default:
-              finalDims.forEach((dim, i) => {
-                (newShape as any)[`dim${i}`] = dim;
-              });
-              break;
+      // If input shape is present, validate and infer the -1 dimension
+      if (inputShape && Object.keys(inputShape).length > 0) {
+        const inputDimValues = Object.values(inputShape).filter(v => typeof v === 'number' || v === 'dynamic');
+
+        if (inputDimValues.some(v => v === "dynamic")) {
+          finalDims = targetDims.map(d => (d === -1 ? "dynamic" : d));
+        } else {
+          const totalInputSize = inputDimValues.filter((v): v is number => typeof v === 'number').reduce((acc, val) => acc * val, 1);
+          const inferredDimIndex = targetDims.indexOf(-1);
+
+          if (inferredDimIndex !== -1) {
+            const productOfKnownDims = targetDims.reduce((acc, val) => (val !== -1 && typeof val === 'number' ? acc * val : acc), 1);
+            if (productOfKnownDims === 0 || totalInputSize % productOfKnownDims !== 0) {
+              return { error: "mismatch" } as any;
+            }
+            const inferredDimValue = totalInputSize / productOfKnownDims;
+            finalDims = targetDims.map(d => (d === -1 ? inferredDimValue : d));
+          } else {
+            const totalOutputSize = targetDims.reduce((acc, val) => (typeof val === 'number' ? acc * val : acc), 1);
+            if (totalInputSize !== totalOutputSize) {
+                return { error: "mismatch" } as any;
+            }
+            finalDims = targetDims;
+          }
         }
-        return newShape;
-      }
-
-      const totalInputSize = inputDimValues.filter((v): v is number => typeof v === 'number').reduce((acc, val) => acc * val, 1);
-      const inferredDimIndex = targetDims.indexOf(-1);
-
-      let finalDims: (number | string)[];
-      if (inferredDimIndex !== -1) {
-        const productOfKnownDims = targetDims.reduce((acc, val) => (val !== -1 && typeof val === 'number' ? acc * val : acc), 1);
-        if (productOfKnownDims === 0 || totalInputSize % productOfKnownDims !== 0) {
-          return { error: "mismatch" } as any;
-        }
-        const inferredDimValue = totalInputSize / productOfKnownDims;
-        finalDims = targetDims.map(d => (d === -1 ? inferredDimValue : d));
       } else {
-        const totalOutputSize = targetDims.reduce((acc, val) => (typeof val === 'number' ? acc * val : acc), 1);
-        if (totalInputSize !== totalOutputSize) {
-            return { error: "mismatch" } as any;
-        }
-        finalDims = targetDims;
+        // If no input shape, just replace -1 with "dynamic"
+        finalDims = targetDims.map(d => (d === -1 ? "dynamic" : d));
       }
 
       const newShape: Partial<TensorShape> = {};
@@ -700,7 +705,6 @@ export function calculateOutputShape(
           newShape.width = finalDims[3];
           break;
         default:
-          // Fallback for other dimensions, though less common
           finalDims.forEach((dim, i) => {
             (newShape as any)[`dim${i}`] = dim;
           });

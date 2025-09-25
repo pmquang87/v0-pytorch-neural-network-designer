@@ -1,0 +1,71 @@
+{
+    "name": "SENet Block",
+    "description": "Squeeze-and-Excitation Block",
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "inputNode",
+        "position": { "x": 100, "y": 300 },
+        "data": { "channels": 64, "height": 56, "width": 56 }
+      },
+      {
+        "id": "squeeze-2",
+        "type": "adaptiveavgpool2dNode",
+        "position": { "x": 300, "y": 200 },
+        "data": { "output_size": [1, 1] }
+      },
+      {
+        "id": "flatten-3",
+        "type": "flattenNode",
+        "position": { "x": 500, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "fc1-4",
+        "type": "linearNode",
+        "position": { "x": 700, "y": 200 },
+        "data": { "in_features": 64, "out_features": 16 }
+      },
+      {
+        "id": "relu-5",
+        "type": "reluNode",
+        "position": { "x": 900, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "fc2-6",
+        "type": "linearNode",
+        "position": { "x": 1100, "y": 200 },
+        "data": { "in_features": 16, "out_features": 64 }
+      },
+      {
+        "id": "sigmoid-7",
+        "type": "sigmoidNode",
+        "position": { "x": 1300, "y": 200 },
+        "data": {}
+      },
+      {
+        "id": "reshape-8",
+        "type": "reshapeNode",
+        "position": { "x": 1500, "y": 200 },
+        "data": { "targetShape": [64, 1, 1] }
+      },
+      {
+        "id": "scale-9",
+        "type": "multiplyNode",
+        "position": { "x": 1700, "y": 300 },
+        "data": {}
+      }
+    ],
+    "edges": [
+      { "id": "e1-2", "source": "input-1", "target": "squeeze-2" },
+      { "id": "e2-3", "source": "squeeze-2", "target": "flatten-3" },
+      { "id": "e3-4", "source": "flatten-3", "target": "fc1-4" },
+      { "id": "e4-5", "source": "fc1-4", "target": "relu-5" },
+      { "id": "e5-6", "source": "relu-5", "target": "fc2-6" },
+      { "id": "e6-7", "source": "fc2-6", "target": "sigmoid-7" },
+      { "id": "e7-8", "source": "sigmoid-7", "target": "reshape-8" },
+      { "id": "e-in-scale", "source": "input-1", "target": "scale-9", "targetHandle": "input2" },
+      { "id": "e-ex-scale", "source": "reshape-8", "target": "scale-9", "targetHandle": "input1" }
+    ]
+}

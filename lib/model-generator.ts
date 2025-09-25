@@ -90,17 +90,16 @@ export class ModelGenerator {
     }
 
     const sortedNodes = this.topologicalSort()
-    const layerNodes = sortedNodes.filter((node) => node.type !== "inputNode")
+    const layerNodes = sortedNodes.filter((node) => node.type !== "inputNode" && node.type !== "outputNode")
 
-    let code = `import torch
-import torch.nn as nn
+    let code = `import torch\nimport torch.nn as nn\n`
 
+    const hasSsmNode = this.nodes.some(node => node.type === 'ssmNode');
+    if (hasSsmNode) {
+        code += `\n\n# Mamba-based SSM module.\n# Make sure to install the mamba-ssm package: pip install mamba-ssm\ntry:\n    from mamba_ssm import Mamba\nexcept ImportError:\n    Mamba = None\n\nclass SSM(nn.Module):\n    def __init__(self, d_model, d_state, d_conv, expand):\n        super().__init__()\n        if Mamba is None:\n            raise ImportError("mamba-ssm package not found. Please install with 'pip install mamba-ssm'")\n        self.mamba = Mamba(\n            d_model=d_model,\n            d_state=d_state,\n            d_conv=d_conv,\n            expand=expand,\n        )\n\n    def forward(self, x):\n        # Input x is expected to be (batch, length, dim)\n        return self.mamba(x)\n`
+    }
 
-class GeneratedModel(nn.Module):
-    def __init__(self):
-        super(GeneratedModel, self).__init__()
-        
-`
+    code += `\n\nclass GeneratedModel(nn.Module):\n    def __init__(self):\n        super(GeneratedModel, self).__init__()\n        \n`
 
     for (const node of layerNodes) {
       const manifest = PYTORCH_LAYER_MANIFEST[node.type as keyof typeof PYTORCH_LAYER_MANIFEST]
@@ -112,6 +111,15 @@ class GeneratedModel(nn.Module):
       } else if (node.type === "flattenNode") {
         const startDim = node.data.start_dim ?? 1
         code += `        self.${layerName} = nn.Flatten(start_dim=${startDim})\n`
+      } else if (node.type === "timeDistributedLinearNode") {
+        const in_features = node.data.in_features
+        const out_features = node.data.out_features
+        code += `        self.${layerName} = nn.Linear(in_features=${in_features}, out_features=${out_features})\n`
+      } else if (node.type === "siluNode") {
+        code += `        self.${layerName} = nn.SiLU()\n`
+      } else if (node.type === "ssmNode") {
+        const { d_model, d_state, d_conv, expand } = node.data;
+        code += `        self.${layerName} = SSM(d_model=${d_model}, d_state=${d_state}, d_conv=${d_conv}, expand=${expand})\n`
       } else if (manifest && manifest.className) {
         if (node.type === "depthwiseconv2dNode") {
           const params = this.buildParameterString(node, manifest.params)
@@ -134,32 +142,21 @@ class GeneratedModel(nn.Module):
       }
     }
 
-    code += `
-    def forward(self, x):
-`
+    code += `\n    def forward(self, x):\n`
 
     const forwardLines = this.generateForwardPass(sortedNodes)
     for (const line of forwardLines) {
       code += `        ${line}\n`
     }
 
-    code += `        return x
-`
+    code += `        return x\n`
 
     if (this.inputNode?.data) {
       const { channels, height, width } = this.inputNode.data
       const shape = [1, channels, height, width].filter(d => d !== undefined)
       if (shape.length > 1) {
           const shapeString = JSON.stringify(shape).slice(1, -1)
-          code += `
-
-# Usage example:
-# model = GeneratedModel()
-# input_tensor = torch.randn(1, ${shapeString})
-# output = model(input_tensor)
-# print(f"Input shape: {input_tensor.shape}")
-# print(f"Output shape: {output.shape}")
-`
+          code += `\n\n\n# Usage example:\n# model = GeneratedModel()\n# input_tensor = torch.randn(1, ${shapeString})\n# output = model(input_tensor)\n# print(f"Input shape: {input_tensor.shape}")\n# print(f"Output shape: {output.shape}")\n`
       }
     }
 
@@ -196,7 +193,7 @@ class GeneratedModel(nn.Module):
     }
 
     for (const node of sortedNodes) {
-      if (node.type === "inputNode") continue
+      if (node.type === "inputNode" || node.type === "outputNode") continue
 
       const layerName = this.sanitizeLayerName(node.id)
       const inputEdges = this.edges.filter((edge) => edge.target === node.id)
@@ -247,6 +244,13 @@ class GeneratedModel(nn.Module):
         lines.push(`${tempVar} = self.${layerName}_depthwise(${inputVar})`)
         lines.push(`${outputVar} = self.${layerName}_pointwise(${tempVar})`)
         nodeOutputs.set(node.id, outputVar)
+      } else if (node.type === 'multiheadattentionNode') {
+        const queryVar = nodeOutputs.get(inputEdges.find(e => e.targetHandle === 'query')?.source || '') || 'x'
+        const keyVar = nodeOutputs.get(inputEdges.find(e => e.targetHandle === 'key')?.source || '') || 'x'
+        const valueVar = nodeOutputs.get(inputEdges.find(e => e.targetHandle === 'value')?.source || '') || 'x'
+        const outputVar = `x_${layerName}`
+        lines.push(`${outputVar}, _ = self.${layerName}(${queryVar}, ${keyVar}, ${valueVar})`)
+        nodeOutputs.set(node.id, outputVar)
       } else if (inputEdges.length === 1) {
         const inputVar = nodeOutputs.get(inputEdges[0].source) || "x"
         const outputVar = `x_${layerName}`
@@ -261,15 +265,20 @@ class GeneratedModel(nn.Module):
       }
     }
 
-    const outputNodes = sortedNodes.filter((node) => {
-      return !this.edges.some((edge) => edge.source === node.id)
-    })
+    const lastNode = sortedNodes[sortedNodes.length - 1];
+    let finalOutputVar: (string | undefined) = undefined;
 
-    if (outputNodes.length > 0 && outputNodes[0].type !== "inputNode") {
-      const finalOutput = nodeOutputs.get(outputNodes[0].id)
-      if (finalOutput && finalOutput !== "x") {
-        lines.push(`x = ${finalOutput}`)
-      }
+    if (lastNode && lastNode.type === 'outputNode') {
+        const finalEdge = this.edges.find(edge => edge.target === lastNode.id);
+        if (finalEdge) {
+            finalOutputVar = nodeOutputs.get(finalEdge.source);
+        }
+    } else if (lastNode) {
+        finalOutputVar = nodeOutputs.get(lastNode.id);
+    }
+
+    if (finalOutputVar && finalOutputVar !== 'x') {
+        lines.push(`x = ${finalOutputVar}`);
     }
 
     return lines

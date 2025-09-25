@@ -19,7 +19,6 @@ export function MultiplyNode({ id, data }: { id: string; data: any }) {
 
   // Get all defined input shapes for output calculation and display
   const definedInputShapes = inputShapes.filter((s): s is TensorShape => s && Object.keys(s).length > 0);
-  const firstValidInputShape = definedInputShapes[0];
 
   // Calculate output shape using the tensor shape calculator
   const outputShape = calculateOutputShape("multiplyNode", definedInputShapes, data);
@@ -51,9 +50,11 @@ export function MultiplyNode({ id, data }: { id: string; data: any }) {
         <div className="text-xs text-muted-foreground">inputs: {definedInputShapes.length}</div>
         <div className="mt-2 pt-2 border-t border-border">
           <div className="text-xs text-muted-foreground">
-            <div className="text-orange-600">
-              In: {formatTensorShape(firstValidInputShape || {})}
-            </div>
+            {definedInputShapes.map((shape, i) => (
+              <div key={i} className="text-orange-600">
+                In {i + 1}: {formatTensorShape(shape)}
+              </div>
+            ))}
             <div className="text-blue-600">Out: {formatTensorShape(outputShape)}</div>
           </div>
         </div>

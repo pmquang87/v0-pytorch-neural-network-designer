@@ -7,98 +7,67 @@ export interface ExampleNetwork {
   edges: Edge[];
 }
 
-import AlexNet from "./examples/AlexNet.json";
-import Autoencoder from "./examples/Autoencoder.json";
-import BART from "./examples/BART.json";
-import BERT from "./examples/BERT.json";
-import DenseNetBlock from "./examples/DenseNet-Block.json";
-import DenseNet121 from "./examples/DenseNet-121.json";
-import DenseNet169 from "./examples/DenseNet-169.json";
-import DenseNet201 from "./examples/DenseNet-201.json";
-import DenseNet264 from "./examples/DenseNet-264.json";
-import EfficientNetB0 from "./examples/EfficientNet-B0.json";
-import ExpandedRNNCell from "./examples/Expanded-RNN-Cell.json";
-import UNet from "./examples/U-Net.json";
-import UNetPlusPlus from "./examples/U-Net++.json";
-import GANGenerator from "./examples/GAN-Generator.json";
-import GRU from "./examples/GRU.json";
-import GRUNode from "./examples/GRU-Node.json";
-import InceptionModule from "./examples/Inception-Module.json";
-import LeNet5 from "./examples/LeNet-5.json";
-import LSTMNetwork from "./examples/LSTM-Network.json";
-import LSTMNode from "./examples/LSTM-Node.json";
-import MaskedMultiheadAttentionNode from "./examples/Masked-MultiheadAttention-Node.json";
-import MobileNetBlock from "./examples/MobileNet-Block.json";
-import MobileNetV1 from "./examples/MobileNetV1.json";
-import MobileNetV2Block from "./examples/MobileNetV2-Block.json";
-import MultiheadAttentionNode from "./examples/MultiheadAttention-Node.json";
-import ResNetBlock from "./examples/ResNet-Block.json";
-import ResNet50 from "./examples/ResNet-50.json";
-import ResNet101 from "./examples/ResNet-101.json";
-import RNN from "./examples/RNN.json";
-import SiameseNetwork from "./examples/Siamese-Network.json";
-import SimpleMLP from "./examples/Simple-MLP.json";
-import SimpleYOLO from "./examples/Simple-YOLO.json";
-import StyleGANGenerator from "./examples/StyleGAN-Generator.json";
-import T5 from "./examples/T5.json";
-import Transformer from "./examples/Transformer.json";
-import TransformerBlock from "./examples/Transformer-Block.json";
-import TransformerDecoder from "./examples/Transformer-Decoder.json";
-import TransformerEncoder from "./examples/Transformer-Encoder.json";
-import UNetEncoder from "./examples/U-Net-Encoder.json";
-import VGG16Block from "./examples/VGG-16-Block.json";
-import VisionTransformer from "./examples/Vision-Transformer-(ViT-Base-16).json";
-import YOLONAS from "./examples/YOLO-NAS.json";
-import YOLOv1 from "./examples/YOLOv1.json";
-import YOLOv3 from "./examples/YOLOv3.json";
-import YOLOv5s from "./examples/YOLOv5s.json";
-import YOLOv8n from "./examples/YOLOv8n.json";
+export interface ExampleNetworkMetadata {
+  name: string;
+  filename: string;
+}
 
-export const EXAMPLE_NETWORKS: ExampleNetwork[] = [
-  AlexNet,
-  Autoencoder,
-  BART,
-  BERT,
-  DenseNetBlock,
-  DenseNet121,
-  DenseNet169,
-  DenseNet201,
-  DenseNet264,
-  EfficientNetB0,
-  ExpandedRNNCell,
-  UNet,
-  UNetPlusPlus,
-  GANGenerator,
-  GRU,
-  GRUNode,
-  InceptionModule,
-  LeNet5,
-  LSTMNetwork,
-  LSTMNode,
-  MaskedMultiheadAttentionNode,
-  MobileNetBlock,
-  MobileNetV1,
-  MobileNetV2Block,
-  MultiheadAttentionNode,
-  ResNetBlock,
-  ResNet50,
-  ResNet101,
-  RNN,
-  SiameseNetwork,
-  SimpleMLP,
-  SimpleYOLO,
-  StyleGANGenerator,
-  T5,
-  Transformer,
-  TransformerBlock,
-  TransformerDecoder,
-  TransformerEncoder,
-  UNetEncoder,
-  VGG16Block,
-  VisionTransformer,
-  YOLONAS,
-  YOLOv1,
-  YOLOv3,
-  YOLOv5s,
-  YOLOv8n,
+export const EXAMPLE_NETWORKS_METADATA: ExampleNetworkMetadata[] = [
+  { name: "T5", filename: "T5.json" },
+  { name: "GRU", filename: "GRU.json" },
+  { name: "RNN", filename: "RNN.json" },
+  { name: "BART", filename: "BART.json" },
+  { name: "BERT", filename: "BERT.json" },
+  { name: "GPT2", filename: "GPT2.json" },
+  { name: "Mamba", filename: "Mamba.json" },
+  { name: "SENet", filename: "SENet.json" },
+  { name: "U-Net", filename: "U-Net.json" },
+  { name: "YOLOv1", filename: "YOLOv1.json" },
+  { name: "YOLOv3", filename: "YOLOv3.json" },
+  { name: "AlexNet", filename: "AlexNet.json" },
+  { name: "LeNet-5", filename: "LeNet-5.json" },
+  { name: "RNNCell", filename: "RNNCell.json" },
+  { name: "U-Net++", filename: "U-Net++.json" },
+  { name: "YOLOv5s", filename: "YOLOv5s.json" },
+  { name: "YOLOv8n", filename: "YOLOv8n.json" },
+  { name: "CoAtNet7", filename: "CoAtNet7.json" },
+  { name: "DeepSeek", filename: "DeepSeek.json" },
+  { name: "GRU-Node", filename: "GRU-Node.json" },
+  { name: "YOLO-NAS", filename: "YOLO-NAS.json" },
+  { name: "FullSENet", filename: "FullSENet.json" },
+  { name: "GPT2-full", filename: "GPT2-full.json" },
+  { name: "LSTM-Node", filename: "LSTM-Node.json" },
+  { name: "ResNet-50", filename: "ResNet-50.json" },
+  { name: "ResNet-101", filename: "ResNet-101.json" },
+  { name: "Simple-MLP", filename: "Simple-MLP.json" },
+  { name: "AmoebaNet-B", filename: "AmoebaNet-B.json" },
+  { name: "Autoencoder", filename: "Autoencoder.json" },
+  { name: "MobileNetV1", filename: "MobileNetV1.json" },
+  { name: "Simple-YOLO", filename: "Simple-YOLO.json" },
+  { name: "Transformer", filename: "Transformer.json" },
+  { name: "DenseNet-121", filename: "DenseNet-121.json" },
+  { name: "DenseNet-169", filename: "DenseNet-169.json" },
+  { name: "DenseNet-201", filename: "DenseNet-201.json" },
+  { name: "DenseNet-264", filename: "DenseNet-264.json" },
+  { name: "LSTM-Network", filename: "LSTM-Network.json" },
+  { name: "ResNet-Block", filename: "ResNet-Block.json" },
+  { name: "VGG-16-Block", filename: "VGG-16-Block.json" },
+  { name: "GAN-Generator", filename: "GAN-Generator.json" },
+  { name: "U-Net-Encoder", filename: "U-Net-Encoder.json" },
+  { name: "DenseNet-Block", filename: "DenseNet-Block.json" },
+  { name: "EfficientNet-B0", filename: "EfficientNet-B0.json" },
+  { name: "MobileNet-Block", filename: "MobileNet-Block.json" },
+  { name: "Siamese-Network", filename: "Siamese-Network.json" },
+  { name: "Inception-Module", filename: "Inception-Module.json" },
+  { name: "Expanded-RNN-Cell", filename: "Expanded-RNN-Cell.json" },
+  { name: "MobileNetV2-Block", filename: "MobileNetV2-Block.json" },
+  { name: "Transformer-Block", filename: "Transformer-Block.json" },
+  { name: "StyleGAN-Generator", filename: "StyleGAN-Generator.json" },
+  { name: "Transformer-Decoder", filename: "Transformer-Decoder.json" },
+  { name: "Transformer-Encoder", filename: "Transformer-Encoder.json" },
+  { name: "AmoebaNet-B-Normal-Cell", filename: "AmoebaNet-B-Normal-Cell.json" },
+  { name: "MultiheadAttention-Node", filename: "MultiheadAttention-Node.json" },
+  { name: "AmoebaNet-B-Reduction-Cell", filename: "AmoebaNet-B-Reduction-Cell.json" },
+  { name: "Masked-MultiheadAttention-Node", filename: "Masked-MultiheadAttention-Node.json" },
+  { name: "Vision-Transformer-(ViT-Base-16)", filename: "Vision-Transformer-(ViT-Base-16).json" },
 ].sort((a, b) => a.name.localeCompare(b.name));

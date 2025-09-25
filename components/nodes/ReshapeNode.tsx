@@ -4,14 +4,9 @@ import { Layers } from "lucide-react";
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator";
 
 export function ReshapeNode({ data }: { data: any }) {
-  // data.inputShape is a single shape object (or undefined)
   const inputShape: TensorShape | undefined = data.inputShape;
 
-  // The user-defined target shape for the reshape operation
-  const targetShape = data.targetShape || "";
-
-  // Calculate output shape using the tensor shape calculator
-  const outputShape = calculateOutputShape("reshape", [inputShape], { targetShape });
+  const outputShape = calculateOutputShape("reshapeNode", [inputShape], { targetShape: data.targetShape });
 
   return (
     <Card className="min-w-[160px] bg-card border-2 border-green-500/50 shadow-sm">
@@ -28,12 +23,15 @@ export function ReshapeNode({ data }: { data: any }) {
           <span className="font-medium text-sm">Reshape</span>
         </div>
         <div className="text-xs text-muted-foreground">
-          Target: {targetShape}
+          Target: {JSON.stringify(data.targetShape)}
         </div>
         <div className="mt-2 pt-2 border-t border-border">
           <div className="text-xs text-muted-foreground">
             <div className="text-green-600">
               In: {formatTensorShape(inputShape || {})}
+            </div>
+            <div className="text-blue-600">
+              Out: {formatTensorShape(outputShape)}
             </div>
           </div>
         </div>

@@ -1,0 +1,382 @@
+{
+    "name": "AmoebaNet-B Reduction Cell",
+    "description": "A complete and paper-accurate representation of a single AmoebaNet-B 'Reduction Cell', used for downsampling between cell stacks.",
+    "nodes": [
+        {
+            "id": "h_prev",
+            "type": "inputNode",
+            "position": {
+                "x": 0,
+                "y": 375
+            },
+            "data": {
+                "channels": 256,
+                "label": "h_{i-1}"
+            }
+        },
+        {
+            "id": "h_curr",
+            "type": "inputNode",
+            "position": {
+                "x": 0,
+                "y": 1875
+            },
+            "data": {
+                "channels": 256,
+                "label": "h_i"
+            }
+        },
+        {
+            "id": "node1_op1",
+            "type": "maxpool2dNode",
+            "position": {
+                "x": 250,
+                "y": 375
+            },
+            "data": {
+                "kernel_size": 3,
+                "stride": 2,
+                "padding": 1
+            }
+        },
+        {
+            "id": "node1_op2",
+            "type": "conv2dNode",
+            "position": {
+                "x": 250,
+                "y": 1875
+            },
+            "data": {
+                "in_channels": 256,
+                "out_channels": 256,
+                "kernel_size": 7,
+                "stride": 2,
+                "padding": 3,
+                "groups": 256
+            }
+        },
+        {
+            "id": "node1_add",
+            "type": "addNode",
+            "position": {
+                "x": 500,
+                "y": 1125
+            },
+            "data": {
+                "label": "Node 1"
+            }
+        },
+        {
+            "id": "node2_op1",
+            "type": "avgpool2dNode",
+            "position": {
+                "x": 250,
+                "y": 675
+            },
+            "data": {
+                "kernel_size": 3,
+                "stride": 2,
+                "padding": 1
+            }
+        },
+        {
+            "id": "node2_op2",
+            "type": "conv2dNode",
+            "position": {
+                "x": 250,
+                "y": 2175
+            },
+            "data": {
+                "in_channels": 256,
+                "out_channels": 256,
+                "kernel_size": 5,
+                "stride": 2,
+                "padding": 2,
+                "groups": 256
+            }
+        },
+        {
+            "id": "node2_add",
+            "type": "addNode",
+            "position": {
+                "x": 500,
+                "y": 1425
+            },
+            "data": {
+                "label": "Node 2"
+            }
+        },
+        {
+            "id": "node3_op1",
+            "type": "maxpool2dNode",
+            "position": {
+                "x": 250,
+                "y": 75
+            },
+            "data": {
+                "kernel_size": 3,
+                "stride": 2,
+                "padding": 1
+            }
+        },
+        {
+            "id": "node3_op2",
+            "type": "conv2dNode",
+            "position": {
+                "x": 750,
+                "y": 1125
+            },
+            "data": {
+                "in_channels": 256,
+                "out_channels": 256,
+                "kernel_size": 3,
+                "padding": 1,
+                "groups": 256
+            }
+        },
+        {
+            "id": "node3_add",
+            "type": "addNode",
+            "position": {
+                "x": 1000,
+                "y": 600
+            },
+            "data": {
+                "label": "Node 3"
+            }
+        },
+        {
+            "id": "node4_op1",
+            "type": "avgpool2dNode",
+            "position": {
+                "x": 750,
+                "y": 1425
+            },
+            "data": {
+                "kernel_size": 3,
+                "stride": 1,
+                "padding": 1
+            }
+        },
+        {
+            "id": "node4_op2",
+            "type": "conv2dNode",
+            "position": {
+                "x": 250,
+                "y": 975
+            },
+            "data": {
+                "in_channels": 256,
+                "out_channels": 256,
+                "kernel_size": 1,
+                "stride": 2
+            }
+        },
+        {
+            "id": "node4_add",
+            "type": "addNode",
+            "position": {
+                "x": 1000,
+                "y": 1200
+            },
+            "data": {
+                "label": "Node 4"
+            }
+        },
+        {
+            "id": "node5_op1",
+            "type": "maxpool2dNode",
+            "position": {
+                "x": 250,
+                "y": 1275
+            },
+            "data": {
+                "kernel_size": 3,
+                "stride": 2,
+                "padding": 1
+            }
+        },
+        {
+            "id": "node5_op2",
+            "type": "conv2dNode",
+            "position": {
+                "x": 250,
+                "y": 1575
+            },
+            "data": {
+                "in_channels": 256,
+                "out_channels": 256,
+                "kernel_size": 3,
+                "stride": 2,
+                "padding": 1,
+                "groups": 256
+            }
+        },
+        {
+            "id": "node5_add",
+            "type": "addNode",
+            "position": {
+                "x": 500,
+                "y": 1500
+            },
+            "data": {
+                "label": "Node 5"
+            }
+        },
+        {
+            "id": "final_concat",
+            "type": "concatenateNode",
+            "position": {
+                "x": 1250,
+                "y": 1125
+            },
+            "data": {
+                "dim": 1,
+                "inputs": 5,
+                "label": "Cell Output"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "h_prev-n1_op1",
+            "source": "h_prev",
+            "target": "node1_op1"
+        },
+        {
+            "id": "h_curr-n1_op2",
+            "source": "h_curr",
+            "target": "node1_op2"
+        },
+        {
+            "id": "n1_op1-n1_add",
+            "source": "node1_op1",
+            "target": "node1_add",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "n1_op2-n1_add",
+            "source": "node1_op2",
+            "target": "node1_add",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "h_prev-n2_op1",
+            "source": "h_prev",
+            "target": "node2_op1"
+        },
+        {
+            "id": "h_curr-n2_op2",
+            "source": "h_curr",
+            "target": "node2_op2"
+        },
+        {
+            "id": "n2_op1-n2_add",
+            "source": "node2_op1",
+            "target": "node2_add",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "n2_op2-n2_add",
+            "source": "node2_op2",
+            "target": "node2_add",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "h_prev-n3_op1",
+            "source": "h_prev",
+            "target": "node3_op1"
+        },
+        {
+            "id": "n1_add-n3_op2",
+            "source": "node1_add",
+            "target": "node3_op2"
+        },
+        {
+            "id": "n3_op1-n3_add",
+            "source": "node3_op1",
+            "target": "node3_add",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "n3_op2-n3_add",
+            "source": "node3_op2",
+            "target": "node3_add",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "n1_add-n4_op1",
+            "source": "node1_add",
+            "target": "node4_op1"
+        },
+        {
+            "id": "h_prev-n4_op2",
+            "source": "h_prev",
+            "target": "node4_op2"
+        },
+        {
+            "id": "n4_op1-n4_add",
+            "source": "node4_op1",
+            "target": "node4_add",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "n4_op2-n4_add",
+            "source": "node4_op2",
+            "target": "node4_add",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "h_prev-n5_op1",
+            "source": "h_prev",
+            "target": "node5_op1"
+        },
+        {
+            "id": "h_curr-n5_op2",
+            "source": "h_curr",
+            "target": "node5_op2"
+        },
+        {
+            "id": "n5_op1-n5_add",
+            "source": "node5_op1",
+            "target": "node5_add",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "n5_op2-n5_add",
+            "source": "node5_op2",
+            "target": "node5_add",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "n2_add-concat",
+            "source": "node2_add",
+            "target": "final_concat",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "n3_add-concat",
+            "source": "node3_add",
+            "target": "final_concat",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "n4_add-concat",
+            "source": "node4_add",
+            "target": "final_concat",
+            "targetHandle": "input3"
+        },
+        {
+            "id": "n5_add-concat",
+            "source": "node5_add",
+            "target": "final_concat",
+            "targetHandle": "input4"
+        },
+        {
+            "id": "n1_add-concat",
+            "source": "node1_add",
+            "target": "final_concat",
+            "targetHandle": "input5"
+        }
+    ]
+}

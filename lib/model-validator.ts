@@ -178,17 +178,7 @@ export class ModelValidator {
 
       const connectedShapes = inputShapes.filter((s): s is TensorShape => !!s)
 
-      if (node.type === "addNode" || node.type === "multiplyNode") {
-        if (connectedShapes.length > 1) {
-          const firstShape = JSON.stringify(connectedShapes[0]);
-          for (let i = 1; i < connectedShapes.length; i++) {
-            if (JSON.stringify(connectedShapes[i]) !== firstShape) {
-              errors.push(`Node '${node.data.label || node.id}' (${node.type}): Input shapes must be identical.`);
-              break; 
-            }
-          }
-        }
-      } else if (node.type === "concatenateNode") {
+      if (node.type === "concatenateNode") {
         if (connectedShapes.length > 1) {
           const firstShape = connectedShapes[0];
           const dim = node.data.dim ?? 0; 

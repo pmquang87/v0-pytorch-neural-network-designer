@@ -17,6 +17,7 @@ import {
   type Node,
   type NodeTypes,
   BackgroundVariant,
+  Group,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 
@@ -59,7 +60,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ResizableBox } from "react-resizable"
 import "react-resizable/css/styles.css"
 
-import { EXAMPLE_NETWORKS } from "@/lib/example-networks"
+import { EXAMPLE_NETWORKS_METADATA, type ExampleNetworkMetadata } from "@/lib/example-networks"
 import {
   calculateOutputShape as calcOutputShape,
   formatTensorShape,
@@ -121,6 +122,8 @@ import { TransposeNode } from "@/components/nodes/TransposeNode"
 import { SelectNode } from "@/components/nodes/SelectNode"
 import { OutputNode } from "@/components/nodes/OutputNode"
 import { ReshapeNode } from "@/components/nodes/ReshapeNode"
+import { ChunkNode } from "@/components/nodes/ChunkNode"
+import { SsmNode } from "@/components/nodes/SsmNode"
 
 const initialNodes: Node[] = [
   {
@@ -181,6 +184,9 @@ const nodeTypes: NodeTypes = {
   selectNode: SelectNode,
   outputNode: OutputNode,
   reshapeNode: ReshapeNode,
+  chunkNode: ChunkNode,
+  ssmNode: SsmNode,
+  groupNode: Group,
 }
 
 export default function NeuralNetworkDesigner() {
@@ -410,13 +416,20 @@ export default function NeuralNetworkDesigner() {
         }
 
         if (node.type === "linearNode" && firstInputShape) {
-          if (typeof firstInputShape.features === "number") {
-            data.in_features = firstInputShape.features;
-          } else if (firstInputShape.features === undefined) {
-            const flattenedSize =
-              (firstInputShape.channels || 1) * (firstInputShape.height || 1) * (firstInputShape.width || 1);
-            data.in_features = flattenedSize;
-          }
+            if (typeof firstInputShape.features === "number") {
+                data.in_features = firstInputShape.features;
+            } else if (firstInputShape.features === undefined) {
+                const prevNode = nodeMap.get(inputEdges[0]?.source);
+                const isPrevNodeFlattenOrPool = prevNode && (prevNode.type === 'flattenNode' || prevNode.type?.includes('pool'));
+
+                if (isPrevNodeFlattenOrPool || firstInputShape.channels) { 
+                    const flattenedSize = 
+                        (firstInputShape.channels || 1) * 
+                        (firstInputShape.height || 1) * 
+                        (firstInputShape.width || 1);
+                    data.in_features = flattenedSize;
+                }
+            }
         }
 
         const outputShape = calcOutputShape(node.type || "", cleanInputShapes, data);
@@ -579,55 +592,127 @@ export default function NeuralNetworkDesigner() {
   }, [nodes, edges, propagateTensorShapes])
 
   const loadExample = useCallback(
-    (example: any) => {
+    async (exampleMetadata: ExampleNetworkMetadata) => {
+      if (!exampleMetadata || typeof exampleMetadata !== 'object') {
+        toast({
+          title: "Loading Failed",
+          description: "The selected example is invalid or empty.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       try {
-        const invalidNodeTypes = example.nodes.filter((node: any) => !nodeTypes[node.type])
+        const example = await import(`@/lib/examples/${exampleMetadata.filename}`);
+        const { name, nodes, edges } = example;
+
+        if (!name || !Array.isArray(nodes) || !Array.isArray(edges)) {
+          toast({
+            title: "Loading Failed",
+            description: "Example file is malformed. It must contain a name, and arrays of nodes and edges.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Check for nodes with missing critical properties
+        for (const node of nodes) {
+          if (!node.id || !node.type || !node.position || !node.data) {
+            toast({
+              title: "Loading Failed",
+              description: `Example contains an invalid node object. Node ${node.id || '(ID missing)'} is missing required properties (id, type, position, data).`,
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+
+        // Check for duplicate node IDs
+        const nodeIds = new Set();
+        for (const node of nodes) {
+          if (nodeIds.has(node.id)) {
+            toast({
+              title: "Loading Failed",
+              description: `Example contains duplicate node ID: ${node.id}.`,
+              variant: "destructive",
+            });
+            return;
+          }
+          nodeIds.add(node.id);
+        }
+
+        const invalidNodeTypes = nodes.filter((node: any) => !nodeTypes[node.type]);
         if (invalidNodeTypes.length > 0) {
           toast({
             title: "Loading Failed",
             description: `Example contains unsupported node types: ${invalidNodeTypes.map((n: any) => n.type).join(", ")}`,
             variant: "destructive",
-          })
-          return
+          });
+          return;
         }
 
-        const nodeIds = new Set(example.nodes.map((node: any) => node.id))
-        const invalidEdges = example.edges.filter((edge: any) => !nodeIds.has(edge.source) || !nodeIds.has(edge.target))
-        if (invalidEdges.length > 0) {
-          toast({
-            title: "Loading Failed",
-            description: "Example contains invalid connections",
-            variant: "destructive",
-          })
-          return
+        // Check for edges with missing properties or pointing to non-existent nodes
+        for (const edge of edges) {
+          if (!edge.id || !edge.source || !edge.target) {
+            toast({
+              title: "Loading Failed",
+              description: `Example contains an invalid edge object. Edge ${edge.id || '(ID missing)'} is missing required properties (id, source, target).`,
+              variant: "destructive",
+            });
+            return;
+          }
+          if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) {
+            toast({
+              title: "Loading Failed",
+              description: `Example contains an invalid edge: ${edge.id}. It connects to a non-existent node. Source: ${edge.source}, Target: ${edge.target}`,
+              variant: "destructive",
+            });
+            return;
+          }
         }
 
-        takeSnapshot()
-        setNodes(example.nodes)
-        setEdges(example.edges)
-        setSelectedNode(null)
-        setCurrentModelName(example.name)
+        takeSnapshot();
+        setNodes(nodes);
+        setEdges(edges);
+        setSelectedNode(null);
+        setCurrentModelName(name);
 
         toast({
           title: "Example Loaded",
-          description: `Successfully loaded ${example.name}`,
-        })
+          description: `Successfully loaded ${name}`,
+        });
 
         setTimeout(() => {
           if (reactFlowInstanceRef.current) {
-            reactFlowInstanceRef.current.fitView({ padding: 0.1, duration: 800 })
+            reactFlowInstanceRef.current.fitView({ padding: 0.1, duration: 800 });
           }
-        }, 100)
+        }, 100);
       } catch (error) {
+        console.error("Failed to load example:", error);
+        const fileName = exampleMetadata.filename;
+        let description = `An unexpected error occurred while loading the example '${exampleMetadata.name}'.`;
+
+        if (error instanceof Error) {
+          if (error.message.toLowerCase().includes('failed to fetch')) {
+            description = `Could not fetch the example file: '${fileName}'. Please check your network connection and ensure the file exists on the server at the expected location ('/lib/examples/${fileName}').`;
+          } else if (error.message.toLowerCase().includes('cannot find module')) {
+            description = `The example file '${fileName}' could not be found. Please check that the file exists in the '/lib/examples/' directory.`;
+          } else {
+            description = `There was an issue processing the example file '${fileName}': ${error.message}`;
+          }
+        } else {
+          description = `An unknown error occurred while trying to load '${fileName}'. See the console for more details.`;
+        }
+
         toast({
-          title: "Loading Failed",
-          description: `Failed to load ${example.name}: ${error}`,
+          title: "Example Load Failed",
+          description: description,
           variant: "destructive",
-        })
+        });
       }
     },
     [setNodes, setEdges, toast, nodeTypes, setCurrentModelName, takeSnapshot],
-  )
+  );
 
   const resetCanvas = useCallback(() => {
     takeSnapshot()
@@ -667,7 +752,7 @@ export default function NeuralNetworkDesigner() {
     }
     StorageUtils.saveModel(modelName, nodes, edges)
     setCurrentModelName(modelName)
-    toast({ title: "Model Saved", description: `Model \"${modelName}\" has been saved.` })
+    toast({ title: "Model Saved", description: `Model "${modelName}" has been saved.` })
     setShowSaveDialog(false)
     setModelName("")
   }, [modelName, nodes, edges, toast, setCurrentModelName])
@@ -692,7 +777,7 @@ export default function NeuralNetworkDesigner() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast({ title: "Model Exported", description: `Model \"${modelName}\" has been exported as a JSON file.` });
+    toast({ title: "Model Exported", description: `Model "${modelName}" has been exported as a JSON file.` });
     setShowSaveDialog(false);
   }, [modelName, nodes, edges, toast, setShowSaveDialog]);
 
@@ -717,7 +802,7 @@ export default function NeuralNetworkDesigner() {
           setEdges(importedData.edges);
           const importedModelName = importedData.name || file.name.replace('.json', '');
           setCurrentModelName(importedModelName);
-          toast({ title: "Model Imported", description: `Successfully imported \"${importedModelName}\"` });
+          toast({ title: "Model Imported", description: `Successfully imported "${importedModelName}"` });
           setShowLoadDialog(false);
         } else {
           throw new Error("Invalid model file format.");
@@ -820,25 +905,52 @@ export default function NeuralNetworkDesigner() {
     })
   }, [generatedCode, toast])
 
-  const copyCode = useCallback(async () => {
+  const copyCode = useCallback(() => {
     if (!generatedCode) return
 
-    try {
-      await navigator.clipboard.writeText(generatedCode)
-      setCopySuccess(true)
-      toast({
-        title: "Code Copied",
-        description: "Generated code copied to clipboard",
-      })
-      setTimeout(() => setCopySuccess(false), 2000)
-    } catch (error) {
-      toast({
-        title: "Copy Failed",
-        description: "Failed to copy code to clipboard",
-        variant: "destructive",
-      })
+    const unsecuredCopyToClipboard = (text: string) => {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            setCopySuccess(true);
+            toast({
+                title: "Code Copied",
+                description: "Generated code copied to clipboard",
+            });
+            setTimeout(() => setCopySuccess(false), 2000);
+        } catch (err) {
+            toast({
+                title: "Copy Failed",
+                description: "Failed to copy code to clipboard",
+                variant: "destructive",
+            });
+        }
+        document.body.removeChild(textArea);
+    };
+
+    if (window.isSecureContext && navigator.clipboard) {
+        navigator.clipboard.writeText(generatedCode).then(() => {
+            setCopySuccess(true);
+            toast({
+                title: "Code Copied",
+                description: "Generated code copied to clipboard",
+            });
+            setTimeout(() => setCopySuccess(false), 2000);
+        }).catch(() => {
+            toast({
+                title: "Copy Failed",
+                description: "Failed to copy code to clipboard",
+                variant: "destructive",
+            });
+        });
+    } else {
+        unsecuredCopyToClipboard(generatedCode);
     }
-  }, [generatedCode, toast])
+}, [generatedCode, toast]);
 
   const parsePyTorchCode = useCallback(
     (code: string) => {
@@ -1228,11 +1340,10 @@ export default function NeuralNetworkDesigner() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              {EXAMPLE_NETWORKS.map((example) => (
+              {EXAMPLE_NETWORKS_METADATA.map((example) => (
                 <DropdownMenuItem key={example.name} onClick={() => loadExample(example)}>
                   <div className="flex flex-col">
                     <span className="font-medium">{example.name}</span>
-                    <span className="text-xs text-muted-foreground">{example.description}</span>
                   </div>
                 </DropdownMenuItem>
               ))}
@@ -3263,7 +3374,6 @@ class MyModel(nn.Module):
                       <strong>Operations:</strong> Add, Concatenate, Flatten
                     </p>
                   </div>
-,
                 </div>
               </div>
 
