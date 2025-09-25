@@ -40,7 +40,6 @@ export const EXAMPLE_NETWORKS_METADATA: ExampleNetworkMetadata[] = [
   { name: "ResNet-50", filename: "ResNet-50.json" },
   { name: "ResNet-101", filename: "ResNet-101.json" },
   { name: "Simple-MLP", filename: "Simple-MLP.json" },
-  { name: "AmoebaNet-B", filename: "AmoebaNet-B.json" },
   { name: "Autoencoder", filename: "Autoencoder.json" },
   { name: "MobileNetV1", filename: "MobileNetV1.json" },
   { name: "Simple-YOLO", filename: "Simple-YOLO.json" },

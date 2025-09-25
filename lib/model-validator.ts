@@ -184,20 +184,22 @@ export class ModelValidator {
           const dim = node.data.dim ?? 0; 
           let mismatchFound = false;
           for (const shape of connectedShapes.slice(1)) {
-            if (shape.length !== firstShape.length) {
+            if (shape && firstShape && shape.length !== firstShape.length) {
               errors.push(
                 `Node '${node.data.label || node.id}' (concatenateNode): Input tensors must have the same number of dimensions.`
               );
               mismatchFound = true;
               break;
             }
-            for (let i = 0; i < shape.length; i++) {
-              if (i !== dim && shape[i] !== firstShape[i]) {
-                errors.push(
-                  `Node '${node.data.label || node.id}' (concatenateNode): Input tensor shapes must match except in the concatenation dimension (dim=${dim}).`
-                );
-                mismatchFound = true;
-                break;
+            if (shape && firstShape) {
+              for (let i = 0; i < shape.length; i++) {
+                if (i !== dim && shape[i] !== firstShape[i]) {
+                  errors.push(
+                    `Node '${node.data.label || node.id}' (concatenateNode): Input tensor shapes must match except in the concatenation dimension (dim=${dim}).`
+                  );
+                  mismatchFound = true;
+                  break;
+                }
               }
             }
             if (mismatchFound) break;
