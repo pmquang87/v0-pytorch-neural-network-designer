@@ -658,7 +658,8 @@ export default function NeuralNetworkDesigner() {
       try {
         const response = await fetch(`/api/examples/${exampleMetadata.filename}`);
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          const errorText = await response.text();
+          throw new Error(`HTTP error! status: ${response.status}. ${errorText}`);
         }
         const example = await response.json();
         const { name, nodes, edges } = example;
@@ -1364,6 +1365,68 @@ export default function NeuralNetworkDesigner() {
     { key: "Delete / Backspace", description: "Delete selected nodes" },
   ]
 
+  const getNodeColor = (node: Node) => {
+    switch (node.type) {
+      case 'inputNode':
+      case 'constantNode':
+      case 'conv1dNode':
+      case 'conv2dNode':
+      case 'conv3dNode':
+      case 'reshapeNode':
+        return '#22c55e'; // green-500
+      case 'linearNode':
+        return '#3b82f6'; // blue-500
+      case 'maxpool2dNode':
+      case 'avgpool2dNode':
+      case 'adaptiveavgpool2dNode':
+        return '#ef4444'; // red-500
+      case 'reluNode':
+      case 'sigmoidNode':
+      case 'tanhNode':
+      case 'softmaxNode':
+      case 'leakyreluNode':
+      case 'geluNode':
+      case 'siluNode':
+      case 'mishNode':
+      case 'hardswishNode':
+      case 'hardsigmoidNode':
+        return '#eab308'; // yellow-500
+      case 'batchnorm1dNode':
+      case 'batchnorm2dNode':
+      case 'layernormNode':
+      case 'groupnormNode':
+      case 'instancenorm1dNode':
+      case 'instancenorm2dNode':
+      case 'instancenorm3dNode':
+        return '#06b6d4'; // cyan-500
+      case 'concatenateNode':
+        return '#6366f1'; // indigo-500
+      case 'addNode':
+      case 'depthwiseconv2dNode':
+      case 'transposeNode':
+        return '#f97316'; // orange-500
+      case 'multiplyNode':
+      case 'mbconvNode':
+      case 'separableconv2dNode':
+      case 'convtranspose1dNode':
+      case 'convtranspose2dNode':
+      case 'convtranspose3dNode':
+        return '#a855f7'; // purple-500
+      case 'lstmNode':
+      case 'gruNode':
+      case 'rnnNode':
+      case 'multiheadattentionNode':
+      case 'transformerencoderlayerNode':
+      case 'transformerdecoderlayerNode':
+        return '#ec4899'; // pink-500
+      case 'dropoutNode':
+      case 'flattenNode':
+        return '#6b7280'; // gray-500
+      default:
+        return '#ccc';
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-background">
       <div className="flex items-center justify-between p-4 border-b border-border bg-card">
@@ -1957,7 +2020,7 @@ export default function NeuralNetworkDesigner() {
               }}
             >
               <Controls />
-              <MiniMap />
+              <MiniMap nodeColor={getNodeColor} />
               <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
             </ReactFlow>
           </ReactFlowProvider>

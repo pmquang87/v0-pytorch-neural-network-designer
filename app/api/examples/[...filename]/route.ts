@@ -20,9 +20,13 @@ export async function GET(
     const data = JSON.parse(fileContents);
     return NextResponse.json(data);
   } catch (error) {
-    if (error.code === 'ENOENT') {
-      return new NextResponse('File not found', { status: 404 });
+    if (error instanceof SyntaxError) {
+        return new NextResponse(`JSON syntax error in ${filename}: ${error.message}`, { status: 500 });
     }
-    return new NextResponse('Error reading file', { status: 500 });
+    if (error.code === 'ENOENT') {
+      return new NextResponse(`File not found: ${filename}`, { status: 404 });
+    }
+    console.error(`Error processing file ${filename}:`, error);
+    return new NextResponse(`Error reading file ${filename}. See server logs for details.`, { status: 500 });
   }
 }

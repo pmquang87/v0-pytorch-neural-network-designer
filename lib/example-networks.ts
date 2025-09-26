@@ -38,6 +38,7 @@ export const EXAMPLE_NETWORKS_METADATA: ExampleNetworkMetadata[] = [
   { name: "FullSENet", filename: "FullSENet.json" },
   { name: "GPT2-full", filename: "GPT2-full.json" },
   { name: "LSTM-Node", filename: "LSTM-Node.json" },
+  { name: "ResNet-18", filename: "ResNet-18.json" },
   { name: "ResNet-50", filename: "ResNet-50.json" },
   { name: "ResNet-101", filename: "ResNet-101.json" },
   { name: "Simple-MLP", filename: "Simple-MLP.json" },

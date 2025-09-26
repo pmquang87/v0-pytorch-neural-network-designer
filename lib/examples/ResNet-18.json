@@ -1,0 +1,505 @@
+{
+    "name": "ResNet-18",
+    "description": "Deep residual network with 18 layers, based on the original ResNet architecture.",
+    "nodes": [
+        {
+            "id": "input",
+            "type": "inputNode",
+            "position": { "x": 0, "y": 0 },
+            "data": { "channels": 3, "height": 224, "width": 224 }
+        },
+        {
+            "id": "conv1",
+            "type": "conv2dNode",
+            "position": { "x": 200, "y": 0 },
+            "data": { "in_channels": 3, "out_channels": 64, "kernel_size": 7, "stride": 2, "padding": 3 }
+        },
+        {
+            "id": "bn1",
+            "type": "batchnorm2dNode",
+            "position": { "x": 400, "y": 0 },
+            "data": { "num_features": 64 }
+        },
+        {
+            "id": "relu_initial",
+            "type": "reluNode",
+            "position": { "x": 600, "y": 0 },
+            "data": {}
+        },
+        {
+            "id": "maxpool",
+            "type": "maxpool2dNode",
+            "position": { "x": 800, "y": 0 },
+            "data": { "kernel_size": 3, "stride": 2, "padding": 1 }
+        },
+        {
+            "id": "stage1_block1_conv1",
+            "type": "conv2dNode",
+            "position": { "x": 1000, "y": -100 },
+            "data": { "in_channels": 64, "out_channels": 64, "kernel_size": 3, "stride": 1, "padding": 1 }
+        },
+        {
+            "id": "stage1_block1_bn1",
+            "type": "batchnorm2dNode",
+            "position": { "x": 1200, "y": -100 },
+            "data": { "num_features": 64 }
+        },
+        {
+            "id": "stage1_block1_relu1",
+            "type": "reluNode",
+            "position": { "x": 1400, "y": -100 },
+            "data": {}
+        },
+        {
+            "id": "stage1_block1_conv2",
+            "type": "conv2dNode",
+            "position": { "x": 1600, "y": -100 },
+            "data": { "in_channels": 64, "out_channels": 64, "kernel_size": 3, "stride": 1, "padding": 1 }
+        },
+        {
+            "id": "stage1_block1_bn2",
+            "type": "batchnorm2dNode",
+            "position": { "x": 1800, "y": -100 },
+            "data": { "num_features": 64 }
+        },
+        {
+            "id": "stage1_block1_add",
+            "type": "addNode",
+            "position": { "x": 2000, "y": 0 },
+            "data": {}
+        },
+        {
+            "id": "stage1_block1_relu_out",
+            "type": "reluNode",
+            "position": { "x": 2200, "y": 0 },
+            "data": {}
+        },
+        {
+            "id": "stage1_block2_conv1",
+            "type": "conv2dNode",
+            "position": { "x": 1000, "y": 100 },
+            "data": { "in_channels": 64, "out_channels": 64, "kernel_size": 3, "stride": 1, "padding": 1 }
+        },
+        {
+            "id": "stage1_block2_bn1",
+            "type": "batchnorm2dNode",
+            "position": { "x": 1200, "y": 100 },
+            "data": { "num_features": 64 }
+        },
+        {
+            "id": "stage1_block2_relu1",
+            "type": "reluNode",
+            "position": { "x": 1400, "y": 100 },
+            "data": {}
+        },
+        {
+            "id": "stage1_block2_conv2",
+            "type": "conv2dNode",
+            "position": { "x": 1600, "y": 100 },
+            "data": { "in_channels": 64, "out_channels": 64, "kernel_size": 3, "stride": 1, "padding": 1 }
+        },
+        {
+            "id": "stage1_block2_bn2",
+            "type": "batchnorm2dNode",
+            "position": { "x": 1800, "y": 100 },
+            "data": { "num_features": 64 }
+        },
+        {
+            "id": "stage1_block2_add",
+            "type": "addNode",
+            "position": { "x": 2000, "y": 200 },
+            "data": {}
+        },
+        {
+            "id": "stage1_block2_relu_out",
+            "type": "reluNode",
+            "position": { "x": 2200, "y": 200 },
+            "data": {}
+        },
+        {
+            "id": "stage2_block1_conv1",
+            "type": "conv2dNode",
+            "position": { "x": 2400, "y": -100 },
+            "data": { "in_channels": 64, "out_channels": 128, "kernel_size": 3, "stride": 2, "padding": 1 }
+        },
+        {
+            "id": "stage2_block1_bn1",
+            "type": "batchnorm2dNode",
+            "position": { "x": 2600, "y": -100 },
+            "data": { "num_features": 128 }
+        },
+        {
+            "id": "stage2_block1_relu1",
+            "type": "reluNode",
+            "position": { "x": 2800, "y": -100 },
+            "data": {}
+        },
+        {
+            "id": "stage2_block1_conv2",
+            "type": "conv2dNode",
+            "position": { "x": 3000, "y": -100 },
+            "data": { "in_channels": 128, "out_channels": 128, "kernel_size": 3, "stride": 1, "padding": 1 }
+        },
+        {
+            "id": "stage2_block1_bn2",
+            "type": "batchnorm2dNode",
+            "position": { "x": 3200, "y": -100 },
+            "data": { "num_features": 128 }
+        },
+        {
+            "id": "stage2_block1_shortcut_conv",
+            "type": "conv2dNode",
+            "position": { "x": 2400, "y": 100 },
+            "data": { "in_channels": 64, "out_channels": 128, "kernel_size": 1, "stride": 2, "padding": 0 }
+        },
+        {
+            "id": "stage2_block1_shortcut_bn",
+            "type": "batchnorm2dNode",
+            "position": { "x": 2600, "y": 100 },
+            "data": { "num_features": 128 }
+        },
+        {
+            "id": "stage2_block1_add",
+            "type": "addNode",
+            "position": { "x": 3400, "y": 0 },
+            "data": {}
+        },
+        {
+            "id": "stage2_block1_relu_out",
+            "type": "reluNode",
+            "position": { "x": 3600, "y": 0 },
+            "data": {}
+        },
+        {
+            "id": "stage2_block2_conv1",
+            "type": "conv2dNode",
+            "position": { "x": 2400, "y": 200 },
+            "data": { "in_channels": 128, "out_channels": 128, "kernel_size": 3, "stride": 1, "padding": 1 }
+        },
+        {
+            "id": "stage2_block2_bn1",
+            "type": "batchnorm2dNode",
+            "position": { "x": 2600, "y": 200 },
+            "data": { "num_features": 128 }
+        },
+        {
+            "id": "stage2_block2_relu1",
+            "type": "reluNode",
+            "position": { "x": 2800, "y": 200 },
+            "data": {}
+        },
+        {
+            "id": "stage2_block2_conv2",
+            "type": "conv2dNode",
+            "position": { "x": 3000, "y": 200 },
+            "data": { "in_channels": 128, "out_channels": 128, "kernel_size": 3, "stride": 1, "padding": 1 }
+        },
+        {
+            "id": "stage2_block2_bn2",
+            "type": "batchnorm2dNode",
+            "position": { "x": 3200, "y": 200 },
+            "data": { "num_features": 128 }
+        },
+        {
+            "id": "stage2_block2_add",
+            "type": "addNode",
+            "position": { "x": 3400, "y": 300 },
+            "data": {}
+        },
+        {
+            "id": "stage2_block2_relu_out",
+            "type": "reluNode",
+            "position": { "x": 3600, "y": 300 },
+            "data": {}
+        },
+        {
+            "id": "stage3_block1_conv1",
+            "type": "conv2dNode",
+            "position": { "x": 3800, "y": -100 },
+            "data": { "in_channels": 128, "out_channels": 256, "kernel_size": 3, "stride": 2, "padding": 1 }
+        },
+        {
+            "id": "stage3_block1_bn1",
+            "type": "batchnorm2dNode",
+            "position": { "x": 4000, "y": -100 },
+            "data": { "num_features": 256 }
+        },
+        {
+            "id": "stage3_block1_relu1",
+            "type": "reluNode",
+            "position": { "x": 4200, "y": -100 },
+            "data": {}
+        },
+        {
+            "id": "stage3_block1_conv2",
+            "type": "conv2dNode",
+            "position": { "x": 4400, "y": -100 },
+            "data": { "in_channels": 256, "out_channels": 256, "kernel_size": 3, "stride": 1, "padding": 1 }
+        },
+        {
+            "id": "stage3_block1_bn2",
+            "type": "batchnorm2dNode",
+            "position": { "x": 4600, "y": -100 },
+            "data": { "num_features": 256 }
+        },
+        {
+            "id": "stage3_block1_shortcut_conv",
+            "type": "conv2dNode",
+            "position": { "x": 3800, "y": 100 },
+            "data": { "in_channels": 128, "out_channels": 256, "kernel_size": 1, "stride": 2, "padding": 0 }
+        },
+        {
+            "id": "stage3_block1_shortcut_bn",
+            "type": "batchnorm2dNode",
+            "position": { "x": 4000, "y": 100 },
+            "data": { "num_features": 256 }
+        },
+        {
+            "id": "stage3_block1_add",
+            "type": "addNode",
+            "position": { "x": 4800, "y": 0 },
+            "data": {}
+        },
+        {
+            "id": "stage3_block1_relu_out",
+            "type": "reluNode",
+            "position": { "x": 5000, "y": 0 },
+            "data": {}
+        },
+        {
+            "id": "stage3_block2_conv1",
+            "type": "conv2dNode",
+            "position": { "x": 3800, "y": 200 },
+            "data": { "in_channels": 256, "out_channels": 256, "kernel_size": 3, "stride": 1, "padding": 1 }
+        },
+        {
+            "id": "stage3_block2_bn1",
+            "type": "batchnorm2dNode",
+            "position": { "x": 4000, "y": 200 },
+            "data": { "num_features": 256 }
+        },
+        {
+            "id": "stage3_block2_relu1",
+            "type": "reluNode",
+            "position": { "x": 4200, "y": 200 },
+            "data": {}
+        },
+        {
+            "id": "stage3_block2_conv2",
+            "type": "conv2dNode",
+            "position": { "x": 4400, "y": 200 },
+            "data": { "in_channels": 256, "out_channels": 256, "kernel_size": 3, "stride": 1, "padding": 1 }
+        },
+        {
+            "id": "stage3_block2_bn2",
+            "type": "batchnorm2dNode",
+            "position": { "x": 4600, "y": 200 },
+            "data": { "num_features": 256 }
+        },
+        {
+            "id": "stage3_block2_add",
+            "type": "addNode",
+            "position": { "x": 4800, "y": 300 },
+            "data": {}
+        },
+        {
+            "id": "stage3_block2_relu_out",
+            "type": "reluNode",
+            "position": { "x": 5000, "y": 300 },
+            "data": {}
+        },
+        {
+            "id": "stage4_block1_conv1",
+            "type": "conv2dNode",
+            "position": { "x": 5200, "y": -100 },
+            "data": { "in_channels": 256, "out_channels": 512, "kernel_size": 3, "stride": 2, "padding": 1 }
+        },
+        {
+            "id": "stage4_block1_bn1",
+            "type": "batchnorm2dNode",
+            "position": { "x": 5400, "y": -100 },
+            "data": { "num_features": 512 }
+        },
+        {
+            "id": "stage4_block1_relu1",
+            "type": "reluNode",
+            "position": { "x": 5600, "y": -100 },
+            "data": {}
+        },
+        {
+            "id": "stage4_block1_conv2",
+            "type": "conv2dNode",
+            "position": { "x": 5800, "y": -100 },
+            "data": { "in_channels": 512, "out_channels": 512, "kernel_size": 3, "stride": 1, "padding": 1 }
+        },
+        {
+            "id": "stage4_block1_bn2",
+            "type": "batchnorm2dNode",
+            "position": { "x": 6000, "y": -100 },
+            "data": { "num_features": 512 }
+        },
+        {
+            "id": "stage4_block1_shortcut_conv",
+            "type": "conv2dNode",
+            "position": { "x": 5200, "y": 100 },
+            "data": { "in_channels": 256, "out_channels": 512, "kernel_size": 1, "stride": 2, "padding": 0 }
+        },
+        {
+            "id": "stage4_block1_shortcut_bn",
+            "type": "batchnorm2dNode",
+            "position": { "x": 5400, "y": 100 },
+            "data": { "num_features": 512 }
+        },
+        {
+            "id": "stage4_block1_add",
+            "type": "addNode",
+            "position": { "x": 6200, "y": 0 },
+            "data": {}
+        },
+        {
+            "id": "stage4_block1_relu_out",
+            "type": "reluNode",
+            "position": { "x": 6400, "y": 0 },
+            "data": {}
+        },
+        {
+            "id": "stage4_block2_conv1",
+            "type": "conv2dNode",
+            "position": { "x": 5200, "y": 200 },
+            "data": { "in_channels": 512, "out_channels": 512, "kernel_size": 3, "stride": 1, "padding": 1 }
+        },
+        {
+            "id": "stage4_block2_bn1",
+            "type": "batchnorm2dNode",
+            "position": { "x": 5400, "y": 200 },
+            "data": { "num_features": 512 }
+        },
+        {
+            "id": "stage4_block2_relu1",
+            "type": "reluNode",
+            "position": { "x": 5600, "y": 200 },
+            "data": {}
+        },
+        {
+            "id": "stage4_block2_conv2",
+            "type": "conv2dNode",
+            "position": { "x": 5800, "y": 200 },
+            "data": { "in_channels": 512, "out_channels": 512, "kernel_size": 3, "stride": 1, "padding": 1 }
+        },
+        {
+            "id": "stage4_block2_bn2",
+            "type": "batchnorm2dNode",
+            "position": { "x": 6000, "y": 200 },
+            "data": { "num_features": 512 }
+        },
+        {
+            "id": "stage4_block2_add",
+            "type": "addNode",
+            "position": { "x": 6200, "y": 300 },
+            "data": {}
+        },
+        {
+            "id": "stage4_block2_relu_out",
+            "type": "reluNode",
+            "position": { "x": 6400, "y": 300 },
+            "data": {}
+        },
+        {
+            "id": "avgpool",
+            "type": "avgpool2dNode",
+            "position": { "x": 6600, "y": 150 },
+            "data": { "kernel_size": 7, "stride": 1 }
+        },
+        {
+            "id": "flatten",
+            "type": "flattenNode",
+            "position": { "x": 6800, "y": 150 },
+            "data": {}
+        },
+        {
+            "id": "fc",
+            "type": "linearNode",
+            "position": { "x": 7000, "y": 150 },
+            "data": { "in_features": 512, "out_features": 1000 }
+        }
+    ],
+    "edges": [
+        { "id": "e-input-conv1", "source": "input", "target": "conv1" },
+        { "id": "e-conv1-bn1", "source": "conv1", "target": "bn1" },
+        { "id": "e-bn1-relu_initial", "source": "bn1", "target": "relu_initial" },
+        { "id": "e-relu_initial-maxpool", "source": "relu_initial", "target": "maxpool" },
+        { "id": "e-maxpool-s1b1c1", "source": "maxpool", "target": "stage1_block1_conv1" },
+        { "id": "e-s1b1c1-s1b1b1", "source": "stage1_block1_conv1", "target": "stage1_block1_bn1" },
+        { "id": "e-s1b1b1-s1b1r1", "source": "stage1_block1_bn1", "target": "stage1_block1_relu1" },
+        { "id": "e-s1b1r1-s1b1c2", "source": "stage1_block1_relu1", "target": "stage1_block1_conv2" },
+        { "id": "e-s1b1c2-s1b1b2", "source": "stage1_block1_conv2", "target": "stage1_block1_bn2" },
+        { "id": "e-s1b1b2-s1b1add1", "source": "stage1_block1_bn2", "target": "stage1_block1_add", "targetHandle": "input1" },
+        { "id": "e-maxpool-s1b1add2", "source": "maxpool", "target": "stage1_block1_add", "targetHandle": "input2" },
+        { "id": "e-s1b1add-s1b1relu_out", "source": "stage1_block1_add", "target": "stage1_block1_relu_out" },
+        { "id": "e-s1b1relu_out-s1b2c1", "source": "stage1_block1_relu_out", "target": "stage1_block2_conv1" },
+        { "id": "e-s1b2c1-s1b2b1", "source": "stage1_block2_conv1", "target": "stage1_block2_bn1" },
+        { "id": "e-s1b2b1-s1b2r1", "source": "stage1_block2_bn1", "target": "stage1_block2_relu1" },
+        { "id": "e-s1b2r1-s1b2c2", "source": "stage1_block2_relu1", "target": "stage1_block2_conv2" },
+        { "id": "e-s1b2c2-s1b2b2", "source": "stage1_block2_conv2", "target": "stage1_block2_bn2" },
+        { "id": "e-s1b2b2-s1b2add1", "source": "stage1_block2_bn2", "target": "stage1_block2_add", "targetHandle": "input1" },
+        { "id": "e-s1b1relu_out-s1b2add2", "source": "stage1_block1_relu_out", "target": "stage1_block2_add", "targetHandle": "input2" },
+        { "id": "e-s1b2add-s1b2relu_out", "source": "stage1_block2_add", "target": "stage1_block2_relu_out" },
+        { "id": "e-s1b2relu_out-s2b1c1", "source": "stage1_block2_relu_out", "target": "stage2_block1_conv1" },
+        { "id": "e-s2b1c1-s2b1b1", "source": "stage2_block1_conv1", "target": "stage2_block1_bn1" },
+        { "id": "e-s2b1b1-s2b1r1", "source": "stage2_block1_bn1", "target": "stage2_block1_relu1" },
+        { "id": "e-s2b1r1-s2b1c2", "source": "stage2_block1_relu1", "target": "stage2_block1_conv2" },
+        { "id": "e-s2b1c2-s2b1b2", "source": "stage2_block1_conv2", "target": "stage2_block1_bn2" },
+        { "id": "e-s1b2relu_out-s2b1s_conv", "source": "stage1_block2_relu_out", "target": "stage2_block1_shortcut_conv" },
+        { "id": "e-s2b1s_conv-s2b1s_bn", "source": "stage2_block1_shortcut_conv", "target": "stage2_block1_shortcut_bn" },
+        { "id": "e-s2b1b2-s2b1add1", "source": "stage2_block1_bn2", "target": "stage2_block1_add", "targetHandle": "input1" },
+        { "id": "e-s2b1s_bn-s2b1add2", "source": "stage2_block1_shortcut_bn", "target": "stage2_block1_add", "targetHandle": "input2" },
+        { "id": "e-s2b1add-s2b1relu_out", "source": "stage2_block1_add", "target": "stage2_block1_relu_out" },
+        { "id": "e-s2b1relu_out-s2b2c1", "source": "stage2_block1_relu_out", "target": "stage2_block2_conv1" },
+        { "id": "e-s2b2c1-s2b2b1", "source": "stage2_block2_conv1", "target": "stage2_block2_bn1" },
+        { "id": "e-s2b2b1-s2b2r1", "source": "stage2_block2_bn1", "target": "stage2_block2_relu1" },
+        { "id": "e-s2b2r1-s2b2c2", "source": "stage2_block2_relu1", "target": "stage2_block2_conv2" },
+        { "id": "e-s2b2c2-s2b2b2", "source": "stage2_block2_conv2", "target": "stage2_block2_bn2" },
+        { "id": "e-s2b2b2-s2b2add1", "source": "stage2_block2_bn2", "target": "stage2_block2_add", "targetHandle": "input1" },
+        { "id": "e-s2b1relu_out-s2b2add2", "source": "stage2_block1_relu_out", "target": "stage2_block2_add", "targetHandle": "input2" },
+        { "id": "e-s2b2add-s2b2relu_out", "source": "stage2_block2_add", "target": "stage2_block2_relu_out" },
+        { "id": "e-s2b2relu_out-s3b1c1", "source": "stage2_block2_relu_out", "target": "stage3_block1_conv1" },
+        { "id": "e-s3b1c1-s3b1b1", "source": "stage3_block1_conv1", "target": "stage3_block1_bn1" },
+        { "id": "e-s3b1b1-s3b1r1", "source": "stage3_block1_bn1", "target": "stage3_block1_relu1" },
+        { "id": "e-s3b1r1-s3b1c2", "source": "stage3_block1_relu1", "target": "stage3_block1_conv2" },
+        { "id": "e-s3b1c2-s3b1b2", "source": "stage3_block1_conv2", "target": "stage3_block1_bn2" },
+        { "id": "e-s2b2relu_out-s3b1s_conv", "source": "stage2_block2_relu_out", "target": "stage3_block1_shortcut_conv" },
+        { "id": "e-s3b1s_conv-s3b1s_bn", "source": "stage3_block1_shortcut_conv", "target": "stage3_block1_shortcut_bn" },
+        { "id": "e-s3b1b2-s3b1add1", "source": "stage3_block1_bn2", "target": "stage3_block1_add", "targetHandle": "input1" },
+        { "id": "e-s3b1s_bn-s3b1add2", "source": "stage3_block1_shortcut_bn", "target": "stage3_block1_add", "targetHandle": "input2" },
+        { "id": "e-s3b1add-s3b1relu_out", "source": "stage3_block1_add", "target": "stage3_block1_relu_out" },
+        { "id": "e-s3b1relu_out-s3b2c1", "source": "stage3_block1_relu_out", "target": "stage3_block2_conv1" },
+        { "id": "e-s3b2c1-s3b2b1", "source": "stage3_block2_conv1", "target": "stage3_block2_bn1" },
+        { "id": "e-s3b2b1-s3b2r1", "source": "stage3_block2_bn1", "target": "stage3_block2_relu1" },
+        { "id": "e-s3b2r1-s3b2c2", "source": "stage3_block2_relu1", "target": "stage3_block2_conv2" },
+        { "id": "e-s3b2c2-s3b2b2", "source": "stage3_block2_conv2", "target": "stage3_block2_bn2" },
+        { "id": "e-s3b2b2-s3b2add1", "source": "stage3_block2_bn2", "target": "stage3_block2_add", "targetHandle": "input1" },
+        { "id": "e-s3b1relu_out-s3b2add2", "source": "stage3_block1_relu_out", "target": "stage3_block2_add", "targetHandle": "input2" },
+        { "id": "e-s3b2add-s3b2relu_out", "source": "stage3_block2_add", "target": "stage3_block2_relu_out" },
+        { "id": "e-s3b2relu_out-s4b1c1", "source": "stage3_block2_relu_out", "target": "stage4_block1_conv1" },
+        { "id": "e-s4b1c1-s4b1b1", "source": "stage4_block1_conv1", "target": "stage4_block1_bn1" },
+        { "id": "e-s4b1b1-s4b1r1", "source": "stage4_block1_bn1", "target": "stage4_block1_relu1" },
+        { "id": "e-s4b1r1-s4b1c2", "source": "stage4_block1_relu1", "target": "stage4_block1_conv2" },
+        { "id": "e-s4b1c2-s4b1b2", "source": "stage4_block1_conv2", "target": "stage4_block1_bn2" },
+        { "id": "e-s3b2relu_out-s4b1s_conv", "source": "stage3_block2_relu_out", "target": "stage4_block1_shortcut_conv" },
+        { "id": "e-s4b1s_conv-s4b1s_bn", "source": "stage4_block1_shortcut_conv", "target": "stage4_block1_shortcut_bn" },
+        { "id": "e-s4b1b2-s4b1add1", "source": "stage4_block1_bn2", "target": "stage4_block1_add", "targetHandle": "input1" },
+        { "id": "e-s4b1s_bn-s4b1add2", "source": "stage4_block1_shortcut_bn", "target": "stage4_block1_add", "targetHandle": "input2" },
+        { "id": "e-s4b1add-s4b1relu_out", "source": "stage4_block1_add", "target": "stage4_block1_relu_out" },
+        { "id": "e-s4b1relu_out-s4b2c1", "source": "stage4_block1_relu_out", "target": "stage4_block2_conv1" },
+        { "id": "e-s4b2c1-s4b2b1", "source": "stage4_block2_conv1", "target": "stage4_block2_bn1" },
+        { "id": "e-s4b2b1-s4b2r1", "source": "stage4_block2_bn1", "target": "stage4_block2_relu1" },
+        { "id": "e-s4b2r1-s4b2c2", "source": "stage4_block2_relu1", "target": "stage4_block2_conv2" },
+        { "id": "e-s4b2c2-s4b2b2", "source": "stage4_block2_conv2", "target": "stage4_block2_bn2" },
+        { "id": "e-s4b2b2-s4b2add1", "source": "stage4_block2_bn2", "target": "stage4_block2_add", "targetHandle": "input1" },
+        { "id": "e-s4b1relu_out-s4b2add2", "source": "stage4_block1_relu_out", "target": "stage4_block2_add", "targetHandle": "input2" },
+        { "id": "e-s4b2add-s4b2relu_out", "source": "stage4_block2_add", "target": "stage4_block2_relu_out" },
+        { "id": "e-s4b2relu_out-avgpool", "source": "stage4_block2_relu_out", "target": "avgpool" },
+        { "id": "e-avgpool-flatten", "source": "avgpool", "target": "flatten" },
+        { "id": "e-flatten-fc", "source": "flatten", "target": "fc" }
+    ]
+}
