@@ -94,7 +94,7 @@ export function validateTensorShapes(
     case "concatenateNode": {
       const definedInputs = inputShapes
         .map((shape, index) => ({ shape, index }))
-        .filter(item => item.shape);
+        .filter(item => item.shape && Object.keys(item.shape).length > 0);
 
       if (definedInputs.length < 2) {
         return { isValid: true };
@@ -104,17 +104,14 @@ export function validateTensorShapes(
       if (!firstInput.shape) break;
       const firstDims = getOrderedDimensions(firstInput.shape);
 
-      // Check that all inputs have the same dimension keys
       for (let i = 1; i < definedInputs.length; i++) {
         const currentInput = definedInputs[i];
         if (!currentInput.shape) continue;
         const currentDims = getOrderedDimensions(currentInput.shape);
-        if (firstDims.length !== currentDims.length || !firstDims.every((dim, idx) => dim === currentDims[idx])) {
+        if (firstDims.length !== currentDims.length) {
           return {
             isValid: false,
-            error: `Concatenation error: All inputs must have the same dimensions. Input ${firstInput.index + 1} has [${firstDims.join(
-              ", ",
-            )}], but input ${currentInput.index + 1} has [${currentDims.join(", ")}]`,
+            error: `Concatenation error: All inputs must have the same number of dimensions. Input ${firstInput.index + 1} has ${firstDims.length} dims, but input ${currentInput.index + 1} has ${currentDims.length} dims.`,
           };
         }
       }
@@ -132,31 +129,25 @@ export function validateTensorShapes(
         };
       }
 
-      const concatDimName = firstDims[codeDim];
+      for (let i = 0; i < firstDims.length; i++) {
+        if (i === codeDim) continue;
 
-      // Check that all non-concatenated dimensions match
-      for (const dimName of firstDims) {
-        if (dimName === concatDimName) continue;
-
-        const dimensionValues = new Map<number, number[]>(); // size -> list of input indices
+        let firstValue: number | "dynamic" | undefined;
         for (const { shape, index } of definedInputs) {
-          const val = shape?.[dimName];
-          if (typeof val === "number") {
-            if (!dimensionValues.has(val)) {
-              dimensionValues.set(val, []);
-            }
-            dimensionValues.get(val)!.push(index + 1);
-          }
-        }
+          if (!shape) continue;
+          const currentDims = getOrderedDimensions(shape);
+          const currentValue = shape[currentDims[i]];
 
-        if (dimensionValues.size > 1) {
-          const errorDetails = Array.from(dimensionValues.entries())
-            .map(([size, inputs]) => `${size} (on input${inputs.length > 1 ? "s" : ""} ${inputs.join(", ")})`)
-            .join(" vs ");
-          return {
-            isValid: false,
-            error: `Concatenation error: Incompatible sizes for dimension '${dimName}'. All non-concatenated dimensions must match. Found: ${errorDetails}.`,
-          };
+          if (firstValue === undefined) {
+            firstValue = currentValue;
+          }
+
+          if (firstValue !== currentValue && firstValue !== 'dynamic' && currentValue !== 'dynamic') {
+            return {
+              isValid: false,
+              error: `Concatenation error: Incompatible sizes for dimension at index ${i + 1}. All non-concatenated dimensions must match.`,
+            };
+          }
         }
       }
       break;
@@ -175,7 +166,7 @@ export function validateTensorShapes(
         const targetShapeStr = targetShapeInput.trim();
         if (!targetShapeStr) return { isValid: true };
         try {
-          const jsonFriendlyStr = targetShapeStr.replace(/'/g, '"').replace(/,(\s*?)]/g, ']');
+          const jsonFriendlyStr = targetShapeStr.replace(/\'/g, '\"').replace(/,(\s*?)]/g, ']');
           const parsed = JSON.parse(jsonFriendlyStr);
           if (!Array.isArray(parsed) || !parsed.every(d => typeof d === 'number')) {
             return { isValid: false, error: "Invalid format. Shape must be a list of integers, e.g., [-1, 784]." };
@@ -288,6 +279,23 @@ export function validateTensorShapes(
         };
       }
       break;
+    case "transposeNode": {
+      const dim0 = nodeData.dim0 ?? 0;
+      const dim1 = nodeData.dim1 ?? 1;
+      const inputShape = inputShapes[0];
+
+      if (inputShape) {
+        const orderedDims = getOrderedDimensions(inputShape);
+        const numDims = orderedDims.length;
+        if (dim0 < 0 || dim0 >= numDims || dim1 < 0 || dim1 >= numDims) {
+          return {
+            isValid: false,
+            error: `Invalid dimensions for transpose. Got dim0=${dim0}, dim1=${dim1}, but input has ${numDims} dimensions.`,
+          };
+        }
+      }
+      break;
+    }
   }
 
   return { isValid: true };
@@ -318,9 +326,57 @@ export function calculateOutputShape(
       }
       return outputShape;
 
+    case "parameterNode": {
+        const paramShape = nodeData.shape;
+        const newShape: Partial<TensorShape> = {};
+        if (Array.isArray(paramShape)) {
+          switch (paramShape.length) {
+              case 1:
+                  newShape.features = paramShape[0];
+                  break;
+              case 2:
+                  newShape.sequence = paramShape[0];
+                  newShape.features = paramShape[1];
+                  break;
+              case 3:
+                  newShape.channels = paramShape[0];
+                  newShape.height = paramShape[1];
+                  newShape.width = paramShape[2];
+                  break;
+              case 4:
+                  newShape.channels = paramShape[0];
+                  newShape.depth = paramShape[1];
+                  newShape.height = paramShape[2];
+                  newShape.width = paramShape[3];
+                  break;
+              default:
+                  paramShape.forEach((dim, i) => {
+                      (newShape as any)[`dim${i}`] = dim;
+                  });
+                  break;
+          }
+        }
+        return newShape;
+      }
+
     case "outputNode":
       // Output node is a sink; pass through the incoming shape unchanged
       return { ...inputShape };
+
+    case "selectNode": {
+      const dim = nodeData.dim ?? 1; // UI is 1-based, default to first dim
+      const orderedDims = getOrderedDimensions(inputShape);
+      const codeDim = dim - 1; // convert to 0-based index
+
+      if (codeDim >= 0 && codeDim < orderedDims.length) {
+        const newShape = { ...inputShape };
+        const dimName = orderedDims[codeDim];
+        // This dimension is being selected, so the rank of the tensor is reduced by 1.
+        delete (newShape as any)[dimName];
+        return newShape;
+      }
+      return inputShape; // Return original shape if dim is invalid
+    }
 
     case "conv2dNode":
     case "depthwiseconv2dNode":
@@ -537,7 +593,7 @@ export function calculateOutputShape(
             1,
         );
         return {
-          channels: inputShape.channels,
+          channels: nodeData.out_channels || 32,
           depth: isNaN(newDepth) ? "dynamic" : Math.max(1, newDepth),
           height: isNaN(newHeight) ? "dynamic" : Math.max(1, newHeight),
           width: isNaN(newWidth) ? "dynamic" : Math.max(1, newWidth),
@@ -641,7 +697,8 @@ export function calculateOutputShape(
 
       if (firstFlattenedDimName) {
         const isFullFlatten = start_dim === 0 && realEndDim === dimsToProcess.length - 1;
-        const newDimName = isGenericInput || isFullFlatten ? "features" : firstFlattenedDimName;
+        const isSpatialFlatten = firstFlattenedDimName === 'height' || firstFlattenedDimName === 'width';
+        const newDimName = isGenericInput || isFullFlatten ? "features" : isSpatialFlatten ? "sequence" : "features";
         (output as any)[newDimName] = flattenedDim;
       } else {
         return inputShape;
@@ -663,7 +720,7 @@ export function calculateOutputShape(
         const targetShapeStr = targetShapeInput.trim();
         if (!targetShapeStr) return {};
         try {
-          const jsonFriendlyStr = targetShapeStr.replace(/'/g, '"').replace(/,(\s*?)]/g, ']');
+          const jsonFriendlyStr = targetShapeStr.replace(/\'/g, '\"').replace(/,(\s*?)]/g, ']');
           const parsed = JSON.parse(jsonFriendlyStr);
           if (!Array.isArray(parsed) || !parsed.every(d => typeof d === 'number' || d === "dynamic")) {
             return { error: "invalid" } as any;
@@ -782,6 +839,32 @@ export function calculateOutputShape(
     case "transformerencoderlayerNode": // Assumes (seq, features)
     case "transformerdecoderlayerNode":
       return inputShape; // Transformer layers preserve input shape
+
+    case "transposeNode": {
+      const dim0 = nodeData.dim0 ?? 0;
+      const dim1 = nodeData.dim1 ?? 1;
+
+      const orderedDims = getOrderedDimensions(inputShape);
+      if (orderedDims.length === 0) {
+        return inputShape;
+      }
+
+      if (dim0 < 0 || dim0 >= orderedDims.length || dim1 < 0 || dim1 >= orderedDims.length) {
+        return inputShape; // Invalid dims, return original shape
+      }
+
+      const orderedValues = orderedDims.map(dim => inputShape[dim]);
+
+      // Swap the values
+      [orderedValues[dim0], orderedValues[dim1]] = [orderedValues[dim1], orderedValues[dim0]];
+
+      const newShape: Partial<TensorShape> = {};
+      orderedDims.forEach((dimName, index) => {
+        (newShape as any)[dimName] = orderedValues[index];
+      });
+
+      return newShape as TensorShape;
+    }
 
     case "layernormNode":
       return inputShape;

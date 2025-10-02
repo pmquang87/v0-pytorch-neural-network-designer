@@ -183,6 +183,21 @@ const StyleLossNode = () => (
     </div>
 );
 
+const ParameterNode = ({ data }: { data: { label: string, shape: number[] } }) => (
+    <div style={{
+        padding: '10px',
+        border: '1px solid #d3adf7',
+        borderRadius: '5px',
+        background: '#f9f0ff',
+        textAlign: 'center'
+    }}>
+        <p style={{ margin: 0, fontSize: '12px', fontWeight: 'bold', color: '#531dab' }}>Parameter</p>
+        <p style={{ margin: 0, fontSize: '11px', color: '#531dab' }}>{data.label || ''}</p>
+        {data.shape && <p style={{ margin: 0, fontSize: '10px', color: '#722ed1' }}>{`Shape: [${data.shape.join(', ')}]`}</p>}
+        <Handle type="source" position={Position.Right} />
+    </div>
+);
+
 const initialNodes: Node[] = [
   {
     id: "inputNode_1",
@@ -197,6 +212,7 @@ const initialEdges: Edge[] = []
 const nodeTypes: NodeTypes = {
   inputNode: InputNode,
   constantNode: ConstantNode,
+  parameterNode: ParameterNode,
   linearNode: LinearNode,
   timeDistributedLinearNode: TimeDistributedLinearNode,
   conv2dNode: Conv2DNode,
@@ -413,6 +429,31 @@ export default function NeuralNetworkDesigner() {
       for (const nodeId of sorted) {
         const node = nodeMap.get(nodeId);
         if (!node) continue;
+
+        if (node.type === "parameterNode") {
+          const shapeArray = node.data.shape as number[];
+          let outputShape: TensorShape = {};
+          if (shapeArray) {
+            if (shapeArray.length === 3) { // [batch, seq_len, features]
+              outputShape = {
+                sequence: shapeArray[1],
+                features: shapeArray[2],
+              };
+            } else if (shapeArray.length === 2) { // [seq_len, features]
+              outputShape = {
+                sequence: shapeArray[0],
+                features: shapeArray[1],
+              };
+            } else if (shapeArray.length === 1) { // [features]
+              outputShape = {
+                features: shapeArray[0],
+              };
+            }
+          }
+          node.data.outputShape = outputShape;
+          node.data.inputShape = {}; // Parameters don't have input
+          continue;
+        }
 
         if (node.type === "inputNode" || node.type === "constantNode") {
           const isInput = node.type === "inputNode";
@@ -1435,13 +1476,14 @@ export default function NeuralNetworkDesigner() {
       case 'convtranspose2dNode':
       case 'convtranspose3dNode':
       case 'invertedResidualBlockNode':
+      case 'transformerencoderlayerNode':
+      case 'transformerdecoderlayerNode':
+      case 'parameterNode':
         return '#a855f7'; // purple-500
       case 'lstmNode':
       case 'gruNode':
       case 'rnnNode':
       case 'multiheadattentionNode':
-      case 'transformerencoderlayerNode':
-      case 'transformerdecoderlayerNode':
       case 'upsampleNode':
         return '#ec4899'; // pink-500
       case 'dropoutNode':
@@ -1543,6 +1585,15 @@ export default function NeuralNetworkDesigner() {
                     <div className="flex items-center gap-2">
                       <Box className="h-4 w-4 text-green-500" />
                       <span className="text-sm font-medium text-sidebar-foreground">Constant</span>
+                    </div>
+                  </Card>
+                  <Card
+                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
+                    onClick={() => addNode("parameterNode", { shape: [1, 1, 768] })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Box className="h-4 w-4 text-purple-500" />
+                      <span className="text-sm font-medium text-sidebar-foreground">Parameter</span>
                     </div>
                   </Card>
                 </div>
@@ -2201,6 +2252,31 @@ export default function NeuralNetworkDesigner() {
                       />
                       <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
                         Shape: {formatTensorShape(selectedNode.data.outputShape)}
+                      </div>
+                    </>
+                  )}
+                  {selectedNode.type === "parameterNode" && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium text-sidebar-foreground/70">Shape</label>
+                        <Input
+                          value={JSON.stringify(selectedNode.data.shape || [])}
+                          onChange={(e) => {
+                            try {
+                              const newShape = JSON.parse(e.target.value);
+                              if (Array.isArray(newShape) && newShape.every(item => typeof item === 'number')) {
+                                updateNodeData(selectedNode.id, { shape: newShape });
+                              }
+                            } catch (err) {
+                              // Invalid JSON, do nothing
+                            }
+                          }}
+                          placeholder="e.g., [1, 1, 768]"
+                          className="w-full bg-background text-foreground"
+                        />
+                        <p className="text-xs text-sidebar-foreground/70 mt-1">
+                          Enter the shape as a JSON array of numbers. e.g., [1, 1, 768]
+                        </p>
                       </div>
                     </>
                   )}

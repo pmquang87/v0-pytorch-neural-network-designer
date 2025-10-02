@@ -1,0 +1,260 @@
+{
+  "name": "Diffusion Model",
+  "description": "A U-Net-based diffusion model for noise prediction, incorporating a time embedding.",
+  "nodes": [
+    {
+      "id": "noisy-image-input",
+      "type": "inputNode",
+      "position": {
+        "x": 50,
+        "y": 200
+      },
+      "data": {
+        "channels": 3,
+        "height": 64,
+        "width": 64,
+        "name": "Noisy Image"
+      }
+    },
+    {
+      "id": "time-input",
+      "type": "inputNode",
+      "position": {
+        "x": 50,
+        "y": 500
+      },
+      "data": {
+        "name": "Conditional Input",
+        "channels": 3,
+        "height": 28,
+        "width": 28
+      }
+    },
+    {
+      "id": "flatten-time",
+      "type": "flattenNode",
+      "position": {
+        "x": 250,
+        "y": 500
+      },
+      "data": {}
+    },
+    {
+      "id": "time-embedding-1",
+      "type": "linearNode",
+      "position": {
+        "x": 450,
+        "y": 500
+      },
+      "data": {
+        "in_features": 2352,
+        "out_features": 256
+      }
+    },
+    {
+      "id": "time-embedding-relu",
+      "type": "reluNode",
+      "position": {
+        "x": 650,
+        "y": 500
+      },
+      "data": {}
+    },
+    {
+      "id": "time-embedding-2",
+      "type": "linearNode",
+      "position": {
+        "x": 850,
+        "y": 500
+      },
+      "data": {
+        "in_features": 256,
+        "out_features": 64
+      }
+    },
+    {
+      "id": "enc-conv1",
+      "type": "conv2dNode",
+      "position": {
+        "x": 250,
+        "y": 200
+      },
+      "data": {
+        "in_channels": 3,
+        "out_channels": 64,
+        "kernel_size": 3,
+        "padding": 1
+      }
+    },
+    {
+      "id": "enc-relu1",
+      "type": "reluNode",
+      "position": {
+        "x": 450,
+        "y": 200
+      },
+      "data": {}
+    },
+    {
+      "id": "enc-pool1",
+      "type": "maxpool2dNode",
+      "position": {
+        "x": 650,
+        "y": 200
+      },
+      "data": {
+        "kernel_size": 2,
+        "stride": 2
+      }
+    },
+    {
+      "id": "time-reshape1",
+      "type": "reshapeNode",
+      "position": {
+        "x": 850,
+        "y": 400
+      },
+      "data": {
+        "targetShape": [
+          64,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "time-upsample1",
+      "type": "upsampleNode",
+      "position": {
+        "x": 1020,
+        "y": 400
+      },
+      "data": {
+        "scale_factor": 32,
+        "mode": "nearest"
+      }
+    },
+    {
+      "id": "add-time1",
+      "type": "addNode",
+      "position": {
+        "x": 1050,
+        "y": 200
+      },
+      "data": {}
+    },
+    {
+      "id": "dec-upconv1",
+      "type": "convtranspose2dNode",
+      "position": {
+        "x": 1250,
+        "y": 200
+      },
+      "data": {
+        "in_channels": 64,
+        "out_channels": 3,
+        "kernel_size": 2,
+        "stride": 2
+      }
+    },
+    {
+      "id": "output-conv",
+      "type": "conv2dNode",
+      "position": {
+        "x": 1450,
+        "y": 200
+      },
+      "data": {
+        "in_channels": 3,
+        "out_channels": 3,
+        "kernel_size": 3,
+        "padding": 1
+      }
+    },
+    {
+      "id": "output",
+      "type": "outputNode",
+      "position": {
+        "x": 1650,
+        "y": 200
+      },
+      "data": {
+        "name": "Predicted Noise"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-img-enc1",
+      "source": "noisy-image-input",
+      "target": "enc-conv1"
+    },
+    {
+      "id": "e-enc1-relu1",
+      "source": "enc-conv1",
+      "target": "enc-relu1"
+    },
+    {
+      "id": "e-relu1-pool1",
+      "source": "enc-relu1",
+      "target": "enc-pool1"
+    },
+    {
+      "id": "e-emb1-relu",
+      "source": "time-embedding-1",
+      "target": "time-embedding-relu"
+    },
+    {
+      "id": "e-relu-emb2",
+      "source": "time-embedding-relu",
+      "target": "time-embedding-2"
+    },
+    {
+      "id": "e-emb2-reshape1",
+      "source": "time-embedding-2",
+      "target": "time-reshape1"
+    },
+    {
+      "id": "e-pool1-add1",
+      "source": "enc-pool1",
+      "target": "add-time1",
+      "targetHandle": "input1"
+    },
+    {
+      "id": "e-reshape1-upsample1",
+      "source": "time-reshape1",
+      "target": "time-upsample1"
+    },
+    {
+      "id": "e-upsample1-add1",
+      "source": "time-upsample1",
+      "target": "add-time1",
+      "targetHandle": "input2"
+    },
+    {
+      "id": "e-add1-upconv1",
+      "source": "add-time1",
+      "target": "dec-upconv1"
+    },
+    {
+      "id": "e-upconv1-outconv",
+      "source": "dec-upconv1",
+      "target": "output-conv"
+    },
+    {
+      "id": "e-outconv-output",
+      "source": "output-conv",
+      "target": "output"
+    },
+    {
+      "id": "e-time-flatten",
+      "source": "time-input",
+      "target": "flatten-time"
+    },
+    {
+      "id": "e-flatten-emb1",
+      "source": "flatten-time",
+      "target": "time-embedding-1"
+    }
+  ]
+}

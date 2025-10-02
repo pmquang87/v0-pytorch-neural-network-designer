@@ -1,113 +1,871 @@
 {
-    "name": "YOLOv5s",
-    "description": "YOLOv5 Small - Focus module and CSP bottleneck. Note: The focus layer is represented by a Conv2D layer assuming pre-processed input.",
-    "nodes": [
-      {
-        "id": "input-1",
-        "type": "inputNode",
-        "position": { "x": 100, "y": 400 },
-        "data": { "channels": 3, "height": 640, "width": 640 }
-      },
-      {
-        "id": "focus-2",
-        "type": "conv2dNode",
-        "position": { "x": 300, "y": 300 },
-        "data": { "in_channels": 3, "out_channels": 32, "kernel_size": 3, "stride": 1, "padding": 1 }
-      },
-      {
-        "id": "bn1-3",
-        "type": "batchnorm2dNode",
-        "position": { "x": 500, "y": 300 },
-        "data": { "num_features": 32 }
-      },
-      {
-        "id": "silu1-4",
-        "type": "siluNode",
-        "position": { "x": 700, "y": 300 },
-        "data": {}
-      },
-      {
-        "id": "conv1-5",
-        "type": "conv2dNode",
-        "position": { "x": 900, "y": 300 },
-        "data": { "in_channels": 32, "out_channels": 64, "kernel_size": 3, "stride": 2, "padding": 1 }
-      },
-      {
-        "id": "bn2-6",
-        "type": "batchnorm2dNode",
-        "position": { "x": 1100, "y": 300 },
-        "data": { "num_features": 64 }
-      },
-      {
-        "id": "silu2-7",
-        "type": "siluNode",
-        "position": { "x": 1300, "y": 300 },
-        "data": {}
-      },
-      {
-        "id": "csp1-8",
-        "type": "conv2dNode",
-        "position": { "x": 1500, "y": 200 },
-        "data": { "in_channels": 64, "out_channels": 32, "kernel_size": 1, "stride": 1, "padding": 0 }
-      },
-      {
-        "id": "conv2-9",
-        "type": "conv2dNode",
-        "position": { "x": 1700, "y": 200 },
-        "data": { "in_channels": 32, "out_channels": 32, "kernel_size": 3, "stride": 1, "padding": 1 }
-      },
-      {
-        "id": "conv3-10",
-        "type": "conv2dNode",
-        "position": { "x": 1900, "y": 200 },
-        "data": { "in_channels": 32, "out_channels": 32, "kernel_size": 3, "stride": 1, "padding": 1 }
-      },
-      {
-        "id": "concat1-11",
-        "type": "concatenateNode",
-        "position": { "x": 2100, "y": 300 },
-        "data": { "dim": 1 }
-      },
-      {
-        "id": "conv4-12",
-        "type": "conv2dNode",
-        "position": { "x": 2300, "y": 300 },
-        "data": { "in_channels": 96, "out_channels": 64, "kernel_size": 1, "stride": 1, "padding": 0 }
-      },
-      {
-        "id": "conv5-13",
-        "type": "conv2dNode",
-        "position": { "x": 2500, "y": 300 },
-        "data": { "in_channels": 64, "out_channels": 128, "kernel_size": 3, "stride": 2, "padding": 1 }
-      },
-      {
-        "id": "sppf-14",
-        "type": "maxpool2dNode",
-        "position": { "x": 2700, "y": 300 },
-        "data": { "kernel_size": 5, "stride": 1, "padding": 2 }
-      },
-      {
-        "id": "conv6-15",
-        "type": "conv2dNode",
-        "position": { "x": 2900, "y": 300 },
-        "data": { "in_channels": 128, "out_channels": 255, "kernel_size": 1, "stride": 1, "padding": 0 }
-      }
-    ],
-    "edges": [
-      { "id": "e1-2", "source": "input-1", "target": "focus-2" },
-      { "id": "e2-3", "source": "focus-2", "target": "bn1-3" },
-      { "id": "e3-4", "source": "bn1-3", "target": "silu1-4" },
-      { "id": "e4-5", "source": "silu1-4", "target": "conv1-5" },
-      { "id": "e5-6", "source": "conv1-5", "target": "bn2-6" },
-      { "id": "e6-7", "source": "bn2-6", "target": "silu2-7" },
-      { "id": "e7-8", "source": "silu2-7", "target": "csp1-8" },
-      { "id": "e8-9", "source": "csp1-8", "target": "conv2-9" },
-      { "id": "e9-10", "source": "conv2-9", "target": "conv3-10" },
-      { "id": "e10-11", "source": "conv3-10", "target": "concat1-11", "targetHandle": "input1" },
-      { "id": "e7-11", "source": "silu2-7", "target": "concat1-11", "targetHandle": "input2" },
-      { "id": "e11-12", "source": "concat1-11", "target": "conv4-12" },
-      { "id": "e12-13", "source": "conv4-12", "target": "conv5-13" },
-      { "id": "e13-14", "source": "conv5-13", "target": "sppf-14" },
-      { "id": "e14-15", "source": "sppf-14", "target": "conv6-15" }
-    ]
+  "name": "YOLOv5s",
+  "description": "YOLOv5 small model, from the original paper. This is a full-scale model including backbone and head.",
+  "nodes": [
+    {
+      "id": "input-1",
+      "type": "inputNode",
+      "position": { "x": -100, "y": 400 },
+      "data": { "channels": 3, "height": 640, "width": 640 }
+    },
+    {
+      "id": "conv-2",
+      "type": "conv2dNode",
+      "position": { "x": 100, "y": 400 },
+      "data": { "in_channels": 3, "out_channels": 32, "kernel_size": 6, "stride": 2, "padding": 2 }
+    },
+    {
+      "id": "bn-3",
+      "type": "batchnorm2dNode",
+      "position": { "x": 300, "y": 400 },
+      "data": { "num_features": 32 }
+    },
+    {
+      "id": "silu-4",
+      "type": "siluNode",
+      "position": { "x": 500, "y": 400 },
+      "data": {}
+    },
+    {
+      "id": "conv-5",
+      "type": "conv2dNode",
+      "position": { "x": 700, "y": 400 },
+      "data": { "in_channels": 32, "out_channels": 64, "kernel_size": 3, "stride": 2, "padding": 1 }
+    },
+    {
+      "id": "bn-6",
+      "type": "batchnorm2dNode",
+      "position": { "x": 900, "y": 400 },
+      "data": { "num_features": 64 }
+    },
+    {
+      "id": "silu-7",
+      "type": "siluNode",
+      "position": { "x": 1100, "y": 400 },
+      "data": {}
+    },
+    {
+      "id": "conv-8",
+      "type": "conv2dNode",
+      "position": { "x": 1300, "y": 300 },
+      "data": { "in_channels": 64, "out_channels": 32, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-9",
+      "type": "batchnorm2dNode",
+      "position": { "x": 1500, "y": 300 },
+      "data": { "num_features": 32 }
+    },
+    {
+      "id": "silu-10",
+      "type": "siluNode",
+      "position": { "x": 1700, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "conv-11",
+      "type": "conv2dNode",
+      "position": { "x": 1900, "y": 300 },
+      "data": { "in_channels": 32, "out_channels": 32, "kernel_size": 3, "stride": 1, "padding": 1 }
+    },
+    {
+      "id": "bn-12",
+      "type": "batchnorm2dNode",
+      "position": { "x": 2100, "y": 300 },
+      "data": { "num_features": 32 }
+    },
+    {
+      "id": "silu-13",
+      "type": "siluNode",
+      "position": { "x": 2300, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "add-14",
+      "type": "addNode",
+      "position": { "x": 2500, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "conv-15",
+      "type": "conv2dNode",
+      "position": { "x": 1300, "y": 500 },
+      "data": { "in_channels": 64, "out_channels": 64, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-16",
+      "type": "batchnorm2dNode",
+      "position": { "x": 1500, "y": 500 },
+      "data": { "num_features": 64 }
+    },
+    {
+      "id": "silu-17",
+      "type": "siluNode",
+      "position": { "x": 1700, "y": 500 },
+      "data": {}
+    },
+    {
+      "id": "concat-18",
+      "type": "concatenateNode",
+      "position": { "x": 2700, "y": 400 },
+      "data": { "dim": 1 }
+    },
+    {
+      "id": "conv-19",
+      "type": "conv2dNode",
+      "position": { "x": 2900, "y": 400 },
+      "data": { "in_channels": 96, "out_channels": 64, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-20",
+      "type": "batchnorm2dNode",
+      "position": { "x": 3100, "y": 400 },
+      "data": { "num_features": 64 }
+    },
+    {
+      "id": "silu-21",
+      "type": "siluNode",
+      "position": { "x": 3300, "y": 400 },
+      "data": {}
+    },
+    {
+      "id": "conv-22",
+      "type": "conv2dNode",
+      "position": { "x": 3500, "y": 400 },
+      "data": { "in_channels": 64, "out_channels": 128, "kernel_size": 3, "stride": 2, "padding": 1 }
+    },
+    {
+      "id": "bn-23",
+      "type": "batchnorm2dNode",
+      "position": { "x": 3700, "y": 400 },
+      "data": { "num_features": 128 }
+    },
+    {
+      "id": "silu-24",
+      "type": "siluNode",
+      "position": { "x": 3900, "y": 400 },
+      "data": {}
+    },
+    {
+      "id": "conv-25",
+      "type": "conv2dNode",
+      "position": { "x": 4100, "y": 300 },
+      "data": { "in_channels": 128, "out_channels": 64, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-26",
+      "type": "batchnorm2dNode",
+      "position": { "x": 4300, "y": 300 },
+      "data": { "num_features": 64 }
+    },
+    {
+      "id": "silu-27",
+      "type": "siluNode",
+      "position": { "x": 4500, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "conv-28",
+      "type": "conv2dNode",
+      "position": { "x": 4700, "y": 300 },
+      "data": { "in_channels": 64, "out_channels": 64, "kernel_size": 3, "stride": 1, "padding": 1 }
+    },
+    {
+      "id": "bn-29",
+      "type": "batchnorm2dNode",
+      "position": { "x": 4900, "y": 300 },
+      "data": { "num_features": 64 }
+    },
+    {
+      "id": "silu-30",
+      "type": "siluNode",
+      "position": { "x": 5100, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "add-31",
+      "type": "addNode",
+      "position": { "x": 5300, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "conv-32",
+      "type": "conv2dNode",
+      "position": { "x": 4100, "y": 500 },
+      "data": { "in_channels": 128, "out_channels": 128, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-33",
+      "type": "batchnorm2dNode",
+      "position": { "x": 4300, "y": 500 },
+      "data": { "num_features": 128 }
+    },
+    {
+      "id": "silu-34",
+      "type": "siluNode",
+      "position": { "x": 4500, "y": 500 },
+      "data": {}
+    },
+    {
+      "id": "concat-35",
+      "type": "concatenateNode",
+      "position": { "x": 5500, "y": 400 },
+      "data": { "dim": 1 }
+    },
+    {
+      "id": "conv-36",
+      "type": "conv2dNode",
+      "position": { "x": 5700, "y": 400 },
+      "data": { "in_channels": 192, "out_channels": 128, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-37",
+      "type": "batchnorm2dNode",
+      "position": { "x": 5900, "y": 400 },
+      "data": { "num_features": 128 }
+    },
+    {
+      "id": "silu-38",
+      "type": "siluNode",
+      "position": { "x": 6100, "y": 400 },
+      "data": {}
+    },
+    {
+      "id": "conv-39",
+      "type": "conv2dNode",
+      "position": { "x": 6300, "y": 400 },
+      "data": { "in_channels": 128, "out_channels": 256, "kernel_size": 3, "stride": 2, "padding": 1 }
+    },
+    {
+      "id": "bn-40",
+      "type": "batchnorm2dNode",
+      "position": { "x": 6500, "y": 400 },
+      "data": { "num_features": 256 }
+    },
+    {
+      "id": "silu-41",
+      "type": "siluNode",
+      "position": { "x": 6700, "y": 400 },
+      "data": {}
+    },
+    {
+      "id": "conv-42",
+      "type": "conv2dNode",
+      "position": { "x": 6900, "y": 200 },
+      "data": { "in_channels": 256, "out_channels": 128, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-43",
+      "type": "batchnorm2dNode",
+      "position": { "x": 7100, "y": 200 },
+      "data": { "num_features": 128 }
+    },
+    {
+      "id": "silu-44",
+      "type": "siluNode",
+      "position": { "x": 7300, "y": 200 },
+      "data": {}
+    },
+    {
+      "id": "conv-45",
+      "type": "conv2dNode",
+      "position": { "x": 7500, "y": 200 },
+      "data": { "in_channels": 128, "out_channels": 128, "kernel_size": 3, "stride": 1, "padding": 1 }
+    },
+    {
+      "id": "bn-46",
+      "type": "batchnorm2dNode",
+      "position": { "x": 7700, "y": 200 },
+      "data": { "num_features": 128 }
+    },
+    {
+      "id": "silu-47",
+      "type": "siluNode",
+      "position": { "x": 7900, "y": 200 },
+      "data": {}
+    },
+    {
+      "id": "add-48",
+      "type": "addNode",
+      "position": { "x": 8100, "y": 200 },
+      "data": {}
+    },
+    {
+      "id": "conv-49",
+      "type": "conv2dNode",
+      "position": { "x": 6900, "y": 600 },
+      "data": { "in_channels": 256, "out_channels": 256, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-50",
+      "type": "batchnorm2dNode",
+      "position": { "x": 7100, "y": 600 },
+      "data": { "num_features": 256 }
+    },
+    {
+      "id": "silu-51",
+      "type": "siluNode",
+      "position": { "x": 7300, "y": 600 },
+      "data": {}
+    },
+    {
+      "id": "concat-52",
+      "type": "concatenateNode",
+      "position": { "x": 8300, "y": 400 },
+      "data": { "dim": 1 }
+    },
+    {
+      "id": "conv-53",
+      "type": "conv2dNode",
+      "position": { "x": 8500, "y": 400 },
+      "data": { "in_channels": 384, "out_channels": 256, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-54",
+      "type": "batchnorm2dNode",
+      "position": { "x": 8700, "y": 400 },
+      "data": { "num_features": 256 }
+    },
+    {
+      "id": "silu-55",
+      "type": "siluNode",
+      "position": { "x": 8900, "y": 400 },
+      "data": {}
+    },
+    {
+      "id": "conv-56",
+      "type": "conv2dNode",
+      "position": { "x": 9100, "y": 400 },
+      "data": { "in_channels": 256, "out_channels": 512, "kernel_size": 3, "stride": 2, "padding": 1 }
+    },
+    {
+      "id": "bn-57",
+      "type": "batchnorm2dNode",
+      "position": { "x": 9300, "y": 400 },
+      "data": { "num_features": 512 }
+    },
+    {
+      "id": "silu-58",
+      "type": "siluNode",
+      "position": { "x": 9500, "y": 400 },
+      "data": {}
+    },
+    {
+      "id": "conv-59",
+      "type": "conv2dNode",
+      "position": { "x": 9700, "y": 300 },
+      "data": { "in_channels": 512, "out_channels": 256, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-60",
+      "type": "batchnorm2dNode",
+      "position": { "x": 9900, "y": 300 },
+      "data": { "num_features": 256 }
+    },
+    {
+      "id": "silu-61",
+      "type": "siluNode",
+      "position": { "x": 10100, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "conv-62",
+      "type": "conv2dNode",
+      "position": { "x": 10300, "y": 300 },
+      "data": { "in_channels": 256, "out_channels": 256, "kernel_size": 3, "stride": 1, "padding": 1 }
+    },
+    {
+      "id": "bn-63",
+      "type": "batchnorm2dNode",
+      "position": { "x": 10500, "y": 300 },
+      "data": { "num_features": 256 }
+    },
+    {
+      "id": "silu-64",
+      "type": "siluNode",
+      "position": { "x": 10700, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "add-65",
+      "type": "addNode",
+      "position": { "x": 10900, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "conv-66",
+      "type": "conv2dNode",
+      "position": { "x": 9700, "y": 500 },
+      "data": { "in_channels": 512, "out_channels": 512, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-67",
+      "type": "batchnorm2dNode",
+      "position": { "x": 9900, "y": 500 },
+      "data": { "num_features": 512 }
+    },
+    {
+      "id": "silu-68",
+      "type": "siluNode",
+      "position": { "x": 10100, "y": 500 },
+      "data": {}
+    },
+    {
+      "id": "concat-69",
+      "type": "concatenateNode",
+      "position": { "x": 11100, "y": 400 },
+      "data": { "dim": 1 }
+    },
+    {
+      "id": "conv-70",
+      "type": "conv2dNode",
+      "position": { "x": 11300, "y": 400 },
+      "data": { "in_channels": 768, "out_channels": 512, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-71",
+      "type": "batchnorm2dNode",
+      "position": { "x": 11500, "y": 400 },
+      "data": { "num_features": 512 }
+    },
+    {
+      "id": "silu-72",
+      "type": "siluNode",
+      "position": { "x": 11700, "y": 400 },
+      "data": {}
+    },
+    {
+      "id": "conv-73",
+      "type": "conv2dNode",
+      "position": { "x": 11900, "y": 400 },
+      "data": { "in_channels": 512, "out_channels": 256, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-74",
+      "type": "batchnorm2dNode",
+      "position": { "x": 12100, "y": 400 },
+      "data": { "num_features": 256 }
+    },
+    {
+      "id": "silu-75",
+      "type": "siluNode",
+      "position": { "x": 12300, "y": 400 },
+      "data": {}
+    },
+    {
+      "id": "maxpool-76",
+      "type": "maxpool2dNode",
+      "position": { "x": 12500, "y": 300 },
+      "data": { "kernel_size": 5, "stride": 1, "padding": 2 }
+    },
+    {
+      "id": "maxpool-77",
+      "type": "maxpool2dNode",
+      "position": { "x": 12500, "y": 500 },
+      "data": { "kernel_size": 9, "stride": 1, "padding": 4 }
+    },
+    {
+      "id": "maxpool-78",
+      "type": "maxpool2dNode",
+      "position": { "x": 12500, "y": 700 },
+      "data": { "kernel_size": 13, "stride": 1, "padding": 6 }
+    },
+    {
+      "id": "concat-79",
+      "type": "concatenateNode",
+      "position": { "x": 12700, "y": 400 },
+      "data": { "dim": 1 }
+    },
+    {
+      "id": "conv-80",
+      "type": "conv2dNode",
+      "position": { "x": 12900, "y": 400 },
+      "data": { "in_channels": 1024, "out_channels": 512, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-81",
+      "type": "batchnorm2dNode",
+      "position": { "x": 13100, "y": 400 },
+      "data": { "num_features": 512 }
+    },
+    {
+      "id": "silu-82",
+      "type": "siluNode",
+      "position": { "x": 13300, "y": 400 },
+      "data": {}
+    },
+    {
+      "id": "conv-83",
+      "type": "conv2dNode",
+      "position": { "x": 13500, "y": 400 },
+      "data": { "in_channels": 512, "out_channels": 256, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-84",
+      "type": "batchnorm2dNode",
+      "position": { "x": 13700, "y": 400 },
+      "data": { "num_features": 256 }
+    },
+    {
+      "id": "silu-85",
+      "type": "siluNode",
+      "position": { "x": 13900, "y": 400 },
+      "data": {}
+    },
+    {
+      "id": "upsample-86",
+      "type": "upsampleNode",
+      "position": { "x": 14100, "y": 400 },
+      "data": { "size": 80, "mode": "nearest" }
+    },
+    {
+      "id": "concat-87",
+      "type": "concatenateNode",
+      "position": { "x": 14300, "y": 400 },
+      "data": { "dim": 1 }
+    },
+    {
+      "id": "conv-88",
+      "type": "conv2dNode",
+      "position": { "x": 14500, "y": 300 },
+      "data": { "in_channels": 512, "out_channels": 128, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-89",
+      "type": "batchnorm2dNode",
+      "position": { "x": 14700, "y": 300 },
+      "data": { "num_features": 128 }
+    },
+    {
+      "id": "silu-90",
+      "type": "siluNode",
+      "position": { "x": 14900, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "conv-91",
+      "type": "conv2dNode",
+      "position": { "x": 15100, "y": 300 },
+      "data": { "in_channels": 128, "out_channels": 128, "kernel_size": 3, "stride": 1, "padding": 1 }
+    },
+    {
+      "id": "bn-92",
+      "type": "batchnorm2dNode",
+      "position": { "x": 15300, "y": 300 },
+      "data": { "num_features": 128 }
+    },
+    {
+      "id": "silu-93",
+      "type": "siluNode",
+      "position": { "x": 15500, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "add-94",
+      "type": "addNode",
+      "position": { "x": 15700, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "conv-95",
+      "type": "conv2dNode",
+      "position": { "x": 14500, "y": 500 },
+      "data": { "in_channels": 512, "out_channels": 256, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-96",
+      "type": "batchnorm2dNode",
+      "position": { "x": 14700, "y": 500 },
+      "data": { "num_features": 256 }
+    },
+    {
+      "id": "silu-97",
+      "type": "siluNode",
+      "position": { "x": 14900, "y": 500 },
+      "data": {}
+    },
+    {
+      "id": "concat-98",
+      "type": "concatenateNode",
+      "position": { "x": 15900, "y": 400 },
+      "data": { "dim": 1 }
+    },
+    {
+      "id": "conv-99",
+      "type": "conv2dNode",
+      "position": { "x": 16100, "y": 400 },
+      "data": { "in_channels": 384, "out_channels": 256, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-100",
+      "type": "batchnorm2dNode",
+      "position": { "x": 16300, "y": 400 },
+      "data": { "num_features": 256 }
+    },
+    {
+      "id": "silu-101",
+      "type": "siluNode",
+      "position": { "x": 16500, "y": 400 },
+      "data": {}
+    },
+    {
+      "id": "conv-102",
+      "type": "conv2dNode",
+      "position": { "x": 16700, "y": 400 },
+      "data": { "in_channels": 256, "out_channels": 128, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-103",
+      "type": "batchnorm2dNode",
+      "position": { "x": 16900, "y": 400 },
+      "data": { "num_features": 128 }
+    },
+    {
+      "id": "silu-104",
+      "type": "siluNode",
+      "position": { "x": 17100, "y": 400 },
+      "data": {}
+    },
+    {
+      "id": "upsample-105",
+      "type": "upsampleNode",
+      "position": { "x": 17300, "y": 400 },
+      "data": { "size": 160, "mode": "nearest" }
+    },
+    {
+      "id": "concat-106",
+      "type": "concatenateNode",
+      "position": { "x": 17500, "y": 400 },
+      "data": { "dim": 1 }
+    },
+    {
+      "id": "conv-107",
+      "type": "conv2dNode",
+      "position": { "x": 17700, "y": 300 },
+      "data": { "in_channels": 256, "out_channels": 64, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-108",
+      "type": "batchnorm2dNode",
+      "position": { "x": 17900, "y": 300 },
+      "data": { "num_features": 64 }
+    },
+    {
+      "id": "silu-109",
+      "type": "siluNode",
+      "position": { "x": 18100, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "conv-110",
+      "type": "conv2dNode",
+      "position": { "x": 18300, "y": 300 },
+      "data": { "in_channels": 64, "out_channels": 64, "kernel_size": 3, "stride": 1, "padding": 1 }
+    },
+    {
+      "id": "bn-111",
+      "type": "batchnorm2dNode",
+      "position": { "x": 18500, "y": 300 },
+      "data": { "num_features": 64 }
+    },
+    {
+      "id": "silu-112",
+      "type": "siluNode",
+      "position": { "x": 18700, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "add-113",
+      "type": "addNode",
+      "position": { "x": 18900, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "conv-114",
+      "type": "conv2dNode",
+      "position": { "x": 17700, "y": 500 },
+      "data": { "in_channels": 256, "out_channels": 128, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-115",
+      "type": "batchnorm2dNode",
+      "position": { "x": 17900, "y": 500 },
+      "data": { "num_features": 128 }
+    },
+    {
+      "id": "silu-116",
+      "type": "siluNode",
+      "position": { "x": 18100, "y": 500 },
+      "data": {}
+    },
+    {
+      "id": "concat-117",
+      "type": "concatenateNode",
+      "position": { "x": 19100, "y": 400 },
+      "data": { "dim": 1 }
+    },
+    {
+      "id": "conv-118",
+      "type": "conv2dNode",
+      "position": { "x": 19300, "y": 400 },
+      "data": { "in_channels": 192, "out_channels": 128, "kernel_size": 1, "stride": 1, "padding": 0 }
+    },
+    {
+      "id": "bn-119",
+      "type": "batchnorm2dNode",
+      "position": { "x": 19500, "y": 400 },
+      "data": { "num_features": 128 }
+    },
+    {
+      "id": "silu-120",
+      "type": "siluNode",
+      "position": { "x": 19700, "y": 400 },
+      "data": {}
+    },
+    {
+      "id": "conv-121",
+      "type": "conv2dNode",
+      "position": { "x": 19900, "y": 400 },
+      "data": { "in_channels": 128, "out_channels": 255, "kernel_size": 1, "stride": 1, "padding": 0 }
+    }
+  ],
+  "edges": [
+    { "id": "e1-2", "source": "input-1", "target": "conv-2" },
+    { "id": "e2-3", "source": "conv-2", "target": "bn-3" },
+    { "id": "e3-4", "source": "bn-3", "target": "silu-4" },
+    { "id": "e4-5", "source": "silu-4", "target": "conv-5" },
+    { "id": "e5-6", "source": "conv-5", "target": "bn-6" },
+    { "id": "e6-7", "source": "bn-6", "target": "silu-7" },
+    { "id": "e7-8", "source": "silu-7", "target": "conv-8" },
+    { "id": "e8-9", "source": "conv-8", "target": "bn-9" },
+    { "id": "e9-10", "source": "bn-9", "target": "silu-10" },
+    { "id": "e10-11", "source": "silu-10", "target": "conv-11" },
+    { "id": "e11-12", "source": "conv-11", "target": "bn-12" },
+    { "id": "e12-13", "source": "bn-12", "target": "silu-13" },
+    { "id": "e13-14", "source": "silu-13", "target": "add-14" },
+    { "id": "e10-14", "source": "silu-10", "target": "add-14" },
+    { "id": "e7-15", "source": "silu-7", "target": "conv-15" },
+    { "id": "e15-16", "source": "conv-15", "target": "bn-16" },
+    { "id": "e16-17", "source": "bn-16", "target": "silu-17" },
+    { "id": "e14-18", "source": "add-14", "target": "concat-18" },
+    { "id": "e17-18", "source": "silu-17", "target": "concat-18" },
+    { "id": "e18-19", "source": "concat-18", "target": "conv-19" },
+    { "id": "e19-20", "source": "conv-19", "target": "bn-20" },
+    { "id": "e20-21", "source": "bn-20", "target": "silu-21" },
+    { "id": "e21-22", "source": "silu-21", "target": "conv-22" },
+    { "id": "e22-23", "source": "conv-22", "target": "bn-23" },
+    { "id": "e23-24", "source": "bn-23", "target": "silu-24" },
+    { "id": "e24-25", "source": "silu-24", "target": "conv-25" },
+    { "id": "e25-26", "source": "conv-25", "target": "bn-26" },
+    { "id": "e26-27", "source": "bn-26", "target": "silu-27" },
+    { "id": "e27-28", "source": "silu-27", "target": "conv-28" },
+    { "id": "e28-29", "source": "conv-28", "target": "bn-29" },
+    { "id": "e29-30", "source": "bn-29", "target": "silu-30" },
+    { "id": "e30-31", "source": "silu-30", "target": "add-31" },
+    { "id": "e27-31", "source": "silu-27", "target": "add-31" },
+    { "id": "e24-32", "source": "silu-24", "target": "conv-32" },
+    { "id": "e32-33", "source": "conv-32", "target": "bn-33" },
+    { "id": "e33-34", "source": "bn-33", "target": "silu-34" },
+    { "id": "e31-35", "source": "add-31", "target": "concat-35" },
+    { "id": "e34-35", "source": "silu-34", "target": "concat-35" },
+    { "id": "e35-36", "source": "concat-35", "target": "conv-36" },
+    { "id": "e36-37", "source": "conv-36", "target": "bn-37" },
+    { "id": "e37-38", "source": "bn-37", "target": "silu-38" },
+    { "id": "e38-39", "source": "silu-38", "target": "conv-39" },
+    { "id": "e39-40", "source": "conv-39", "target": "bn-40" },
+    { "id": "e40-41", "source": "bn-40", "target": "silu-41" },
+    { "id": "e41-42", "source": "silu-41", "target": "conv-42" },
+    { "id": "e42-43", "source": "conv-42", "target": "bn-43" },
+    { "id": "e43-44", "source": "bn-43", "target": "silu-44" },
+    { "id": "e44-45", "source": "silu-44", "target": "conv-45" },
+    { "id": "e45-46", "source": "conv-45", "target": "bn-46" },
+    { "id": "e46-47", "source": "bn-46", "target": "silu-47" },
+    { "id": "e47-48", "source": "silu-47", "target": "add-48" },
+    { "id": "e44-48", "source": "silu-44", "target": "add-48" },
+    { "id": "e41-49", "source": "silu-41", "target": "conv-49" },
+    { "id": "e49-50", "source": "conv-49", "target": "bn-50" },
+    { "id": "e50-51", "source": "bn-50", "target": "silu-51" },
+    { "id": "e48-52", "source": "add-48", "target": "concat-52" },
+    { "id": "e51-52", "source": "silu-51", "target": "concat-52" },
+    { "id": "e52-53", "source": "concat-52", "target": "conv-53" },
+    { "id": "e53-54", "source": "conv-53", "target": "bn-54" },
+    { "id": "e54-55", "source": "bn-54", "target": "silu-55" },
+    { "id": "e55-56", "source": "silu-55", "target": "conv-56" },
+    { "id": "e56-57", "source": "conv-56", "target": "bn-57" },
+    { "id": "e57-58", "source": "bn-57", "target": "silu-58" },
+    { "id": "e58-59", "source": "silu-58", "target": "conv-59" },
+    { "id": "e59-60", "source": "conv-59", "target": "bn-60" },
+    { "id": "e60-61", "source": "bn-60", "target": "silu-61" },
+    { "id": "e61-62", "source": "silu-61", "target": "conv-62" },
+    { "id": "e62-63", "source": "conv-62", "target": "bn-63" },
+    { "id": "e63-64", "source": "bn-63", "target": "silu-64" },
+    { "id": "e64-65", "source": "silu-64", "target": "add-65" },
+    { "id": "e61-65", "source": "silu-61", "target": "add-65" },
+    { "id": "e58-66", "source": "silu-58", "target": "conv-66" },
+    { "id": "e66-67", "source": "conv-66", "target": "bn-67" },
+    { "id": "e67-68", "source": "bn-67", "target": "silu-68" },
+    { "id": "e65-69", "source": "add-65", "target": "concat-69" },
+    { "id": "e68-69", "source": "silu-68", "target": "concat-69" },
+    { "id": "e69-70", "source": "concat-69", "target": "conv-70" },
+    { "id": "e70-71", "source": "conv-70", "target": "bn-71" },
+    { "id": "e71-72", "source": "bn-71", "target": "silu-72" },
+    { "id": "e72-73", "source": "silu-72", "target": "conv-73" },
+    { "id": "e73-74", "source": "conv-73", "target": "bn-74" },
+    { "id": "e74-75", "source": "bn-74", "target": "silu-75" },
+    { "id": "e75-76", "source": "silu-75", "target": "maxpool-76" },
+    { "id": "e75-77", "source": "silu-75", "target": "maxpool-77" },
+    { "id": "e75-78", "source": "silu-75", "target": "maxpool-78" },
+    { "id": "e75-79", "source": "silu-75", "target": "concat-79" },
+    { "id": "e76-79", "source": "maxpool-76", "target": "concat-79" },
+    { "id": "e77-79", "source": "maxpool-77", "target": "concat-79" },
+    { "id": "e78-79", "source": "maxpool-78", "target": "concat-79" },
+    { "id": "e79-80", "source": "concat-79", "target": "conv-80" },
+    { "id": "e80-81", "source": "conv-80", "target": "bn-81" },
+    { "id": "e81-82", "source": "bn-81", "target": "silu-82" },
+    { "id": "e82-83", "source": "silu-82", "target": "conv-83" },
+    { "id": "e83-84", "source": "conv-83", "target": "bn-84" },
+    { "id": "e84-85", "source": "bn-84", "target": "silu-85" },
+    { "id": "e85-86", "source": "silu-85", "target": "upsample-86" },
+    { "id": "e86-87", "source": "upsample-86", "target": "concat-87" },
+    { "id": "e55-87", "source": "silu-55", "target": "concat-87" },
+    { "id": "e87-88", "source": "concat-87", "target": "conv-88" },
+    { "id": "e88-89", "source": "conv-88", "target": "bn-89" },
+    { "id": "e89-90", "source": "bn-89", "target": "silu-90" },
+    { "id": "e90-91", "source": "silu-90", "target": "conv-91" },
+    { "id": "e91-92", "source": "conv-91", "target": "bn-92" },
+    { "id": "e92-93", "source": "bn-92", "target": "silu-93" },
+    { "id": "e93-94", "source": "silu-93", "target": "add-94" },
+    { "id": "e90-94", "source": "silu-90", "target": "add-94" },
+    { "id": "e87-95", "source": "concat-87", "target": "conv-95" },
+    { "id": "e95-96", "source": "conv-95", "target": "bn-96" },
+    { "id": "e96-97", "source": "bn-96", "target": "silu-97" },
+    { "id": "e94-98", "source": "add-94", "target": "concat-98" },
+    { "id": "e97-98", "source": "silu-97", "target": "concat-98" },
+    { "id": "e98-99", "source": "concat-98", "target": "conv-99" },
+    { "id": "e99-100", "source": "conv-99", "target": "bn-100" },
+    { "id": "e100-101", "source": "bn-100", "target": "silu-101" },
+    { "id": "e101-102", "source": "silu-101", "target": "conv-102" },
+    { "id": "e102-103", "source": "conv-102", "target": "bn-103" },
+    { "id": "e103-104", "source": "bn-103", "target": "silu-104" },
+    { "id": "e104-105", "source": "silu-104", "target": "upsample-105" },
+    { "id": "e105-106", "source": "upsample-105", "target": "concat-106" },
+    { "id": "e21-106", "source": "silu-21", "target": "concat-106" },
+    { "id": "e106-107", "source": "concat-106", "target": "conv-107" },
+    { "id": "e107-108", "source": "conv-107", "target": "bn-108" },
+    { "id": "e108-109", "source": "bn-108", "target": "silu-109" },
+    { "id": "e109-110", "source": "silu-109", "target": "conv-110" },
+    { "id": "e110-111", "source": "conv-110", "target": "bn-111" },
+    { "id": "e111-112", "source": "bn-111", "target": "silu-112" },
+    { "id": "e112-113", "source": "silu-112", "target": "add-113" },
+    { "id": "e109-113", "source": "silu-109", "target": "add-113" },
+    { "id": "e106-114", "source": "concat-106", "target": "conv-114" },
+    { "id": "e114-115", "source": "conv-114", "target": "bn-115" },
+    { "id": "e115-116", "source": "bn-115", "target": "silu-116" },
+    { "id": "e113-117", "source": "add-113", "target": "concat-117" },
+    { "id": "e116-117", "source": "silu-116", "target": "concat-117" },
+    { "id": "e117-118", "source": "concat-117", "target": "conv-118" },
+    { "id": "e118-119", "source": "conv-118", "target": "bn-119" },
+    { "id": "e119-120", "source": "bn-119", "target": "silu-120" },
+    { "id": "e120-121", "source": "silu-120", "target": "conv-121" }
+  ]
 }

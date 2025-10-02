@@ -59,6 +59,7 @@ export const EXAMPLE_NETWORKS_METADATA: ExampleNetworkMetadata[] = [
   { name: "GAN-Discriminator", filename: "GAN-Discriminator.json" },
   { name: "U-Net-Encoder", filename: "U-Net-Encoder.json" },
   { name: "DenseNet-Block", filename: "DenseNet-Block.json" },
+  { name: "Diffusion Model", filename: "diffusion-model.json" },
   { name: "EfficientNet-B0", filename: "EfficientNet-B0-complete.json" },
   { name: "Siamese-Network", filename: "Siamese-Network.json" },
   { name: "Style Transfer", filename: "style-transfer-example.json" },
