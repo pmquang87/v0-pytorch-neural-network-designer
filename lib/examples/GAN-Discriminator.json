@@ -1,0 +1,112 @@
+{
+    "name": "GAN Discriminator",
+    "description": "Simple GAN discriminator with convolutions. Note: The reshape operation is represented by a flatten node.",
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "inputNode",
+        "position": { "x": 100, "y": 300 },
+        "data": { "channels": 3, "height": 64, "width": 64 }
+      },
+      {
+        "id": "conv1-2",
+        "type": "conv2dNode",
+        "position": { "x": 300, "y": 200 },
+        "data": { "in_channels": 3, "out_channels": 64, "kernel_size": 4, "stride": 2, "padding": 1 }
+      },
+      {
+        "id": "leakyrelu1-3",
+        "type": "leakyreluNode",
+        "position": { "x": 500, "y": 200 },
+        "data": { "negative_slope": 0.2 }
+      },
+      {
+        "id": "conv2-4",
+        "type": "conv2dNode",
+        "position": { "x": 700, "y": 200 },
+        "data": { "in_channels": 64, "out_channels": 128, "kernel_size": 4, "stride": 2, "padding": 1 }
+      },
+      {
+        "id": "bn1-5",
+        "type": "batchnorm2dNode",
+        "position": { "x": 900, "y": 200 },
+        "data": { "num_features": 128 }
+      },
+      {
+        "id": "leakyrelu2-6",
+        "type": "leakyreluNode",
+        "position": { "x": 1100, "y": 200 },
+        "data": { "negative_slope": 0.2 }
+      },
+      {
+        "id": "conv3-7",
+        "type": "conv2dNode",
+        "position": { "x": 1300, "y": 200 },
+        "data": { "in_channels": 128, "out_channels": 256, "kernel_size": 4, "stride": 2, "padding": 1 }
+      },
+      {
+        "id": "bn2-8",
+        "type": "batchnorm2dNode",
+        "position": { "x": 1500, "y": 200 },
+        "data": { "num_features": 256 }
+      },
+      {
+        "id": "leakyrelu3-9",
+        "type": "leakyreluNode",
+        "position": { "x": 1700, "y": 200 },
+        "data": { "negative_slope": 0.2 }
+      },
+      {
+        "id": "conv4-10",
+        "type": "conv2dNode",
+        "position": { "x": 1900, "y": 200 },
+        "data": { "in_channels": 256, "out_channels": 512, "kernel_size": 4, "stride": 2, "padding": 1 }
+      },
+      {
+        "id": "bn3-11",
+        "type": "batchnorm2dNode",
+        "position": { "x": 2100, "y": 200 },
+        "data": { "num_features": 512 }
+      },
+      {
+        "id": "leakyrelu4-12",
+        "type": "leakyreluNode",
+        "position": { "x": 2300, "y": 200 },
+        "data": { "negative_slope": 0.2 }
+      },
+      {
+        "id": "flatten-13",
+        "type": "flattenNode",
+        "position": { "x": 2500, "y": 300 },
+        "data": {}
+      },
+      {
+        "id": "linear-14",
+        "type": "linearNode",
+        "position": { "x": 2700, "y": 300 },
+        "data": { "in_features": 8192, "out_features": 1 }
+      },
+      {
+        "id": "sigmoid-15",
+        "type": "sigmoidNode",
+        "position": { "x": 2900, "y": 300 },
+        "data": {}
+      }
+    ],
+    "edges": [
+      { "id": "e1-2", "source": "input-1", "target": "conv1-2" },
+      { "id": "e2-3", "source": "conv1-2", "target": "leakyrelu1-3" },
+      { "id": "e3-4", "source": "leakyrelu1-3", "target": "conv2-4" },
+      { "id": "e4-5", "source": "conv2-4", "target": "bn1-5" },
+      { "id": "e5-6", "source": "bn1-5", "target": "leakyrelu2-6" },
+      { "id": "e6-7", "source": "leakyrelu2-6", "target": "conv3-7" },
+      { "id": "e7-8", "source": "conv3-7", "target": "bn2-8" },
+      { "id": "e8-9", "source": "bn2-8", "target": "leakyrelu3-9" },
+      { "id": "e9-10", "source": "leakyrelu3-9", "target": "conv4-10" },
+      { "id": "e10-11", "source": "conv4-10", "target": "bn3-11" },
+      { "id": "e11-12", "source": "bn3-11", "target": "leakyrelu4-12" },
+      { "id": "e12-13", "source": "leakyrelu4-12", "target": "flatten-13" },
+      { "id": "e13-14", "source": "flatten-13", "target": "linear-14" },
+      { "id": "e14-15", "source": "linear-14", "target": "sigmoid-15" }
+    ]
+}

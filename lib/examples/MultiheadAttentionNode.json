@@ -1,0 +1,24 @@
+{
+    "name": "MultiheadAttention Node",
+    "description": "An example of a MultiheadAttention node.",
+    "nodes": [
+      {
+        "id": "input-1",
+        "type": "inputNode",
+        "position": { "x": 150, "y": 300 },
+        "data": { "channels": 1, "height": 100, "width": 512 }
+      },
+      {
+        "id": "multihead-attention-1",
+        "type": "multiheadattentionNode",
+        "position": { "x": 450, "y": 300 },
+        "data": {
+          "embed_dim": 512,
+          "num_heads": 8
+        }
+      }
+    ],
+    "edges": [
+      { "id": "e1-2", "source": "input-1", "target": "multihead-attention-1" }
+    ]
+}

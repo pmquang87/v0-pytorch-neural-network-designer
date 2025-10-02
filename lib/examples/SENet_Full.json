@@ -1,0 +1,182 @@
+{
+  "name": "SE-ResNet-50",
+  "description": "A full-scale SE-ResNet-50 model, implemented with high-level SEBottleneckNode components.",
+  "nodes": [
+    {
+      "id": "input-1",
+      "type": "inputNode",
+      "position": { "x": -800, "y": 0 },
+      "data": { "channels": 3, "height": 224, "width": 224 }
+    },
+    {
+      "id": "conv1",
+      "type": "conv2dNode",
+      "position": { "x": -550, "y": 0 },
+      "data": { "in_channels": 3, "out_channels": 64, "kernel_size": 7, "stride": 2, "padding": 3 }
+    },
+    {
+      "id": "bn1",
+      "type": "batchnorm2dNode",
+      "position": { "x": -350, "y": 0 },
+      "data": { "num_features": 64 }
+    },
+    {
+      "id": "relu1",
+      "type": "reluNode",
+      "position": { "x": -150, "y": 0 },
+      "data": {}
+    },
+    {
+      "id": "pool1",
+      "type": "maxpool2dNode",
+      "position": { "x": 50, "y": 0 },
+      "data": { "kernel_size": 3, "stride": 2, "padding": 1 }
+    },
+    {
+      "id": "se_bottleneck_2_0",
+      "type": "seBottleneckNode",
+      "position": { "x": 300, "y": 0 },
+      "data": { "in_planes": 64, "planes": 64, "stride": 1, "downsample": true }
+    },
+    {
+      "id": "se_bottleneck_2_1",
+      "type": "seBottleneckNode",
+      "position": { "x": 550, "y": 0 },
+      "data": { "in_planes": 256, "planes": 64, "stride": 1, "downsample": false }
+    },
+    {
+      "id": "se_bottleneck_2_2",
+      "type": "seBottleneckNode",
+      "position": { "x": 800, "y": 0 },
+      "data": { "in_planes": 256, "planes": 64, "stride": 1, "downsample": false }
+    },
+    {
+      "id": "se_bottleneck_3_0",
+      "type": "seBottleneckNode",
+      "position": { "x": 1050, "y": 0 },
+      "data": { "in_planes": 256, "planes": 128, "stride": 2, "downsample": true }
+    },
+    {
+      "id": "se_bottleneck_3_1",
+      "type": "seBottleneckNode",
+      "position": { "x": 1300, "y": 0 },
+      "data": { "in_planes": 512, "planes": 128, "stride": 1, "downsample": false }
+    },
+    {
+      "id": "se_bottleneck_3_2",
+      "type": "seBottleneckNode",
+      "position": { "x": 1550, "y": 0 },
+      "data": { "in_planes": 512, "planes": 128, "stride": 1, "downsample": false }
+    },
+    {
+      "id": "se_bottleneck_3_3",
+      "type": "seBottleneckNode",
+      "position": { "x": 1800, "y": 0 },
+      "data": { "in_planes": 512, "planes": 128, "stride": 1, "downsample": false }
+    },
+    {
+      "id": "se_bottleneck_4_0",
+      "type": "seBottleneckNode",
+      "position": { "x": 2050, "y": 0 },
+      "data": { "in_planes": 512, "planes": 256, "stride": 2, "downsample": true }
+    },
+    {
+      "id": "se_bottleneck_4_1",
+      "type": "seBottleneckNode",
+      "position": { "x": 2300, "y": 0 },
+      "data": { "in_planes": 1024, "planes": 256, "stride": 1, "downsample": false }
+    },
+    {
+      "id": "se_bottleneck_4_2",
+      "type": "seBottleneckNode",
+      "position": { "x": 2550, "y": 0 },
+      "data": { "in_planes": 1024, "planes": 256, "stride": 1, "downsample": false }
+    },
+    {
+      "id": "se_bottleneck_4_3",
+      "type": "seBottleneckNode",
+      "position": { "x": 2800, "y": 0 },
+      "data": { "in_planes": 1024, "planes": 256, "stride": 1, "downsample": false }
+    },
+    {
+      "id": "se_bottleneck_4_4",
+      "type": "seBottleneckNode",
+      "position": { "x": 3050, "y": 0 },
+      "data": { "in_planes": 1024, "planes": 256, "stride": 1, "downsample": false }
+    },
+    {
+      "id": "se_bottleneck_4_5",
+      "type": "seBottleneckNode",
+      "position": { "x": 3300, "y": 0 },
+      "data": { "in_planes": 1024, "planes": 256, "stride": 1, "downsample": false }
+    },
+    {
+      "id": "se_bottleneck_5_0",
+      "type": "seBottleneckNode",
+      "position": { "x": 3550, "y": 0 },
+      "data": { "in_planes": 1024, "planes": 512, "stride": 2, "downsample": true }
+    },
+    {
+      "id": "se_bottleneck_5_1",
+      "type": "seBottleneckNode",
+      "position": { "x": 3800, "y": 0 },
+      "data": { "in_planes": 2048, "planes": 512, "stride": 1, "downsample": false }
+    },
+    {
+      "id": "se_bottleneck_5_2",
+      "type": "seBottleneckNode",
+      "position": { "x": 4050, "y": 0 },
+      "data": { "in_planes": 2048, "planes": 512, "stride": 1, "downsample": false }
+    },
+    {
+      "id": "avg_pool",
+      "type": "adaptiveavgpool2dNode",
+      "position": { "x": 4300, "y": 0 },
+      "data": { "output_size": [1, 1] }
+    },
+    {
+      "id": "flatten",
+      "type": "flattenNode",
+      "position": { "x": 4550, "y": 0 },
+      "data": {}
+    },
+    {
+      "id": "fc",
+      "type": "linearNode",
+      "position": { "x": 4800, "y": 0 },
+      "data": { "in_features": 2048, "out_features": 1000 }
+    },
+    {
+      "id": "output",
+      "type": "outputNode",
+      "position": { "x": 5050, "y": 0 },
+      "data": {}
+    }
+  ],
+  "edges": [
+    { "id": "e-input-conv1", "source": "input-1", "target": "conv1" },
+    { "id": "e-conv1-bn1", "source": "conv1", "target": "bn1" },
+    { "id": "e-bn1-relu1", "source": "bn1", "target": "relu1" },
+    { "id": "e-relu1-pool1", "source": "relu1", "target": "pool1" },
+    { "id": "e-pool1-seb2_0", "source": "pool1", "target": "se_bottleneck_2_0" },
+    { "id": "e-seb2_0-seb2_1", "source": "se_bottleneck_2_0", "target": "se_bottleneck_2_1" },
+    { "id": "e-seb2_1-seb2_2", "source": "se_bottleneck_2_1", "target": "se_bottleneck_2_2" },
+    { "id": "e-seb2_2-seb3_0", "source": "se_bottleneck_2_2", "target": "se_bottleneck_3_0" },
+    { "id": "e-seb3_0-seb3_1", "source": "se_bottleneck_3_0", "target": "se_bottleneck_3_1" },
+    { "id": "e-seb3_1-seb3_2", "source": "se_bottleneck_3_1", "target": "se_bottleneck_3_2" },
+    { "id": "e-seb3_2-seb3_3", "source": "se_bottleneck_3_2", "target": "se_bottleneck_3_3" },
+    { "id": "e-seb3_3-seb4_0", "source": "se_bottleneck_3_3", "target": "se_bottleneck_4_0" },
+    { "id": "e-seb4_0-seb4_1", "source": "se_bottleneck_4_0", "target": "se_bottleneck_4_1" },
+    { "id": "e-seb4_1-seb4_2", "source": "se_bottleneck_4_1", "target": "se_bottleneck_4_2" },
+    { "id": "e-seb4_2-seb4_3", "source": "se_bottleneck_4_2", "target": "se_bottleneck_4_3" },
+    { "id": "e-seb4_3-seb4_4", "source": "se_bottleneck_4_3", "target": "se_bottleneck_4_4" },
+    { "id": "e-seb4_4-seb4_5", "source": "se_bottleneck_4_4", "target": "se_bottleneck_4_5" },
+    { "id": "e-seb4_5-seb5_0", "source": "se_bottleneck_4_5", "target": "se_bottleneck_5_0" },
+    { "id": "e-seb5_0-seb5_1", "source": "se_bottleneck_5_0", "target": "se_bottleneck_5_1" },
+    { "id": "e-seb5_1-seb5_2", "source": "se_bottleneck_5_1", "target": "se_bottleneck_5_2" },
+    { "id": "e-seb5_2-avg_pool", "source": "se_bottleneck_5_2", "target": "avg_pool" },
+    { "id": "e-avg_pool-flatten", "source": "avg_pool", "target": "flatten" },
+    { "id": "e-flatten-fc", "source": "flatten", "target": "fc" },
+    { "id": "e-fc-output", "source": "fc", "target": "output" }
+  ]
+}

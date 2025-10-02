@@ -1,0 +1,381 @@
+{
+    "name": "MobileNetV1",
+    "description": "A standard implementation of the MobileNetV1 architecture.",
+    "nodes": [
+        {
+            "id": "input-1",
+            "type": "inputNode",
+            "position": {
+                "x": 100,
+                "y": 100
+            },
+            "data": {
+                "channels": 3,
+                "height": 224,
+                "width": 224
+            }
+        },
+        {
+            "id": "conv2d-2",
+            "type": "conv2dNode",
+            "position": {
+                "x": 300,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 3,
+                "out_channels": 32,
+                "kernel_size": 3,
+                "stride": 2,
+                "padding": 1
+            }
+        },
+        {
+            "id": "batchnorm2d-3",
+            "type": "batchnorm2dNode",
+            "position": {
+                "x": 500,
+                "y": 100
+            },
+            "data": {
+                "num_features": 32
+            }
+        },
+        {
+            "id": "relu-4",
+            "type": "reluNode",
+            "position": {
+                "x": 700,
+                "y": 100
+            },
+            "data": {}
+        },
+        {
+            "id": "separableconv2d-5",
+            "type": "separableconv2dNode",
+            "position": {
+                "x": 900,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 32,
+                "out_channels": 64,
+                "kernel_size": 3,
+                "stride": 1,
+                "padding": 1
+            }
+        },
+        {
+            "id": "separableconv2d-6",
+            "type": "separableconv2dNode",
+            "position": {
+                "x": 1100,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 64,
+                "out_channels": 128,
+                "kernel_size": 3,
+                "stride": 2,
+                "padding": 1
+            }
+        },
+        {
+            "id": "separableconv2d-7",
+            "type": "separableconv2dNode",
+            "position": {
+                "x": 1300,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 128,
+                "out_channels": 128,
+                "kernel_size": 3,
+                "stride": 1,
+                "padding": 1
+            }
+        },
+        {
+            "id": "separableconv2d-8",
+            "type": "separableconv2dNode",
+            "position": {
+                "x": 1500,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 128,
+                "out_channels": 256,
+                "kernel_size": 3,
+                "stride": 2,
+                "padding": 1
+            }
+        },
+        {
+            "id": "separableconv2d-9",
+            "type": "separableconv2dNode",
+            "position": {
+                "x": 1700,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 256,
+                "out_channels": 256,
+                "kernel_size": 3,
+                "stride": 1,
+                "padding": 1
+            }
+        },
+        {
+            "id": "separableconv2d-10",
+            "type": "separableconv2dNode",
+            "position": {
+                "x": 1900,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 256,
+                "out_channels": 512,
+                "kernel_size": 3,
+                "stride": 2,
+                "padding": 1
+            }
+        },
+        {
+            "id": "separableconv2d-11",
+            "type": "separableconv2dNode",
+            "position": {
+                "x": 2100,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 512,
+                "out_channels": 512,
+                "kernel_size": 3,
+                "stride": 1,
+                "padding": 1
+            }
+        },
+        {
+            "id": "separableconv2d-12",
+            "type": "separableconv2dNode",
+            "position": {
+                "x": 2300,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 512,
+                "out_channels": 512,
+                "kernel_size": 3,
+                "stride": 1,
+                "padding": 1
+            }
+        },
+        {
+            "id": "separableconv2d-13",
+            "type": "separableconv2dNode",
+            "position": {
+                "x": 2500,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 512,
+                "out_channels": 512,
+                "kernel_size": 3,
+                "stride": 1,
+                "padding": 1
+            }
+        },
+        {
+            "id": "separableconv2d-14",
+            "type": "separableconv2dNode",
+            "position": {
+                "x": 2700,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 512,
+                "out_channels": 512,
+                "kernel_size": 3,
+                "stride": 1,
+                "padding": 1
+            }
+        },
+        {
+            "id": "separableconv2d-15",
+            "type": "separableconv2dNode",
+            "position": {
+                "x": 2900,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 512,
+                "out_channels": 512,
+                "kernel_size": 3,
+                "stride": 1,
+                "padding": 1
+            }
+        },
+        {
+            "id": "separableconv2d-16",
+            "type": "separableconv2dNode",
+            "position": {
+                "x": 3100,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 512,
+                "out_channels": 1024,
+                "kernel_size": 3,
+                "stride": 2,
+                "padding": 1
+            }
+        },
+        {
+            "id": "separableconv2d-17",
+            "type": "separableconv2dNode",
+            "position": {
+                "x": 3300,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 1024,
+                "out_channels": 1024,
+                "kernel_size": 3,
+                "stride": 1,
+                "padding": 1
+            }
+        },
+        {
+            "id": "adaptiveavgpool2d-18",
+            "type": "adaptiveavgpool2dNode",
+            "position": {
+                "x": 3500,
+                "y": 100
+            },
+            "data": {
+                "output_size": [
+                    1,
+                    1
+                ]
+            }
+        },
+        {
+            "id": "flatten-19",
+            "type": "flattenNode",
+            "position": {
+                "x": 3700,
+                "y": 100
+            },
+            "data": {}
+        },
+        {
+            "id": "linear-20",
+            "type": "linearNode",
+            "position": {
+                "x": 3900,
+                "y": 100
+            },
+            "data": {
+                "in_features": 1024,
+                "out_features": 1000
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "e-input-1-conv2d-2",
+            "source": "input-1",
+            "target": "conv2d-2"
+        },
+        {
+            "id": "e-conv2d-2-batchnorm2d-3",
+            "source": "conv2d-2",
+            "target": "batchnorm2d-3"
+        },
+        {
+            "id": "e-batchnorm2d-3-relu-4",
+            "source": "batchnorm2d-3",
+            "target": "relu-4"
+        },
+        {
+            "id": "e-relu-4-separableconv2d-5",
+            "source": "relu-4",
+            "target": "separableconv2d-5"
+        },
+        {
+            "id": "e-separableconv2d-5-separableconv2d-6",
+            "source": "separableconv2d-5",
+            "target": "separableconv2d-6"
+        },
+        {
+            "id": "e-separableconv2d-6-separableconv2d-7",
+            "source": "separableconv2d-6",
+            "target": "separableconv2d-7"
+        },
+        {
+            "id": "e-separableconv2d-7-separableconv2d-8",
+            "source": "separableconv2d-7",
+            "target": "separableconv2d-8"
+        },
+        {
+            "id": "e-separableconv2d-8-separableconv2d-9",
+            "source": "separableconv2d-8",
+            "target": "separableconv2d-9"
+        },
+        {
+            "id": "e-separableconv2d-9-separableconv2d-10",
+            "source": "separableconv2d-9",
+            "target": "separableconv2d-10"
+        },
+        {
+            "id": "e-separableconv2d-10-separableconv2d-11",
+            "source": "separableconv2d-10",
+            "target": "separableconv2d-11"
+        },
+        {
+            "id": "e-separableconv2d-11-separableconv2d-12",
+            "source": "separableconv2d-11",
+            "target": "separableconv2d-12"
+        },
+        {
+            "id": "e-separableconv2d-12-separableconv2d-13",
+            "source": "separableconv2d-12",
+            "target": "separableconv2d-13"
+        },
+        {
+            "id": "e-separableconv2d-13-separableconv2d-14",
+            "source": "separableconv2d-13",
+            "target": "separableconv2d-14"
+        },
+        {
+            "id": "e-separableconv2d-14-separableconv2d-15",
+            "source": "separableconv2d-14",
+            "target": "separableconv2d-15"
+        },
+        {
+            "id": "e-separableconv2d-15-separableconv2d-16",
+            "source": "separableconv2d-15",
+            "target": "separableconv2d-16"
+        },
+        {
+            "id": "e-separableconv2d-16-separableconv2d-17",
+            "source": "separableconv2d-16",
+            "target": "separableconv2d-17"
+        },
+        {
+            "id": "e-separableconv2d-17-adaptiveavgpool2d-18",
+            "source": "separableconv2d-17",
+            "target": "adaptiveavgpool2d-18"
+        },
+        {
+            "id": "e-adaptiveavgpool2d-18-flatten-19",
+            "source": "adaptiveavgpool2d-18",
+            "target": "flatten-19"
+        },
+        {
+            "id": "e-flatten-19-linear-20",
+            "source": "flatten-19",
+            "target": "linear-20"
+        }
+    ]
+}

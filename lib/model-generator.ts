@@ -106,24 +106,44 @@ export class ModelGenerator {
 
     const hasSsmNode = this.nodes.some(node => node.type === 'ssmNode');
     if (hasSsmNode) {
-        code += `\n\nclass SSM(nn.Module):\n    def __init__(self, d_model, d_state):\n        super().__init__()\n        self.d_model = d_model\n        self.d_state = d_state\n
-        # Learnable parameters A, B, C\n        # A: State transition matrix\n        # B: Input to state matrix\n        # C: State to output matrix\n        self.A = nn.Parameter(torch.randn(d_state, d_state))\n        self.B = nn.Parameter(torch.randn(d_state, d_model))\n        self.C = nn.Parameter(torch.randn(d_model, d_state))\n
-    def forward(self, x):\n        # x: input tensor of shape (batch_size, sequence_length, d_model)\n        batch_size, sequence_length, d_model = x.shape\n
-        # Initialize the hidden state\n        h = torch.zeros(batch_size, self.d_state, device=x.device)\n
-        outputs = []\n        for t in range(sequence_length):\n            # Get the input at the current time step\n            x_t = x[:, t, :]\n
-            # Update the hidden state (linear recurrence)\n            h = torch.tanh(torch.matmul(self.A, h.unsqueeze(-1)).squeeze(-1) + torch.matmul(self.B, x_t.unsqueeze(-1)).squeeze(-1))\n
-            # Compute the output at the current time step\n            y_t = torch.matmul(self.C, h.unsqueeze(-1)).squeeze(-1)\n
-            outputs.append(y_t)\n        \n        return torch.stack(outputs, dim=1)\n`
+        code += `\n\nclass SSM(nn.Module):\n    def __init__(self, d_model, d_state):\n        super().__init__()\n        self.d_model = d_model\n        self.d_state = d_state\n\n        # Learnable parameters A, B, C\n        # A: State transition matrix\n        # B: Input to state matrix\n        # C: State to output matrix\n        self.A = nn.Parameter(torch.randn(d_state, d_state))\n        self.B = nn.Parameter(torch.randn(d_state, d_model))\n        self.C = nn.Parameter(torch.randn(d_model, d_state))\n\n    def forward(self, x):\n        # x: input tensor of shape (batch_size, sequence_length, d_model)\n        batch_size, sequence_length, d_model = x.shape\n\n        # Initialize the hidden state\n        h = torch.zeros(batch_size, self.d_state, device=x.device)\n\n        outputs = []\n        for t in range(sequence_length):\n            # Get the input at the current time step\n            x_t = x[:, t, :]\n\n            # Update the hidden state (linear recurrence)\n            h = torch.tanh(torch.matmul(self.A, h.unsqueeze(-1)).squeeze(-1) + torch.matmul(self.B, x_t.unsqueeze(-1)).squeeze(-1))\n\n            # Compute the output at the current time step\n            y_t = torch.matmul(self.C, h.unsqueeze(-1)).squeeze(-1)\n\n            outputs.append(y_t)\n        \n        return torch.stack(outputs, dim=1)\n`
     }
 
     const hasMbconvNode = this.nodes.some(node => node.type === 'mbconvNode');
     if (hasMbconvNode) {
-        code += `\n\nclass MBConvBlock(nn.Module):\n    def __init__(self, in_channels, out_channels, kernel_size, stride, expand_ratio, se_ratio):\n        super(MBConvBlock, self).__init__()\n        self.stride = stride\n        self.use_residual = self.stride == 1 and in_channels == out_channels\n        expanded_channels = in_channels * expand_ratio\n\n        self.expansion = nn.Sequential()\n        if expand_ratio != 1:\n            self.expansion.add_module('conv', nn.Conv2d(in_channels, expanded_channels, kernel_size=1, bias=False))\n            self.expansion.add_module('bn', nn.BatchNorm2d(expanded_channels))\n            self.expansion.add_module('silu', nn.SiLU())\n\n        self.depthwise = nn.Sequential(\n            nn.Conv2d(expanded_channels, expanded_channels, kernel_size=kernel_size, stride=stride, padding=kernel_size // 2, groups=expanded_channels, bias=False),\n            nn.BatchNorm2d(expanded_channels),\n            nn.SiLU()\n        )\n\n        self.se = None\n        if se_ratio and se_ratio > 0:\n            squeeze_channels = max(1, int(in_channels * se_ratio))\n            self.se = nn.Sequential(\n                nn.AdaptiveAvgPool2d(1),\n                nn.Conv2d(expanded_channels, squeeze_channels, kernel_size=1),\n                nn.SiLU(),\n                nn.Conv2d(squeeze_channels, expanded_channels, kernel_size=1),\n                nn.Sigmoid()\n            )\n\n        self.projection = nn.Sequential(\n            nn.Conv2d(expanded_channels, out_channels, kernel_size=1, bias=False),\n            nn.BatchNorm2d(out_channels)\n        )\n\n    def forward(self, x):\n        residual = x\n        x = self.expansion(x)\n        x = self.depthwise(x)\n        if self.se:\n            x = x * self.se(x)\n        x = self.projection(x)\n        return x\n`
+        code += `\n\nclass MBConvBlock(nn.Module):\n    def __init__(self, in_channels, out_channels, kernel_size, stride, expand_ratio, se_ratio):\n        super(MBConvBlock, self).__init__()\n        self.stride = stride\n        self.use_residual = self.stride == 1 and in_channels == out_channels\n        expanded_channels = in_channels * expand_ratio\n\n        self.expansion = nn.Sequential()\n        if expand_ratio != 1:\n            self.expansion.add_module(\'conv\', nn.Conv2d(in_channels, expanded_channels, kernel_size=1, bias=False))\n            self.expansion.add_module(\'bn\', nn.BatchNorm2d(expanded_channels))\n            self.expansion.add_module(\'silu\', nn.SiLU())\n\n        self.depthwise = nn.Sequential(\n            nn.Conv2d(expanded_channels, expanded_channels, kernel_size=kernel_size, stride=stride, padding=kernel_size // 2, groups=expanded_channels, bias=False),\n            nn.BatchNorm2d(expanded_channels),\n            nn.SiLU()\n        )\n\n        self.se = None\n        if se_ratio and se_ratio > 0:\n            squeeze_channels = max(1, int(in_channels * se_ratio))\n            self.se = nn.Sequential(\n                nn.AdaptiveAvgPool2d(1),\n                nn.Conv2d(expanded_channels, squeeze_channels, kernel_size=1),\n                nn.SiLU(),\n                nn.Conv2d(squeeze_channels, expanded_channels, kernel_size=1),\n                nn.Sigmoid()\n            )\n\n        self.projection = nn.Sequential(\n            nn.Conv2d(expanded_channels, out_channels, kernel_size=1, bias=False),\n            nn.BatchNorm2d(out_channels)\n        )\n\n    def forward(self, x):\n        residual = x\n        x = self.expansion(x)\n        x = self.depthwise(x)\n        if self.se:\n            x = x * self.se(x)\n        x = self.projection(x)\n        return x\n`
+    }
+
+    const hasSeparableConvNode = this.nodes.some(node => node.type === 'separableconv2dNode');
+    if (hasSeparableConvNode) {
+        code += `\n\nclass SeparableConvBlock(nn.Module):\n    def __init__(self, in_channels, out_channels, kernel_size, stride, padding):\n        super(SeparableConvBlock, self).__init__()\n        self.depthwise_conv = nn.Conv2d(in_channels, in_channels, kernel_size, stride, padding, groups=in_channels, bias=False)\n        self.bn1 = nn.BatchNorm2d(in_channels)\n        self.relu1 = nn.ReLU(inplace=True)\n        self.pointwise_conv = nn.Conv2d(in_channels, out_channels, 1, 1, 0, bias=False)\n        self.bn2 = nn.BatchNorm2d(out_channels)\n        self.relu2 = nn.ReLU(inplace=True)\n\n    def forward(self, x):\n        x = self.depthwise_conv(x)\n        x = self.bn1(x)\n        x = self.relu1(x)\n        x = self.pointwise_conv(x)\n        x = self.bn2(x)\n        x = self.relu2(x)\n        return x\n`
+    }
+
+    const hasInvertedResidualBlockNode = this.nodes.some(node => node.type === 'invertedResidualBlockNode');
+    if (hasInvertedResidualBlockNode) {
+        code += `\n\nclass InvertedResidualBlock(nn.Module):\n    def __init__(self, in_channels, out_channels, stride, expand_ratio):\n        super(InvertedResidualBlock, self).__init__()\n        self.stride = stride\n        assert stride in [1, 2]\n\n        hidden_dim = int(round(in_channels * expand_ratio))\n        self.use_res_connect = self.stride == 1 and in_channels == out_channels\n\n        layers = []\n        if expand_ratio != 1:\n            # Pointwise\n            layers.append(nn.Conv2d(in_channels, hidden_dim, 1, 1, 0, bias=False))\n            layers.append(nn.BatchNorm2d(hidden_dim))\n            layers.append(nn.ReLU6(inplace=True))\n        \n        # Depthwise\n        layers.extend([\n            nn.Conv2d(hidden_dim, hidden_dim, 3, stride, 1, groups=hidden_dim, bias=False),\n            nn.BatchNorm2d(hidden_dim),\n            nn.ReLU6(inplace=True),\n        ])\n\n        # Pointwise-linear\n        layers.extend([\n            nn.Conv2d(hidden_dim, out_channels, 1, 1, 0, bias=False),\n            nn.BatchNorm2d(out_channels),\n        ])\n\n        self.conv = nn.Sequential(*layers)\n\n    def forward(self, x):\n        if self.use_res_connect:\n            return x + self.conv(x)\n        else:\n            return self.conv(x)\n`
+    }
+
+    const hasAdaptiveInstanceNormNode = this.nodes.some(node => node.type === 'adaptiveInstanceNormNode');
+    if (hasAdaptiveInstanceNormNode) {
+        code += `\n\nclass AdaptiveInstanceNorm2d(nn.Module):\n    def __init__(self, num_features, style_dim):\n        super().__init__()\n        self.norm = nn.InstanceNorm2d(num_features, affine=False)\n        self.style = nn.Linear(style_dim, num_features * 2)\n\n    def forward(self, content, style):\n        style = self.style(style).unsqueeze(2).unsqueeze(3) # (N, C*2, 1, 1)\n        gamma, beta = style.chunk(2, 1) # (N, C, 1, 1), (N, C, 1, 1)\n        return self.norm(content) * (gamma + 1) + beta\n`;
+    }
+    const hasSeBlockNode = this.nodes.some(node => node.type === 'seBlockNode' || node.type === 'seBottleneckNode');
+    if (hasSeBlockNode) {
+        code += `\n\nclass SEBlock(nn.Module):\n    def __init__(self, channel, reduction=16):\n        super(SEBlock, self).__init__()\n        self.avg_pool = nn.AdaptiveAvgPool2d(1)\n        self.fc = nn.Sequential(\n            nn.Linear(channel, channel // reduction, bias=False),\n            nn.ReLU(inplace=True),\n            nn.Linear(channel // reduction, channel, bias=False),\n            nn.Sigmoid()\n        )\n\n    def forward(self, x):\n        b, c, _, _ = x.size()\n        y = self.avg_pool(x).view(b, c)\n        y = self.fc(y).view(b, c, 1, 1)\n        return x * y.expand_as(x)\n`
+    }
+
+    const hasSeBottleneckNode = this.nodes.some(node => node.type === 'seBottleneckNode');
+    if (hasSeBottleneckNode) {
+        code += `\n\nclass SEBottleneck(nn.Module):\n    expansion = 4\n\n    def __init__(self, inplanes, planes, stride=1, downsample=None, reduction=16):\n        super(SEBottleneck, self).__init__()\n        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)\n        self.bn1 = nn.BatchNorm2d(planes)\n        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)\n        self.bn2 = nn.BatchNorm2d(planes)\n        self.conv3 = nn.Conv2d(planes, self.expansion * planes, kernel_size=1, bias=False)\n        self.bn3 = nn.BatchNorm2d(self.expansion * planes)\n        self.relu = nn.ReLU(inplace=True)\n        self.se = SEBlock(self.expansion * planes, reduction)\n        self.downsample = downsample\n        self.stride = stride\n\n    def forward(self, x):\n        residual = x\n\n        out = self.conv1(x)\n        out = self.bn1(out)\n        out = self.relu(out)\n\n        out = self.conv2(out)\n        out = self.bn2(out)\n        out = self.relu(out)\n\n        out = self.conv3(out)\n        out = self.bn3(out)\n        out = self.se(out)\n\n        if self.downsample is not None:\n            residual = self.downsample(x)\n\n        out += residual\n        out = self.relu(out)\n\n        return out\n`
     }
 
     code += `\n\nclass GeneratedModel(nn.Module):\n    def __init__(self):\n        super(GeneratedModel, self).__init__()\n        \n`
 
     for (const node of layerNodes) {
+      if (node.type === "reshapeNode" || node.type === "multiplyNode") {
+        continue
+      }
       const manifest = PYTORCH_LAYER_MANIFEST[node.type as keyof typeof PYTORCH_LAYER_MANIFEST]
       const layerName = this.sanitizeLayerName(node.id)
 
@@ -142,24 +162,43 @@ export class ModelGenerator {
       } else if (node.type === "ssmNode") {
         const { d_model, d_state } = node.data;
         code += `        self.${layerName} = SSM(d_model=${d_model}, d_state=${d_state})\n`
+      } else if (node.type === "adaptiveInstanceNormNode") {
+        const num_features = node.data.num_features;
+        const style_dim = 512; // Assuming style_dim is 512 for StyleGAN
+        code += `        self.${layerName} = AdaptiveInstanceNorm2d(num_features=${num_features}, style_dim=${style_dim})\n`;
       } else if (node.type === "mbconvNode") {
         const { in_channels, out_channels, kernel_size, stride, expand_ratio, se_ratio } = node.data;
         code += `        self.${layerName} = MBConvBlock(in_channels=${in_channels}, out_channels=${out_channels}, kernel_size=${kernel_size}, stride=${stride}, expand_ratio=${expand_ratio}, se_ratio=${se_ratio})\n`;
+      } else if (node.type === "invertedResidualBlockNode") {
+        const { in_channels, out_channels, stride, expand_ratio } = node.data;
+        code += `        self.${layerName} = InvertedResidualBlock(in_channels=${in_channels}, out_channels=${out_channels}, stride=${stride}, expand_ratio=${expand_ratio})\n`;
+      } else if (node.type === "separableconv2dNode") {
+        const inChannels = node.data.in_channels || 32
+        const outChannels = node.data.out_channels || 64
+        const kernelSize = node.data.kernel_size || 3
+        const stride = node.data.stride || 1
+        const padding = node.data.padding || 1
+        code += `        self.${layerName} = SeparableConvBlock(in_channels=${inChannels}, out_channels=${outChannels}, kernel_size=${kernelSize}, stride=${stride}, padding=${padding})\n`
+      } else if (node.type === "seBlockNode") {
+        const { in_channels, reduction } = node.data;
+        code += `        self.${layerName} = SEBlock(channel=${in_channels}, reduction=${reduction || 16})\n`;
+      } else if (node.type === "seBottleneckNode") {
+        const { in_planes, planes, stride, downsample } = node.data;
+        if (downsample) {
+            const downsampleLayerName = `${layerName}_downsample`;
+            code += `        self.${downsampleLayerName} = nn.Sequential(\n`;
+            code += `            nn.Conv2d(${in_planes}, ${planes} * 4, kernel_size=1, stride=${stride}, bias=False),\n`;
+            code += `            nn.BatchNorm2d(${planes} * 4)\n`;
+            code += `        )\n`;
+            code += `        self.${layerName} = SEBottleneck(inplanes=${in_planes}, planes=${planes}, stride=${stride}, downsample=self.${downsampleLayerName})\n`;
+        } else {
+            code += `        self.${layerName} = SEBottleneck(inplanes=${in_planes}, planes=${planes}, stride=${stride}, downsample=None)\n`;
+        }
       } else if (manifest && manifest.className) {
         if (node.type === "depthwiseconv2dNode") {
           const params = this.buildParameterString(node, manifest.params)
           const groups = node.data.in_channels || node.data.groups || 1
           code += `        self.${layerName} = ${manifest.className}(${params}, groups=${groups})\n`
-        } else if (node.type === "separableconv2dNode") {
-          const inChannels = node.data.in_channels || 32
-          const outChannels = node.data.out_channels || 64
-          const kernelSize = node.data.kernel_size || 3
-          const stride = node.data.stride || 1
-          const padding = node.data.padding || 1
-
-          code += `        # Separable convolution: depthwise + pointwise\n`
-          code += `        self.${layerName}_depthwise = nn.Conv2d(${inChannels}, ${inChannels}, kernel_size=${kernelSize}, stride=${stride}, padding=${padding}, groups=${inChannels})\n`
-          code += `        self.${layerName}_pointwise = nn.Conv2d(${inChannels}, ${outChannels}, kernel_size=1, stride=1, padding=0)\n`
         } else {
           const params = this.buildParameterString(node, manifest.params)
           code += `        self.${layerName} = ${manifest.className}(${params})\n`
@@ -356,7 +395,7 @@ if __name__ == '__main__':
       const layerName = this.sanitizeLayerName(node.id)
       const inputEdges = this.edges.filter((edge) => edge.target === node.id)
 
-      if (inputEdges.length === 0) {
+      if (inputEdges.length === 0 && node.type !== 'constantNode') {
         continue
       }
 
@@ -369,6 +408,29 @@ if __name__ == '__main__':
           lines.push(`${outputVar} = ${inputVars[0]}  # Single input to add node`)
         }
         nodeOutputs.set(node.id, outputVar)
+      } else if (node.type === "multiplyNode") {
+        const inputVars = inputEdges.map((edge) => nodeOutputs.get(edge.source) || "x");
+        const outputVar = `x_${layerName}`;
+        if (inputVars.length >= 2) {
+          lines.push(`${outputVar} = ${inputVars.join(" * ")}`);
+        } else {
+          lines.push(`${outputVar} = ${inputVars[0]}  # Single input to multiply node`);
+        }
+        nodeOutputs.set(node.id, outputVar);
+      } else if (node.type === "reshapeNode") {
+        if (inputEdges.length === 0) {
+            continue;
+        }
+        const inputVar = nodeOutputs.get(inputEdges[0].source) || "x";
+        const outputVar = `x_${layerName}`;
+        let shapeArgs = node.data.targetShape;
+        if (Array.isArray(shapeArgs)) {
+            shapeArgs = shapeArgs.join(', ');
+        } else if (typeof shapeArgs === 'string') {
+            shapeArgs = shapeArgs.replace(/[\[\]\(\)]/g, '');
+        }
+        lines.push(`${outputVar} = ${inputVar}.view(${inputVar}.size(0), ${shapeArgs})`);
+        nodeOutputs.set(node.id, outputVar);
       } else if (node.type === "concatenateNode") {
         const inputVars = inputEdges.map((edge) => nodeOutputs.get(edge.source) || "x")
         const outputVar = `x_${layerName}`
@@ -395,13 +457,6 @@ if __name__ == '__main__':
         }
 
         nodeOutputs.set(node.id, outputVar)
-      } else if (node.type === "separableconv2dNode") {
-        const inputVar = nodeOutputs.get(inputEdges[0].source) || "x"
-        const outputVar = `x_${layerName}`
-        const tempVar = `x_${layerName}_temp`
-        lines.push(`${tempVar} = self.${layerName}_depthwise(${inputVar})`)
-        lines.push(`${outputVar} = self.${layerName}_pointwise(${tempVar})`)
-        nodeOutputs.set(node.id, outputVar)
       } else if (node.type === 'multiheadattentionNode') {
         const queryVar = nodeOutputs.get(inputEdges.find(e => e.targetHandle === 'query')?.source || '') || 'x'
         const keyVar = nodeOutputs.get(inputEdges.find(e => e.targetHandle === 'key')?.source || '') || 'x'
@@ -409,17 +464,34 @@ if __name__ == '__main__':
         const outputVar = `x_${layerName}`
         lines.push(`${outputVar}, _ = self.${layerName}(${queryVar}, ${keyVar}, ${valueVar})`)
         nodeOutputs.set(node.id, outputVar)
+      } else if (node.type === "adaptiveInstanceNormNode") {
+        const contentEdge = inputEdges.find((edge) => edge.targetHandle === "input");
+        const styleEdge = inputEdges.find((edge) => edge.targetHandle === "style");
+        if (contentEdge && styleEdge) {
+            const contentVar = nodeOutputs.get(contentEdge.source) || "x";
+            const styleVar = nodeOutputs.get(styleEdge.source) || "x";
+            const outputVar = `x_${layerName}`;
+            lines.push(`${outputVar} = self.${layerName}(${contentVar}, ${styleVar})`);
+            nodeOutputs.set(node.id, outputVar);
+        } else {
+            lines.push(`# ERROR: Missing inputs for AdaptiveInstanceNormNode ${layerName}`);
+        }
       } else if (inputEdges.length === 1) {
         const inputVar = nodeOutputs.get(inputEdges[0].source) || "x"
         const outputVar = `x_${layerName}`
         lines.push(`${outputVar} = self.${layerName}(${inputVar})`)
         nodeOutputs.set(node.id, outputVar)
-      } else {
+      } else if (inputEdges.length > 1) {
         const inputVars = inputEdges.map((edge) => nodeOutputs.get(edge.source) || "x")
         const outputVar = `x_${layerName}`
         lines.push(`# Warning: Multiple inputs to regular layer - using first input`)
         lines.push(`${outputVar} = self.${layerName}(${inputVars[0]})`)
         nodeOutputs.set(node.id, outputVar)
+      } else if (node.type === 'constantNode') {
+        const outputVar = `x_${layerName}`;
+        // Placeholder for constant value generation
+        lines.push(`${outputVar} = torch.randn(1, ${node.data.channels || 1}, ${node.data.height || 1}, ${node.data.width || 1}) # Placeholder for constant value`);
+        nodeOutputs.set(node.id, outputVar);
       }
     }
 

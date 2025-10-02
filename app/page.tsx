@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import type React from "react"
 
@@ -57,6 +57,8 @@ import {
   CheckCircle,
   Box,
   FileUp,
+  ArrowUpRight,
+  ArrowDownLeft,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ResizableBox } from "react-resizable"
@@ -118,6 +120,7 @@ import { InstanceNorm1DNode } from "@/components/nodes/InstanceNorm1DNode"
 import { InstanceNorm2DNode } from "@/components/nodes/InstanceNorm2DNode"
 import { InstanceNorm3DNode } from "@/components/nodes/InstanceNorm3DNode"
 import { MultiheadAttentionNode } from "@/components/nodes/MultiheadAttentionNode"
+import { ScaledDotProductAttentionNode } from "@/components/nodes/ScaledDotProductAttentionNode"
 import { TransformerEncoderLayerNode } from "@/components/nodes/TransformerEncoderLayerNode"
 import { TransformerDecoderLayerNode } from "@/components/nodes/TransformerDecoderLayerNode"
 import { TransposeNode } from "@/components/nodes/TransposeNode"
@@ -127,6 +130,13 @@ import { ReshapeNode } from "@/components/nodes/ReshapeNode"
 import { ChunkNode } from "@/components/nodes/ChunkNode"
 import { SsmNode } from "@/components/nodes/SsmNode"
 import { MBConvNode } from "@/components/nodes/MBConvNode"
+import { NoiseNode } from "@/components/nodes/NoiseNode"
+import { AdaptiveInstanceNormNode } from "@/components/nodes/AdaptiveInstanceNormNode"
+import { UpsampleNode } from "@/components/nodes/UpsampleNode"
+import { DownsampleNode } from "@/components/nodes/DownsampleNode"
+import { InvertedResidualBlockNode } from "@/components/nodes/InvertedResidualBlockNode"
+import { SEBlockNode } from "@/components/nodes/SEBlockNode";
+import { SEBottleneckNode } from "@/components/nodes/SEBottleneckNode";
 
 // Placeholder for conceptual nodes in examples
 const DefaultNode = ({ data }: { data: { label: string } }) => (
@@ -226,6 +236,7 @@ const nodeTypes: NodeTypes = {
   gruNode: GRUNode,
   rnnNode: RNNNode,
   multiheadattentionNode: MultiheadAttentionNode,
+  scaledDotProductAttentionNode: ScaledDotProductAttentionNode,
   transformerencoderlayerNode: TransformerEncoderLayerNode,
   transformerdecoderlayerNode: TransformerDecoderLayerNode,
   transposeNode: TransposeNode,
@@ -236,9 +247,16 @@ const nodeTypes: NodeTypes = {
   ssmNode: SsmNode,
   groupNode: Group,
   mbconvNode: MBConvNode,
+  noiseNode: NoiseNode,
+  adaptiveInstanceNormNode: AdaptiveInstanceNormNode,
+  upsampleNode: UpsampleNode,
+  downsampleNode: DownsampleNode,
   defaultNode: DefaultNode,
   contentLossNode: ContentLossNode,
   styleLossNode: StyleLossNode,
+  invertedResidualBlockNode: InvertedResidualBlockNode,
+  seBlockNode: SEBlockNode,
+  seBottleneckNode: SEBottleneckNode,
 }
 
 export default function NeuralNetworkDesigner() {
@@ -452,9 +470,13 @@ export default function NeuralNetworkDesigner() {
             node.type === "convtranspose3dNode" ||
             node.type === "depthwiseconv2dNode" ||
             node.type === "separableconv2dNode" ||
-            node.type === "mbconvNode"
+            node.type === "mbconvNode" ||
+            node.type === "invertedResidualBlockNode" ||
+            node.type === "seBlockNode"
           ) {
             data.in_channels = firstInputShape.channels;
+          } else if (node.type === "seBottleneckNode") {
+            data.in_planes = firstInputShape.channels;
           } else if (
             node.type === "batchnorm1dNode" ||
             node.type === "batchnorm2dNode" ||
@@ -1375,6 +1397,7 @@ export default function NeuralNetworkDesigner() {
       case 'reshapeNode':
         return '#22c55e'; // green-500
       case 'linearNode':
+      case 'downsampleNode':
         return '#3b82f6'; // blue-500
       case 'maxpool2dNode':
       case 'avgpool2dNode':
@@ -1411,6 +1434,7 @@ export default function NeuralNetworkDesigner() {
       case 'convtranspose1dNode':
       case 'convtranspose2dNode':
       case 'convtranspose3dNode':
+      case 'invertedResidualBlockNode':
         return '#a855f7'; // purple-500
       case 'lstmNode':
       case 'gruNode':
@@ -1418,9 +1442,12 @@ export default function NeuralNetworkDesigner() {
       case 'multiheadattentionNode':
       case 'transformerencoderlayerNode':
       case 'transformerdecoderlayerNode':
+      case 'upsampleNode':
         return '#ec4899'; // pink-500
       case 'dropoutNode':
       case 'flattenNode':
+      case 'seBlockNode':
+      case 'seBottleneckNode':
         return '#6b7280'; // gray-500
       default:
         return '#ccc';
@@ -1881,6 +1908,24 @@ export default function NeuralNetworkDesigner() {
                       <span className="text-sm font-medium text-sidebar-foreground">Transpose</span>
                     </div>
                   </Card>
+                  <Card
+                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
+                    onClick={() => addNode("upsampleNode", { scale_factor: 2 })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <ArrowUpRight className="h-4 w-4 text-pink-500" />
+                      <span className="text-sm font-medium text-sidebar-foreground">Upsample</span>
+                    </div>
+                  </Card>
+                  <Card
+                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
+                    onClick={() => addNode("downsampleNode", { scale_factor: 2 })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <ArrowDownLeft className="h-4 w-4 text-blue-500" />
+                      <span className="text-sm font-medium text-sidebar-foreground">Downsample</span>
+                    </div>
+                  </Card>
                 </div>
               </div>
 
@@ -1922,6 +1967,33 @@ export default function NeuralNetworkDesigner() {
                     <div className="flex items-center gap-2">
                       <Layers className="h-4 w-4 text-purple-500" />
                       <span className="text-sm font-medium text-sidebar-foreground">MBConv</span>
+                    </div>
+                  </Card>
+                  <Card
+                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
+                    onClick={() => addNode("invertedResidualBlockNode", { in_channels: 32, out_channels: 16, stride: 1, expand_ratio: 1 })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-purple-500" />
+                      <span className="text-sm font-medium text-sidebar-foreground">InvertedResidualBlock</span>
+                    </div>
+                  </Card>
+                  <Card
+                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
+                    onClick={() => addNode("seBlockNode", { in_channels: 32, reduction: 16 })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-purple-500" />
+                      <span className="text-sm font-medium text-sidebar-foreground">SE Block</span>
+                    </div>
+                  </Card>
+                  <Card
+                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
+                    onClick={() => addNode("seBottleneckNode", { in_planes: 64, planes: 64, stride: 1, downsample: false })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-purple-500" />
+                      <span className="text-sm font-medium text-sidebar-foreground">SE Bottleneck</span>
                     </div>
                   </Card>
                 </div>
@@ -1983,7 +2055,7 @@ export default function NeuralNetworkDesigner() {
                     </div>
                   </Card>
                   <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
+                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-.colors border-sidebar-border"
                     onClick={() => addNode("transformerdecoderlayerNode", { d_model: 512, nhead: 8 })}
                   >
                     <div className="flex items-center gap-2">
@@ -2411,6 +2483,39 @@ export default function NeuralNetworkDesigner() {
                         max={1}
                         step={0.01}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { se_ratio: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "invertedResidualBlockNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Input Channels"
+                        value={selectedNode.data.in_channels as number | undefined}
+                        defaultValue={32}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { in_channels: value })}
+                        disabled={isInputConnected}
+                      />
+                      <EditableNumberInput
+                        label="Output Channels"
+                        value={selectedNode.data.out_channels as number | undefined}
+                        defaultValue={16}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { out_channels: value })}
+                      />
+                      <EditableNumberInput
+                        label="Stride"
+                        value={selectedNode.data.stride as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { stride: value })}
+                      />
+                      <EditableNumberInput
+                        label="Expand Ratio"
+                        value={selectedNode.data.expand_ratio as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { expand_ratio: value })}
                       />
                     </>
                   )}
@@ -2869,6 +2974,86 @@ export default function NeuralNetworkDesigner() {
                         defaultValue={0}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { index: value })}
                       />
+                    </>
+                  )}
+                   {selectedNode.type === "upsampleNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Scale Factor"
+                        value={selectedNode.data.scale_factor as number | undefined}
+                        defaultValue={2}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { scale_factor: value })}
+                      />
+                    </>
+                  )}
+                   {selectedNode.type === "downsampleNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Scale Factor"
+                        value={selectedNode.data.scale_factor as number | undefined}
+                        defaultValue={2}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { scale_factor: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "seBlockNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="In-Channels"
+                        value={selectedNode.data.in_channels as number | undefined}
+                        defaultValue={32}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { in_channels: value })}
+                        disabled={isInputConnected}
+                      />
+                      <EditableNumberInput
+                        label="Reduction"
+                        value={selectedNode.data.reduction as number | undefined}
+                        defaultValue={16}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { reduction: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "seBottleneckNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="In-Planes"
+                        value={selectedNode.data.in_planes as number | undefined}
+                        defaultValue={64}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { in_planes: value })}
+                        disabled={isInputConnected}
+                      />
+                      <EditableNumberInput
+                        label="Planes"
+                        value={selectedNode.data.planes as number | undefined}
+                        defaultValue={64}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { planes: value })}
+                      />
+                      <EditableNumberInput
+                        label="Stride"
+                        value={selectedNode.data.stride as number | undefined}
+                        defaultValue={1}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { stride: value })}
+                      />
+                      <div>
+                        <label className="text-sm font-medium text-sidebar-foreground/70">Downsample</label>
+                        <select
+                          value={selectedNode.data.downsample ? 'true' : 'false'}
+                          onChange={(e) =>
+                            updateNodeData(selectedNode.id, { downsample: e.target.value === 'true' })
+                          }
+                          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-black"
+                        >
+                          <option value="true">Yes</option>
+                          <option value="false">No</option>
+                        </select>
+                      </div>
                     </>
                   )}
                 </div>
@@ -3408,7 +3593,7 @@ class MyModel(nn.Module):
                     <strong>1.</strong> Click on a block to select it (shows selection border)
                   </p>
                   <p>
-                    <strong>2.</strong> Press the <kbd className="px-2 py-1 bg-gray-100 rounded text-xs">Delete</kbd> or{" "}
+                    <strong>2.</strong> Press the <kbd className="px-2 py-1 bg-gray-100 rounded text-xs">Delete</kbd> or{' '}
                     <kbd className="px-2 py-1 bg-gray-100 rounded text-xs">Backspace</kbd> key
                   </p>
                   <p>
@@ -3558,7 +3743,7 @@ class MyModel(nn.Module):
                 <h3 className="text-lg font-semibold">📧 Feedback & Contact</h3>
                 <div className="space-y-2 text-sm text-gray-700">
                   <p>
-                    Have suggestions, found a bug, or want to request new features? Send your feedback to:{" "}
+                    Have suggestions, found a bug, or want to request new features? Send your feedback to:{' '}
                     <strong>pmquang87@icloud.com</strong>
                   </p>
                   <p>Thank you for using Neural Network Designer and for your valuable feedback!</p>

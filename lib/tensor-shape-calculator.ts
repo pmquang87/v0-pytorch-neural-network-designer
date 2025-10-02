@@ -114,7 +114,7 @@ export function validateTensorShapes(
             isValid: false,
             error: `Concatenation error: All inputs must have the same dimensions. Input ${firstInput.index + 1} has [${firstDims.join(
               ", ",
-            )}], but input ${currentInput.index + 1} has [${currentDims.join(", ")}].`,
+            )}], but input ${currentInput.index + 1} has [${currentDims.join(", ")}]`,
           };
         }
       }
@@ -425,6 +425,34 @@ export function calculateOutputShape(
         };
       }
       return { ...inputShape, channels: nodeData.out_channels || 16 };
+
+    case "upsampleNode": {
+      const scaleFactor = nodeData.scale_factor || 2;
+      if (inputShape.height && inputShape.width) {
+        const newHeight = Number(inputShape.height) * scaleFactor;
+        const newWidth = Number(inputShape.width) * scaleFactor;
+        return {
+          ...inputShape,
+          height: isNaN(newHeight) ? "dynamic" : newHeight,
+          width: isNaN(newWidth) ? "dynamic" : newWidth,
+        };
+      }
+      return inputShape;
+    }
+
+    case "downsampleNode": {
+      const scaleFactor = nodeData.scale_factor || 2;
+      if (inputShape.height && inputShape.width) {
+        const newHeight = Math.floor(Number(inputShape.height) / scaleFactor);
+        const newWidth = Math.floor(Number(inputShape.width) / scaleFactor);
+        return {
+          ...inputShape,
+          height: isNaN(newHeight) ? "dynamic" : newHeight,
+          width: isNaN(newWidth) ? "dynamic" : newWidth,
+        };
+      }
+      return inputShape;
+    }
 
     case "linearNode":
       return {
@@ -870,6 +898,28 @@ export function calculateOutputShape(
         };
       }
       return { ...inputShape, channels: nodeData.out_channels || 64 };
+
+    case "invertedResidualBlockNode": {
+      const stride = nodeData.stride || 1;
+      const kernel = 3; // Fixed 3x3 depthwise conv
+      const padding = 1; // Padding to match dimensions if stride is 1
+      const dilation = 1;
+
+      if (inputShape.height && inputShape.width && stride > 0) {
+        const newHeight = Math.floor(
+          (Number(inputShape.height) + 2 * padding - dilation * (kernel - 1) - 1) / stride + 1,
+        );
+        const newWidth = Math.floor(
+          (Number(inputShape.width) + 2 * padding - dilation * (kernel - 1) - 1) / stride + 1,
+        );
+        return {
+          channels: nodeData.out_channels,
+          height: isNaN(newHeight) ? "dynamic" : Math.max(1, newHeight),
+          width: isNaN(newWidth) ? "dynamic" : Math.max(1, newWidth),
+        };
+      }
+      return { ...inputShape, channels: nodeData.out_channels };
+    }
 
     default:
       return inputShape;

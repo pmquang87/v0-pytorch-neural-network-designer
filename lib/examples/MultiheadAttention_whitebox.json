@@ -1,0 +1,98 @@
+{
+  "name": "MultiheadAttention (White-Box)",
+  "description": "A detailed breakdown of the MultiheadAttention module, showing its internal components.",
+  "nodes": [
+    {
+      "id": "query-input",
+      "type": "inputNode",
+      "position": { "x": -200, "y": 100 },
+      "data": { "label": "Query", "channels": 1, "height": 10, "width": 512 }
+    },
+    {
+      "id": "key-input",
+      "type": "inputNode",
+      "position": { "x": -200, "y": 300 },
+      "data": { "label": "Key", "channels": 1, "height": 10, "width": 512 }
+    },
+    {
+      "id": "value-input",
+      "type": "inputNode",
+      "position": { "x": -200, "y": 500 },
+      "data": { "label": "Value", "channels": 1, "height": 10, "width": 512 }
+    },
+    {
+      "id": "q-linear",
+      "type": "timeDistributedLinearNode",
+      "position": { "x": 100, "y": 100 },
+      "data": { "in_features": 512, "out_features": 512 }
+    },
+    {
+      "id": "k-linear",
+      "type": "timeDistributedLinearNode",
+      "position": { "x": 100, "y": 300 },
+      "data": { "in_features": 512, "out_features": 512 }
+    },
+    {
+      "id": "v-linear",
+      "type": "timeDistributedLinearNode",
+      "position": { "x": 100, "y": 500 },
+      "data": { "in_features": 512, "out_features": 512 }
+    },
+    {
+      "id": "q-reshape",
+      "type": "reshapeNode",
+      "position": { "x": 400, "y": 100 },
+      "data": { "targetShape": "[10, 8, 64]" }
+    },
+    {
+      "id": "k-reshape",
+      "type": "reshapeNode",
+      "position": { "x": 400, "y": 300 },
+      "data": { "targetShape": "[10, 8, 64]" }
+    },
+    {
+      "id": "v-reshape",
+      "type": "reshapeNode",
+      "position": { "x": 400, "y": 500 },
+      "data": { "targetShape": "[10, 8, 64]" }
+    },
+    {
+      "id": "scaled-dot-product-attention",
+      "type": "scaledDotProductAttentionNode",
+      "position": { "x": 700, "y": 300 },
+      "data": {}
+    },
+    {
+      "id": "concat-reshape",
+      "type": "reshapeNode",
+      "position": { "x": 1000, "y": 300 },
+      "data": { "targetShape": "[10, 512]" }
+    },
+    {
+      "id": "output-linear",
+      "type": "timeDistributedLinearNode",
+      "position": { "x": 1300, "y": 300 },
+      "data": { "in_features": 512, "out_features": 512 }
+    },
+    {
+      "id": "output",
+      "type": "outputNode",
+      "position": { "x": 1600, "y": 300 },
+      "data": { "label": "Output" }
+    }
+  ],
+  "edges": [
+    { "id": "e-q-in-q-lin", "source": "query-input", "target": "q-linear" },
+    { "id": "e-k-in-k-lin", "source": "key-input", "target": "k-linear" },
+    { "id": "e-v-in-v-lin", "source": "value-input", "target": "v-linear" },
+    { "id": "e-q-lin-q-resh", "source": "q-linear", "target": "q-reshape" },
+    { "id": "e-k-lin-k-resh", "source": "k-linear", "target": "k-reshape" },
+    { "id": "e-v-lin-v-resh", "source": "v-linear", "target": "v-reshape" },
+    { "id": "e-q-resh-sdpa", "source": "q-reshape", "target": "scaled-dot-product-attention", "targetHandle": "query" },
+    { "id": "e-k-resh-sdpa", "source": "k-reshape", "target": "scaled-dot-product-attention", "targetHandle": "key" },
+    { "id": "e-v-resh-sdpa", "source": "v-reshape", "target": "scaled-dot-product-attention", "targetHandle": "value" },
+    { "id": "e-sdpa-concat", "source": "scaled-dot-product-attention", "target": "concat-reshape" },
+    { "id": "e-concat-out-lin", "source": "concat-reshape", "target": "output-linear" },
+    { "id": "e-out-lin-out", "source": "output-linear", "target": "output" }
+  ]
+}

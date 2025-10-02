@@ -1,6 +1,6 @@
 {
-    "name": "StyleGAN Generator",
-    "description": "StyleGAN generator with mapping network and style blocks",
+    "name": "StyleGAN",
+    "description": "A full StyleGAN model with a generator and a discriminator.",
     "nodes": [
         {
             "id": "input-1",
@@ -211,6 +211,84 @@
                 "stride": 1,
                 "padding": 0
             }
+        },
+        {
+            "id": "d-conv1-2",
+            "type": "conv2dNode",
+            "position": { "x": 3600, "y": 585 },
+            "data": { "in_channels": 3, "out_channels": 64, "kernel_size": 4, "stride": 2, "padding": 1 }
+        },
+        {
+            "id": "d-leakyrelu1-3",
+            "type": "leakyreluNode",
+            "position": { "x": 3800, "y": 585 },
+            "data": { "negative_slope": 0.2 }
+        },
+        {
+            "id": "d-conv2-4",
+            "type": "conv2dNode",
+            "position": { "x": 4000, "y": 585 },
+            "data": { "in_channels": 64, "out_channels": 128, "kernel_size": 4, "stride": 2, "padding": 1 }
+        },
+        {
+            "id": "d-leakyrelu2-6",
+            "type": "leakyreluNode",
+            "position": { "x": 4200, "y": 585 },
+            "data": { "negative_slope": 0.2 }
+        },
+        {
+            "id": "d-conv3-7",
+            "type": "conv2dNode",
+            "position": { "x": 4400, "y": 585 },
+            "data": { "in_channels": 128, "out_channels": 256, "kernel_size": 4, "stride": 2, "padding": 1 }
+        },
+        {
+            "id": "d-leakyrelu3-9",
+            "type": "leakyreluNode",
+            "position": { "x": 4600, "y": 585 },
+            "data": { "negative_slope": 0.2 }
+        },
+        {
+            "id": "d-conv4-10",
+            "type": "conv2dNode",
+            "position": { "x": 4800, "y": 585 },
+            "data": { "in_channels": 256, "out_channels": 512, "kernel_size": 4, "stride": 2, "padding": 1 }
+        },
+        {
+            "id": "d-leakyrelu4-12",
+            "type": "leakyreluNode",
+            "position": { "x": 5000, "y": 585 },
+            "data": { "negative_slope": 0.2 }
+        },
+        {
+            "id": "d-conv5-13",
+            "type": "conv2dNode",
+            "position": { "x": 5200, "y": 585 },
+            "data": { "in_channels": 512, "out_channels": 1024, "kernel_size": 4, "stride": 2, "padding": 1 }
+        },
+        {
+            "id": "d-leakyrelu5-14",
+            "type": "leakyreluNode",
+            "position": { "x": 5400, "y": 585 },
+            "data": { "negative_slope": 0.2 }
+        },
+        {
+            "id": "d-flatten-15",
+            "type": "flattenNode",
+            "position": { "x": 5600, "y": 585 },
+            "data": {}
+        },
+        {
+            "id": "d-linear-16",
+            "type": "linearNode",
+            "position": { "x": 5800, "y": 585 },
+            "data": { "in_features": 16384, "out_features": 1 }
+        },
+        {
+            "id": "d-sigmoid-17",
+            "type": "sigmoidNode",
+            "position": { "x": 6000, "y": 585 },
+            "data": {}
         }
     ],
     "edges": [
@@ -307,6 +385,19 @@
             "id": "e16-17",
             "source": "upsample-16",
             "target": "output-17"
-        }
+        },
+        { "id": "g-d-connector", "source": "output-17", "target": "d-conv1-2" },
+        { "id": "d-e2-3", "source": "d-conv1-2", "target": "d-leakyrelu1-3" },
+        { "id": "d-e3-4", "source": "d-leakyrelu1-3", "target": "d-conv2-4" },
+        { "id": "d-e4-6", "source": "d-conv2-4", "target": "d-leakyrelu2-6" },
+        { "id": "d-e6-7", "source": "d-leakyrelu2-6", "target": "d-conv3-7" },
+        { "id": "d-e7-9", "source": "d-conv3-7", "target": "d-leakyrelu3-9" },
+        { "id": "d-e9-10", "source": "d-leakyrelu3-9", "target": "d-conv4-10" },
+        { "id": "d-e10-12", "source": "d-conv4-10", "target": "d-leakyrelu4-12" },
+        { "id": "d-e12-13", "source": "d-leakyrelu4-12", "target": "d-conv5-13" },
+        { "id": "d-e13-14", "source": "d-conv5-13", "target": "d-leakyrelu5-14" },
+        { "id": "d-e14-15", "source": "d-leakyrelu5-14", "target": "d-flatten-15" },
+        { "id": "d-e15-16", "source": "d-flatten-15", "target": "d-linear-16" },
+        { "id": "d-e16-17", "source": "d-linear-16", "target": "d-sigmoid-17" }
     ]
 }

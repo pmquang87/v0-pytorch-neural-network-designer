@@ -1,0 +1,434 @@
+{
+    "name": "MobileNetV2",
+    "description": "A full-scale implementation of the MobileNetV2 architecture as described in the paper.",
+    "nodes": [
+        {
+            "id": "input-1",
+            "type": "inputNode",
+            "position": {
+                "x": 100,
+                "y": 100
+            },
+            "data": {
+                "channels": 3,
+                "height": 224,
+                "width": 224
+            }
+        },
+        {
+            "id": "conv2d-2",
+            "type": "conv2dNode",
+            "position": {
+                "x": 300,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 3,
+                "out_channels": 32,
+                "kernel_size": 3,
+                "stride": 2,
+                "padding": 1
+            }
+        },
+        {
+            "id": "inverted-residual-block-1",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 500,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 32,
+                "out_channels": 16,
+                "stride": 1,
+                "expand_ratio": 1
+            }
+        },
+        {
+            "id": "inverted-residual-block-2",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 700,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 16,
+                "out_channels": 24,
+                "stride": 2,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "inverted-residual-block-3",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 900,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 24,
+                "out_channels": 24,
+                "stride": 1,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "inverted-residual-block-4",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 1100,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 24,
+                "out_channels": 32,
+                "stride": 2,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "inverted-residual-block-5",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 1300,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 32,
+                "out_channels": 32,
+                "stride": 1,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "inverted-residual-block-6",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 1500,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 32,
+                "out_channels": 32,
+                "stride": 1,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "inverted-residual-block-7",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 1700,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 32,
+                "out_channels": 64,
+                "stride": 2,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "inverted-residual-block-8",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 1900,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 64,
+                "out_channels": 64,
+                "stride": 1,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "inverted-residual-block-9",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 2100,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 64,
+                "out_channels": 64,
+                "stride": 1,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "inverted-residual-block-10",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 2300,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 64,
+                "out_channels": 64,
+                "stride": 1,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "inverted-residual-block-11",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 2500,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 64,
+                "out_channels": 96,
+                "stride": 1,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "inverted-residual-block-12",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 2700,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 96,
+                "out_channels": 96,
+                "stride": 1,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "inverted-residual-block-13",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 2900,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 96,
+                "out_channels": 96,
+                "stride": 1,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "inverted-residual-block-14",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 3100,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 96,
+                "out_channels": 160,
+                "stride": 2,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "inverted-residual-block-15",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 3300,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 160,
+                "out_channels": 160,
+                "stride": 1,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "inverted-residual-block-16",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 3500,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 160,
+                "out_channels": 160,
+                "stride": 1,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "inverted-residual-block-17",
+            "type": "invertedResidualBlockNode",
+            "position": {
+                "x": 3700,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 160,
+                "out_channels": 320,
+                "stride": 1,
+                "expand_ratio": 6
+            }
+        },
+        {
+            "id": "conv2d-18",
+            "type": "conv2dNode",
+            "position": {
+                "x": 3900,
+                "y": 100
+            },
+            "data": {
+                "in_channels": 320,
+                "out_channels": 1280,
+                "kernel_size": 1,
+                "stride": 1,
+                "padding": 0
+            }
+        },
+        {
+            "id": "adaptiveavgpool2d-19",
+            "type": "adaptiveavgpool2dNode",
+            "position": {
+                "x": 4100,
+                "y": 100
+            },
+            "data": {
+                "output_size": [
+                    1,
+                    1
+                ]
+            }
+        },
+        {
+            "id": "flatten-20",
+            "type": "flattenNode",
+            "position": {
+                "x": 4300,
+                "y": 100
+            },
+            "data": {}
+        },
+        {
+            "id": "linear-21",
+            "type": "linearNode",
+            "position": {
+                "x": 4500,
+                "y": 100
+            },
+            "data": {
+                "in_features": 1280,
+                "out_features": 1000
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "e-input-1-conv2d-2",
+            "source": "input-1",
+            "target": "conv2d-2"
+        },
+        {
+            "id": "e-conv2d-2-inverted-residual-block-1",
+            "source": "conv2d-2",
+            "target": "inverted-residual-block-1"
+        },
+        {
+            "id": "e-inverted-residual-block-1-inverted-residual-block-2",
+            "source": "inverted-residual-block-1",
+            "target": "inverted-residual-block-2"
+        },
+        {
+            "id": "e-inverted-residual-block-2-inverted-residual-block-3",
+            "source": "inverted-residual-block-2",
+            "target": "inverted-residual-block-3"
+        },
+        {
+            "id": "e-inverted-residual-block-3-inverted-residual-block-4",
+            "source": "inverted-residual-block-3",
+            "target": "inverted-residual-block-4"
+        },
+        {
+            "id": "e-inverted-residual-block-4-inverted-residual-block-5",
+            "source": "inverted-residual-block-4",
+            "target": "inverted-residual-block-5"
+        },
+        {
+            "id": "e-inverted-residual-block-5-inverted-residual-block-6",
+            "source": "inverted-residual-block-5",
+            "target": "inverted-residual-block-6"
+        },
+        {
+            "id": "e-inverted-residual-block-6-inverted-residual-block-7",
+            "source": "inverted-residual-block-6",
+            "target": "inverted-residual-block-7"
+        },
+        {
+            "id": "e-inverted-residual-block-7-inverted-residual-block-8",
+            "source": "inverted-residual-block-7",
+            "target": "inverted-residual-block-8"
+        },
+        {
+            "id": "e-inverted-residual-block-8-inverted-residual-block-9",
+            "source": "inverted-residual-block-8",
+            "target": "inverted-residual-block-9"
+        },
+        {
+            "id": "e-inverted-residual-block-9-inverted-residual-block-10",
+            "source": "inverted-residual-block-9",
+            "target": "inverted-residual-block-10"
+        },
+        {
+            "id": "e-inverted-residual-block-10-inverted-residual-block-11",
+            "source": "inverted-residual-block-10",
+            "target": "inverted-residual-block-11"
+        },
+        {
+            "id": "e-inverted-residual-block-11-inverted-residual-block-12",
+            "source": "inverted-residual-block-11",
+            "target": "inverted-residual-block-12"
+        },
+        {
+            "id": "e-inverted-residual-block-12-inverted-residual-block-13",
+            "source": "inverted-residual-block-12",
+            "target": "inverted-residual-block-13"
+        },
+        {
+            "id": "e-inverted-residual-block-13-inverted-residual-block-14",
+            "source": "inverted-residual-block-13",
+            "target": "inverted-residual-block-14"
+        },
+        {
+            "id": "e-inverted-residual-block-14-inverted-residual-block-15",
+            "source": "inverted-residual-block-14",
+            "target": "inverted-residual-block-15"
+        },
+        {
+            "id": "e-inverted-residual-block-15-inverted-residual-block-16",
+            "source": "inverted-residual-block-15",
+            "target": "inverted-residual-block-16"
+        },
+        {
+            "id": "e-inverted-residual-block-16-inverted-residual-block-17",
+            "source": "inverted-residual-block-16",
+            "target": "inverted-residual-block-17"
+        },
+        {
+            "id": "e-inverted-residual-block-17-conv2d-18",
+            "source": "inverted-residual-block-17",
+            "target": "conv2d-18"
+        },
+        {
+            "id": "e-conv2d-18-adaptiveavgpool2d-19",
+            "source": "conv2d-18",
+            "target": "adaptiveavgpool2d-19"
+        },
+        {
+            "id": "e-adaptiveavgpool2d-19-flatten-20",
+            "source": "adaptiveavgpool2d-19",
+            "target": "flatten-20"
+        },
+        {
+            "id": "e-flatten-20-linear-21",
+            "source": "flatten-20",
+            "target": "linear-21"
+        }
+    ]
+}
