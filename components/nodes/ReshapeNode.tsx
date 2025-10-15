@@ -3,10 +3,15 @@ import { Card } from "@/components/ui/card";
 import { Layers } from "lucide-react";
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator";
 
-export function ReshapeNode({ data }: { data: any }) {
+interface ReshapeNodeData {
+  targetShape?: number[] | string
+  inputShape?: TensorShape
+}
+
+export function ReshapeNode({ data }: { data: ReshapeNodeData }) {
   const inputShape: TensorShape | undefined = data.inputShape;
 
-  const outputShape = calculateOutputShape("reshapeNode", [inputShape], { targetShape: data.targetShape });
+  const outputShape = calculateOutputShape("reshapeNode", [(inputShape || {}) as TensorShape], { targetShape: data.targetShape });
 
   return (
     <Card className="min-w-[160px] bg-card border-2 border-green-500/50 shadow-sm">

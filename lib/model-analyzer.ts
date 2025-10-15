@@ -36,7 +36,7 @@ export function analyzeLayer(
     outputShape,
   }
 
-  const batchSize = typeof inputShape.batch === "number" ? inputShape.batch : 1
+  const batchSize = 1
 
   switch (nodeType) {
     case "conv2dNode":
@@ -229,7 +229,7 @@ export function analyzeModel(nodes: any[], edges: any[]): ModelAnalysis {
   for (const node of nodes) {
     if (node.type === "inputNode") continue
 
-    const inputShape = node.data.inputShape || { batch: 1 }
+    const inputShape = node.data.inputShape || {}
     const outputShape = node.data.outputShape || inputShape
 
     const layerAnalysis = analyzeLayer(node.type, node.data, inputShape, outputShape)

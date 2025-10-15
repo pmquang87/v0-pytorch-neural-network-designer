@@ -8,9 +8,9 @@ export function SEBottleneckNode({ data }: NodeProps) {
         <CardTitle className="text-sm text-center">SE Bottleneck</CardTitle>
       </CardHeader>
       <CardContent className="p-2 text-xs text-center">
-        <p>In-Planes: {data.in_planes}</p>
-        <p>Planes: {data.planes}</p>
-        <p>Stride: {data.stride}</p>
+        <p>In-Planes: {String(data.in_planes)}</p>
+        <p>Planes: {String(data.planes)}</p>
+        <p>Stride: {String(data.stride)}</p>
         <p>Downsample: {data.downsample ? 'Yes' : 'No'}</p>
       </CardContent>
       <Handle type="target" position={Position.Left} />

@@ -6,17 +6,18 @@ export async function POST(request: NextRequest) {
   try {
     const body: GenerateModelRequest = await request.json()
 
-    if (!body.graph || !body.graph.nodes || !body.graph.edges) {
+    if (!body.nodes || !body.edges) {
       return NextResponse.json(
         {
           valid: false,
-          error: "Invalid request: missing graph data",
+          error: "Invalid request: missing nodes or edges data",
         },
         { status: 400 },
       )
     }
 
-    const generator = new ModelGenerator(body.graph)
+    const graph = { nodes: body.nodes, edges: body.edges }
+    const generator = new ModelGenerator(graph)
     const validation = generator.validateGraph()
 
     return NextResponse.json(validation)

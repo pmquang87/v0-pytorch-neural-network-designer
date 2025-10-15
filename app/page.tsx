@@ -16,8 +16,9 @@ import {
   type Edge,
   type Node,
   type NodeTypes,
+  type NodeChange,
+  type EdgeChange,
   BackgroundVariant,
-  Group,
   Handle,
   Position,
 } from "@xyflow/react"
@@ -91,7 +92,7 @@ import { SoftmaxNode } from "@/components/nodes/SoftmaxNode"
 import { LeakyReLUNode } from "@/components/nodes/LeakyReLUNode"
 import { DropoutNode } from "@/components/nodes/DropoutNode"
 import { FlattenNode } from "@/components/nodes/FlattenNode"
-import { MaxPool2DNode } from "@/components/nodes/maxpool2dNode"
+import { MaxPool2DNode } from "@/components/nodes/MaxPool2DNode"
 import { AvgPool2DNode } from "@/components/nodes/AvgPool2DNode"
 import { AdaptiveAvgPool2DNode } from "@/components/nodes/AdaptiveAvgPool2DNode"
 import { BatchNorm1DNode } from "@/components/nodes/BatchNorm1DNode"
@@ -261,7 +262,6 @@ const nodeTypes: NodeTypes = {
   reshapeNode: ReshapeNode,
   chunkNode: ChunkNode,
   ssmNode: SsmNode,
-  groupNode: Group,
   mbconvNode: MBConvNode,
   noiseNode: NoiseNode,
   adaptiveInstanceNormNode: AdaptiveInstanceNormNode,
@@ -291,8 +291,8 @@ export default function NeuralNetworkDesigner() {
   } = useUndoRedo(initialNodes, initialEdges)
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const onNodesChange = useCallback(
-    (changes) => {
-      const removals = changes.filter((c) => c.type === "remove")
+    (changes: NodeChange[]) => {
+      const removals = changes.filter((c: NodeChange) => c.type === "remove")
       if (removals.length > 0) {
         takeSnapshot()
         if (selectedNode && removals.some((r) => r.id === selectedNode.id)) {
@@ -304,8 +304,8 @@ export default function NeuralNetworkDesigner() {
     [setNodes, takeSnapshot, selectedNode, setSelectedNode],
   )
   const onEdgesChange = useCallback(
-    (changes) => {
-      if (changes.some((c) => c.type === "remove")) {
+    (changes: EdgeChange[]) => {
+      if (changes.some((c: EdgeChange) => c.type === "remove")) {
         takeSnapshot()
       }
       setEdges((eds) => applyEdgeChanges(changes, eds))
@@ -539,10 +539,10 @@ export default function NeuralNetworkDesigner() {
                 const isPrevNodeFlattenOrPool = prevNode && (prevNode.type === 'flattenNode' || prevNode.type?.includes('pool'));
 
                 if (isPrevNodeFlattenOrPool || firstInputShape.channels) { 
-                    const flattenedSize = 
-                        (firstInputShape.channels || 1) * 
-                        (firstInputShape.height || 1) * 
-                        (firstInputShape.width || 1);
+                    const c = typeof firstInputShape.channels === 'number' ? firstInputShape.channels : 1;
+                    const h = typeof firstInputShape.height === 'number' ? firstInputShape.height : 1;
+                    const w = typeof firstInputShape.width === 'number' ? firstInputShape.width : 1;
+                    const flattenedSize = c * h * w;
                     data.in_features = flattenedSize;
                 }
             }
@@ -582,13 +582,13 @@ export default function NeuralNetworkDesigner() {
   )
 
   const isValidConnection = useCallback(
-    (connection: Connection) => {
+    (edgeOrConnection: Edge | Connection) => {
+      const connection = edgeOrConnection as Connection;
       // For nodes with a specific target handle (e.g., multi-input nodes),
       // check if that specific handle is already connected.
       if (connection.targetHandle) {
         return !edges.some(
-          (edge) =>
-            edge.target === connection.target && edge.targetHandle === connection.targetHandle,
+          (edge) => edge.target === connection.target && edge.targetHandle === connection.targetHandle,
         )
       }
 
@@ -2223,7 +2223,7 @@ export default function NeuralNetworkDesigner() {
                         onUpdate={(value) => updateNodeData(selectedNode.id, { width: value })}
                       />
                       <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
-                        Shape: {formatTensorShape(selectedNode.data.outputShape)}
+                        Shape: {formatTensorShape(selectedNode.data.outputShape as TensorShape | undefined)}
                       </div>
                     </>
                   )}
@@ -2251,7 +2251,7 @@ export default function NeuralNetworkDesigner() {
                         onUpdate={(value) => updateNodeData(selectedNode.id, { width: value })}
                       />
                       <div className="p-2 bg-sidebar-accent/50 rounded text-xs text-sidebar-foreground/70">
-                        Shape: {formatTensorShape(selectedNode.data.outputShape)}
+                        Shape: {formatTensorShape(selectedNode.data.outputShape as TensorShape | undefined)}
                       </div>
                     </>
                   )}
@@ -2722,7 +2722,7 @@ export default function NeuralNetworkDesigner() {
                       <div>
                         <label className="text-sm font-medium text-sidebar-foreground">Dimension (dim)</label>
                         <select
-                          value={selectedNode.data.dim ?? 1}
+                          value={Number(selectedNode.data.dim ?? 1)}
                           onChange={(e) =>
                             updateNodeData(selectedNode.id, { dim: parseInt(e.target.value, 10) })
                           }
@@ -3025,7 +3025,7 @@ export default function NeuralNetworkDesigner() {
                       <div>
                         <label className="text-sm font-medium text-sidebar-foreground/70">Target Shape</label>
                         <Input
-                          value={selectedNode.data.targetShape || ""}
+                          value={String(selectedNode.data.targetShape || "")}
                           onChange={(e) => updateNodeData(selectedNode.id, { targetShape: e.target.value })}
                           placeholder="e.g., [-1, 784]"
                           className="w-full bg-background text-foreground"

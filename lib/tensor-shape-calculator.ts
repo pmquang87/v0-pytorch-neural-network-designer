@@ -713,9 +713,9 @@ export function calculateOutputShape(
         return {};
       }
 
-      let targetDims: (number | string)[];
+      let targetDims: (number | "dynamic")[];
       if (Array.isArray(targetShapeInput)) {
-        targetDims = targetShapeInput;
+        targetDims = targetShapeInput as (number | "dynamic")[];
       } else if (typeof targetShapeInput === 'string') {
         const targetShapeStr = targetShapeInput.trim();
         if (!targetShapeStr) return {};
@@ -737,7 +737,7 @@ export function calculateOutputShape(
         return { error: "multiple -1s" } as any;
       }
 
-      let finalDims: (number | string)[] = targetDims;
+      let finalDims: (number | "dynamic")[] = targetDims;
 
       // If input shape is present, validate and infer the -1 dimension
       if (inputShape && Object.keys(inputShape).length > 0) {
@@ -750,14 +750,14 @@ export function calculateOutputShape(
           const inferredDimIndex = targetDims.indexOf(-1);
 
           if (inferredDimIndex !== -1) {
-            const productOfKnownDims = targetDims.reduce((acc, val) => (val !== -1 && typeof val === 'number' ? acc * val : acc), 1);
+            const productOfKnownDims = targetDims.reduce<number>((acc, val) => (val !== -1 && typeof val === 'number' ? acc * val : acc), 1);
             if (productOfKnownDims === 0 || totalInputSize % productOfKnownDims !== 0) {
               return { error: "mismatch" } as any;
             }
             const inferredDimValue = totalInputSize / productOfKnownDims;
             finalDims = targetDims.map(d => (d === -1 ? inferredDimValue : d));
           } else {
-            const totalOutputSize = targetDims.reduce((acc, val) => (typeof val === 'number' ? acc * val : acc), 1);
+            const totalOutputSize = targetDims.reduce<number>((acc, val) => (typeof val === 'number' ? acc * val : acc), 1);
             if (totalInputSize !== totalOutputSize) {
                 return { error: "mismatch" } as any;
             }
@@ -772,22 +772,22 @@ export function calculateOutputShape(
       const newShape: Partial<TensorShape> = {};
       switch (finalDims.length) {
         case 1:
-          newShape.features = finalDims[0];
+          newShape.features = finalDims[0] as number | "dynamic";
           break;
         case 2:
-          newShape.sequence = finalDims[0];
-          newShape.features = finalDims[1];
+          newShape.sequence = finalDims[0] as number | "dynamic";
+          newShape.features = finalDims[1] as number | "dynamic";
           break;
         case 3:
-          newShape.channels = finalDims[0];
-          newShape.height = finalDims[1];
-          newShape.width = finalDims[2];
+          newShape.channels = finalDims[0] as number | "dynamic";
+          newShape.height = finalDims[1] as number | "dynamic";
+          newShape.width = finalDims[2] as number | "dynamic";
           break;
         case 4:
-          newShape.channels = finalDims[0];
-          newShape.depth = finalDims[1];
-          newShape.height = finalDims[2];
-          newShape.width = finalDims[3];
+          newShape.channels = finalDims[0] as number | "dynamic";
+          newShape.depth = finalDims[1] as number | "dynamic";
+          newShape.height = finalDims[2] as number | "dynamic";
+          newShape.width = finalDims[3] as number | "dynamic";
           break;
         default:
           finalDims.forEach((dim, i) => {
@@ -917,7 +917,7 @@ export function calculateOutputShape(
             break;
           }
           if (typeof size === "number") {
-            if (outputDimSize !== "dynamic") {
+            if (typeof outputDimSize === "number") {
               outputDimSize = Math.max(outputDimSize, size);
             }
           }
@@ -949,12 +949,16 @@ export function calculateOutputShape(
       for (const shape of inputShapes) {
         if (!shape) continue;
         const dimSize = shape[targetConcatDim];
-        if (dimSize === "dynamic" || totalDimSize === "dynamic") {
+        if (dimSize === "dynamic") {
           totalDimSize = "dynamic";
           break;
         }
-        if (dimSize !== undefined) {
-          totalDimSize += Number(dimSize);
+        if (typeof dimSize === "number") {
+          if (typeof totalDimSize === "number") {
+            totalDimSize += dimSize;
+          } else {
+            totalDimSize = "dynamic";
+          }
         }
       }
 

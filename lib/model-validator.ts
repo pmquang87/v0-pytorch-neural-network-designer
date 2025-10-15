@@ -151,13 +151,14 @@ export class ModelValidator {
       let inputShapes: (TensorShape | undefined)[] = []
 
       if (node.type === "concatenateNode" || node.type === "addNode" || node.type === "multiplyNode") {
-        const numInputs = node.data.num_inputs || node.data.inputs || 2
+        const numInputs = Number(node.data.num_inputs ?? node.data.inputs ?? 2)
         for (let i = 1; i <= numInputs; i++) {
           const handleId = `input${i}`
           const edge = inputEdges.find((e) => e.targetHandle === handleId)
           if (edge) {
             const sourceNode = nodeMap.get(edge.source)
-            inputShapes.push(sourceNode?.data.outputShape)
+            const sourceShape = (sourceNode?.data as any)?.outputShape as TensorShape | undefined
+            inputShapes.push(sourceShape)
           } else {
             inputShapes.push(undefined)
           }
@@ -166,46 +167,20 @@ export class ModelValidator {
         const queryEdge = inputEdges.find((e) => e.targetHandle === "query")
         if (queryEdge) {
           const sourceNode = nodeMap.get(queryEdge.source)
-          inputShapes.push(sourceNode?.data.outputShape)
+          const sourceShape = (sourceNode?.data as any)?.outputShape as TensorShape | undefined
+          inputShapes.push(sourceShape)
         }
       } else {
         if (inputEdges.length === 0) continue
         inputShapes = inputEdges.map((edge) => {
           const sourceNode = nodeMap.get(edge.source)
-          return sourceNode?.data.outputShape
+          const sourceShape = (sourceNode?.data as any)?.outputShape as TensorShape | undefined
+          return sourceShape
         })
       }
 
       const connectedShapes = inputShapes.filter((s): s is TensorShape => !!s)
 
-      if (node.type === "concatenateNode") {
-        if (connectedShapes.length > 1) {
-          const firstShape = connectedShapes[0];
-          const dim = node.data.dim ?? 0; 
-          let mismatchFound = false;
-          for (const shape of connectedShapes.slice(1)) {
-            if (shape && firstShape && shape.length !== firstShape.length) {
-              errors.push(
-                `Node '${node.data.label || node.id}' (concatenateNode): Input tensors must have the same number of dimensions.`
-              );
-              mismatchFound = true;
-              break;
-            }
-            if (shape && firstShape) {
-              for (let i = 0; i < shape.length; i++) {
-                if (i !== dim && shape[i] !== firstShape[i]) {
-                  errors.push(
-                    `Node '${node.data.label || node.id}' (concatenateNode): Input tensor shapes must match except in the concatenation dimension (dim=${dim}).`
-                  );
-                  mismatchFound = true;
-                  break;
-                }
-              }
-            }
-            if (mismatchFound) break;
-          }
-        }
-      }
 
       if (node.type === "addNode" || node.type === "multiplyNode" || node.type === "concatenateNode") {
         if (connectedShapes.length < 2) {
@@ -248,8 +223,11 @@ export class ModelValidator {
           }
           break
         case "dropoutNode":
-          if (nodeData?.p === undefined || nodeData?.p < 0 || nodeData?.p > 1) {
-            errors.push(`Dropout node ${node.data.label || node.id} has invalid probability value (should be between 0 and 1)`)
+          {
+            const p = Number(nodeData?.p)
+            if (!Number.isFinite(p) || p < 0 || p > 1) {
+              errors.push(`Dropout node ${node.data.label || node.id} has invalid probability value (should be between 0 and 1)`)
+            }
           }
           break
         // Add more node type validations as needed
@@ -273,8 +251,8 @@ export class ModelValidator {
 
     const largeLinearLayers = nodes.filter((node) => {
       if (node.type === "linearNode") {
-        const inFeatures = node.data?.in_features || 0
-        const outFeatures = node.data?.out_features || 0
+        const inFeatures = Number(node.data?.in_features ?? 0)
+        const outFeatures = Number(node.data?.out_features ?? 0)
         return inFeatures > 10000 || outFeatures > 10000
       }
       return false

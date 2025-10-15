@@ -1,21 +1,20 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-export interface NumericInputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface NumericInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {
   value: number
-  onChange: (value: number) => void
+  onValueChange: (value: number) => void
   min?: number
   max?: number
 }
 
 const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
-  ({ className, value, onChange, min, max, ...props }, ref) => {
+  ({ className, value, onValueChange, min, max, ...props }, ref) => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const num = parseInt(e.target.value, 10)
       if (!isNaN(num)) {
         if ((min === undefined || num >= min) && (max === undefined || num <= max)) {
-          onChange(num)
+          onValueChange(num)
         }
       }
     }

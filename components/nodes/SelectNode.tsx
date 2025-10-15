@@ -1,5 +1,5 @@
 import { Handle, Position } from "@xyflow/react"
-import type { NodeData, HelpContent } from "@/lib/types"
+import type { HelpContent } from "@/lib/types"
 import { HelpCircle } from "lucide-react"
 import {
   Tooltip,
@@ -7,11 +7,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { formatTensorShape } from "@/lib/tensor-shape-calculator"
+import { formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-interface SelectNodeData extends NodeData {
+interface SelectNodeData {
   dim?: number
   index?: number
+  inputShape?: TensorShape
+  outputShape?: TensorShape
 }
 
 interface SelectNodeProps {

@@ -4,7 +4,13 @@ import { X } from "lucide-react";
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator";
 import { useEffect } from "react";
 
-export function MultiplyNode({ id, data }: { id: string; data: any }) {
+interface MultiplyNodeData {
+  inputShape?: (TensorShape | undefined)[]
+  // Allow additional arbitrary properties used by calculation logic without enforcing structure
+  [key: string]: unknown
+}
+
+export function MultiplyNode({ id, data }: { id: string; data: MultiplyNodeData }) {
   const updateNodeInternals = useUpdateNodeInternals();
   // data.inputShape is an array of shapes (or undefined) populated by propagateTensorShapes
   const inputShapes: (TensorShape | undefined)[] = Array.isArray(data.inputShape) ? data.inputShape : [];
@@ -18,7 +24,7 @@ export function MultiplyNode({ id, data }: { id: string; data: any }) {
   }, [id, numInputs, updateNodeInternals]);
 
   // Get all defined input shapes for output calculation and display
-  const definedInputShapes = inputShapes.filter((s): s is TensorShape => s && Object.keys(s).length > 0);
+  const definedInputShapes = inputShapes.filter((s): s is TensorShape => !!s && Object.keys(s).length > 0);
 
   // Calculate output shape using the tensor shape calculator
   const outputShape = calculateOutputShape("multiplyNode", definedInputShapes, data);

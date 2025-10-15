@@ -18,7 +18,7 @@ export function AddNode({ id, data }: { id: string; data: any }) {
   }, [id, numInputs, updateNodeInternals]);
 
   // Get all defined input shapes for output calculation and display
-  const definedInputShapes = inputShapes.filter((s): s is TensorShape => s && Object.keys(s).length > 0);
+  const definedInputShapes = inputShapes.filter((s): s is TensorShape => !!s && Object.keys(s).length > 0);
   const firstValidInputShape = definedInputShapes[0];
 
   // Calculate output shape using the tensor shape calculator

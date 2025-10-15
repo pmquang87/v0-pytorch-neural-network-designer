@@ -1,10 +1,11 @@
 import { Handle, Position } from "@xyflow/react"
-import type { NodeData } from "@/lib/types"
-import { formatTensorShape } from "@/lib/tensor-shape-calculator"
+import { formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-interface TransposeNodeData extends NodeData {
+interface TransposeNodeData {
   dim0?: number
   dim1?: number
+  inputShape?: TensorShape
+  outputShape?: TensorShape
 }
 
 interface TransposeNodeProps {
