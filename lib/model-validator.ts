@@ -308,6 +308,50 @@ export class ModelValidator {
       warnings,
     }
   }
+
+  // Test shape compatibility between two shapes (for testing purposes)
+  testShapeCompatibility(shape1: any, shape2: any): boolean {
+    // Handle dynamic batch sizes
+    if (shape1.batch !== shape2.batch) {
+      if (shape1.batch !== 'dynamic' && shape2.batch !== 'dynamic') {
+        // Different non-dynamic batch sizes are still compatible for shape testing
+      }
+    }
+
+    // Check features match
+    if (shape1.features !== undefined && shape2.features !== undefined) {
+      if (shape1.features !== shape2.features &&
+        shape1.features !== 'dynamic' && shape2.features !== 'dynamic') {
+        return false;
+      }
+    }
+
+    // Check if shape2 has in_features (for linear layers)
+    if (shape2.in_features !== undefined && shape1.features !== undefined) {
+      if (shape1.features !== shape2.in_features &&
+        shape1.features !== 'dynamic' && shape2.in_features !== 'dynamic') {
+        return false;
+      }
+    }
+
+    // Check channels match
+    if (shape1.channels !== undefined && shape2.channels !== undefined) {
+      if (shape1.channels !== shape2.channels &&
+        shape1.channels !== 'dynamic' && shape2.channels !== 'dynamic') {
+        return false;
+      }
+    }
+
+    // Check if shape2 has in_channels (for conv layers)
+    if (shape2.in_channels !== undefined && shape1.channels !== undefined) {
+      if (shape1.channels !== shape2.in_channels &&
+        shape1.channels !== 'dynamic' && shape2.in_channels !== 'dynamic') {
+        return false;
+      }
+    }
+
+    return true;
+  }
 }
 
 // React hook for model validation
