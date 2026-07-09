@@ -1,5 +1,25 @@
 import { type GraphIR, type GraphNode, type GraphEdge, PYTORCH_LAYER_MANIFEST } from "./types"
 
+// Normalize a kernel/stride/padding value (number, [h, w] array, or "h,w"
+// string) to an [h, w] pair so the arithmetic below never produces NaN.
+function toScalarPair(value: any, defaultValue: number): [number, number] {
+  if (typeof value === "number" && !isNaN(value)) return [value, value]
+  if (Array.isArray(value)) {
+    const nums = value.map(Number).filter((n) => !isNaN(n))
+    if (nums.length >= 2) return [nums[0], nums[1]]
+    if (nums.length === 1) return [nums[0], nums[0]]
+  }
+  if (typeof value === "string") {
+    const nums = value
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !isNaN(n))
+    if (nums.length >= 2) return [nums[0], nums[1]]
+    if (nums.length === 1) return [nums[0], nums[0]]
+  }
+  return [defaultValue, defaultValue]
+}
+
 export interface VisualizationLayer {
   id: string
   name: string
@@ -32,13 +52,27 @@ export class VisualizationGenerator {
     this.inputNode = this.nodes.find((node) => node.type === "inputNode") || null
   }
 
+  // Input nodes store their dimensions as individual fields (channels/height/
+  // width/features), not as a `shape` array — build the array from those.
+  private getInputShapeArray(node: GraphNode | null): number[] {
+    if (!node) return []
+    if (Array.isArray(node.data.shape)) return node.data.shape
+    const { channels, depth, height, width, sequence, length, features } = node.data as any
+    const dims = [channels, depth, height, width, sequence, length, features].filter(
+      (v): v is number => typeof v === "number",
+    )
+    // Leading batch dimension for display purposes
+    return dims.length > 0 ? [1, ...dims] : []
+  }
+
   // Calculate tensor shapes through the network
   private calculateTensorShapes(): Map<string, number[]> {
     const shapes = new Map<string, number[]>()
 
     // Start with input shape
-    if (this.inputNode?.data.shape) {
-      shapes.set(this.inputNode.id, this.inputNode.data.shape)
+    const inputShapeArray = this.getInputShapeArray(this.inputNode)
+    if (this.inputNode && inputShapeArray.length > 0) {
+      shapes.set(this.inputNode.id, inputShapeArray)
     }
 
     // Topologically sort nodes
@@ -70,28 +104,30 @@ export class VisualizationGenerator {
         // Linear layer: [batch, in_features] -> [batch, out_features]
         return [inputShape[0], node.data.out_features || inputShape[1]]
 
-      case "conv2dNode":
+      case "conv2dNode": {
         // Conv2D: [batch, in_channels, height, width] -> [batch, out_channels, new_height, new_width]
         if (inputShape.length !== 4) return inputShape
-        const kernel = node.data.kernel_size || 3
-        const stride = node.data.stride || 1
-        const padding = node.data.padding || 0
-        const newHeight = Math.floor((inputShape[2] + 2 * padding - kernel) / stride + 1)
-        const newWidth = Math.floor((inputShape[3] + 2 * padding - kernel) / stride + 1)
+        const [kernelH, kernelW] = toScalarPair(node.data.kernel_size, 3)
+        const [strideH, strideW] = toScalarPair(node.data.stride, 1)
+        const [padH, padW] = toScalarPair(node.data.padding, 0)
+        const newHeight = Math.floor((inputShape[2] + 2 * padH - kernelH) / strideH + 1)
+        const newWidth = Math.floor((inputShape[3] + 2 * padW - kernelW) / strideW + 1)
         return [inputShape[0], node.data.out_channels || inputShape[1], newHeight, newWidth]
+      }
 
-      case "maxpool2dNode":
+      case "maxpool2dNode": {
         // MaxPool2D: reduces spatial dimensions
         if (inputShape.length !== 4) return inputShape
-        const poolKernel = node.data.kernel_size || 2
-        const poolStride = node.data.stride || poolKernel
-        const pooledHeight = Math.floor((inputShape[2] - poolKernel) / poolStride + 1)
-        const pooledWidth = Math.floor((inputShape[3] - poolKernel) / poolStride + 1)
+        const [poolKernelH, poolKernelW] = toScalarPair(node.data.kernel_size, 2)
+        const [poolStrideH, poolStrideW] = toScalarPair(node.data.stride ?? node.data.kernel_size, 2)
+        const pooledHeight = Math.floor((inputShape[2] - poolKernelH) / poolStrideH + 1)
+        const pooledWidth = Math.floor((inputShape[3] - poolKernelW) / poolStrideW + 1)
         return [inputShape[0], inputShape[1], pooledHeight, pooledWidth]
+      }
 
       case "flattenNode":
         // Flatten: [batch, ...] -> [batch, flattened_size]
-        const startDim = node.data.start_dim || 1
+        const startDim = node.data.start_dim ?? 1
         const flattenedSize = inputShape.slice(startDim).reduce((a, b) => a * b, 1)
         return [inputShape[0], flattenedSize]
 
@@ -170,7 +206,10 @@ export class VisualizationGenerator {
 
     for (let i = 0; i < sortedNodes.length; i++) {
       const node = sortedNodes[i]
-      const inputShape = i > 0 ? shapes.get(sortedNodes[i - 1].id) : undefined
+      // Input shape comes from the node's actual predecessor in the graph,
+      // not from whichever node happens to precede it in topological order
+      const incomingEdge = this.edges.find((edge) => edge.target === node.id)
+      const inputShape = incomingEdge ? shapes.get(incomingEdge.source) : undefined
       const outputShape = shapes.get(node.id)
 
       layers.push({
@@ -197,7 +236,7 @@ export class VisualizationGenerator {
     return {
       layers,
       connections,
-      inputShape: this.inputNode?.data.shape || [],
+      inputShape: this.getInputShapeArray(this.inputNode),
     }
   }
 

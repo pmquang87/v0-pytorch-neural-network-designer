@@ -27,8 +27,8 @@ const selectNodeHelp: HelpContent = {
     {
       name: "dim",
       type: "number",
-      description: "Dimension along which to select. For example, dim=0 selects along the batch dimension.",
-      default: 0
+      description: "Dimension along which to select (1-based, excluding batch). For example, dim=1 selects along the first non-batch dimension.",
+      default: 1
     },
     {
       name: "index",
@@ -70,7 +70,7 @@ export function SelectNode({ data }: SelectNodeProps) {
           </TooltipProvider>
         </div>
         <div className="text-xs text-purple-600">
-          dim: {data.dim ?? 0}, idx: {data.index ?? 0}
+          dim: {data.dim ?? 1}, idx: {data.index ?? 0}
         </div>
         {data.inputShape && <div className="text-xs text-gray-500 mt-1">In: {formatTensorShape(data.inputShape)}</div>}
         {data.outputShape && <div className="text-xs text-gray-500">Out: {formatTensorShape(data.outputShape)}</div>}

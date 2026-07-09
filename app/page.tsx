@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -76,12 +76,19 @@ import { analyzeModel, formatNumber, type ModelAnalysis } from "@/lib/model-anal
 import { useAutoSave, StorageUtils } from "@/lib/auto-save"
 import { useModelValidation } from "@/lib/model-validator"
 import { useUndoRedo } from "@/lib/undo-redo"
+import { useKeyboardShortcuts } from "@/lib/keyboard-shortcuts"
 import { Input } from "@/components/ui/input"
 import { EditableNumberInput } from "@/components/ui/EditableNumberInput"
 
 // Custom Node Components
 import { InputNode } from "@/components/nodes/InputNode"
 import { ConstantNode } from "@/components/nodes/ConstantNode"
+import { MaxPool1DNode } from "@/components/nodes/MaxPool1DNode"
+import { MaxPool3DNode } from "@/components/nodes/MaxPool3DNode"
+import { BatchNorm3DNode } from "@/components/nodes/BatchNorm3DNode"
+import { FractionalMaxPool2DNode } from "@/components/nodes/FractionalMaxPool2DNode"
+import { LPPool2DNode } from "@/components/nodes/LPPool2DNode"
+import { AdaptiveMaxPool1DNode } from "@/components/nodes/AdaptiveMaxPool1DNode"
 import { LinearNode } from "@/components/nodes/LinearNode"
 import { TimeDistributedLinearNode } from "@/components/nodes/TimeDistributedLinearNode"
 import { Conv2DNode } from "@/components/nodes/Conv2DNode"
@@ -236,11 +243,17 @@ const nodeTypes: NodeTypes = {
   hardsigmoidNode: HardsigmoidNode,
   dropoutNode: DropoutNode,
   flattenNode: FlattenNode,
+  maxpool1dNode: MaxPool1DNode,
   maxpool2dNode: MaxPool2DNode,
+  maxpool3dNode: MaxPool3DNode,
   avgpool2dNode: AvgPool2DNode,
   adaptiveavgpool2dNode: AdaptiveAvgPool2DNode,
+  adaptivemaxpool1dNode: AdaptiveMaxPool1DNode,
+  fractionalmaxpool2dNode: FractionalMaxPool2DNode,
+  lppool2dNode: LPPool2DNode,
   batchnorm1dNode: BatchNorm1DNode,
   batchnorm2dNode: BatchNorm2DNode,
+  batchnorm3dNode: BatchNorm3DNode,
   layernormNode: LayerNormNode,
   groupnormNode: GroupNormNode,
   instancenorm1dNode: InstanceNorm1DNode,
@@ -286,6 +299,7 @@ export default function NeuralNetworkDesigner() {
     undo,
     redo,
     takeSnapshot,
+    resetHistory,
     canUndo,
     canRedo,
   } = useUndoRedo(initialNodes, initialEdges)
@@ -349,6 +363,15 @@ export default function NeuralNetworkDesigner() {
 
   const isInputConnected = selectedNode ? edges.some((edge) => edge.target === selectedNode.id) : false
 
+  // Live total-parameter count shown in the header
+  const totalParameters = useMemo(() => {
+    try {
+      return analyzeModel(nodes, edges).totalParameters
+    } catch {
+      return 0
+    }
+  }, [nodes, edges])
+
   useEffect(() => {
     const handleAutoSaveRequest = () => {
       if (typeof window !== "undefined") {
@@ -368,8 +391,7 @@ export default function NeuralNetworkDesigner() {
     if (autoSave.hasSavedData()) {
       const loadedState = autoSave.load()
       if (loadedState) {
-        setNodes(loadedState.nodes)
-        setEdges(loadedState.edges)
+        resetHistory(loadedState.nodes, loadedState.edges)
         toast({
           title: "Session Restored",
           description: "Your previous session has been loaded.",
@@ -919,6 +941,7 @@ export default function NeuralNetworkDesigner() {
           takeSnapshot();
           setNodes(importedData.nodes);
           setEdges(importedData.edges);
+          setSelectedNode(null);
           const importedModelName = importedData.name || file.name.replace('.json', '');
           setCurrentModelName(importedModelName);
           toast({ title: "Model Imported", description: `Successfully imported "${importedModelName}"` });
@@ -954,6 +977,7 @@ export default function NeuralNetworkDesigner() {
         takeSnapshot()
         setNodes(loadedState.nodes)
         setEdges(loadedState.edges)
+        setSelectedNode(null)
         toast({ title: "Model Loaded", description: `Model has been loaded successfully.` })
         setShowLoadDialog(false)
 
@@ -982,11 +1006,12 @@ export default function NeuralNetworkDesigner() {
         body: JSON.stringify({ nodes, edges }),
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to generate model")
+      const data = await response.json().catch(() => null)
+
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "Failed to generate model")
       }
 
-      const data = await response.json()
       setGeneratedCode(data.code)
 
       setShowCodeDialog(true)
@@ -997,7 +1022,7 @@ export default function NeuralNetworkDesigner() {
     } catch (error) {
       toast({
         title: "Generation Failed",
-        description: "Failed to generate model code",
+        description: error instanceof Error ? error.message : "Failed to generate model code",
         variant: "destructive",
       })
     } finally {
@@ -1070,6 +1095,119 @@ export default function NeuralNetworkDesigner() {
         unsecuredCopyToClipboard(generatedCode);
     }
 }, [generatedCode, toast]);
+
+  // --- Clipboard (copy/paste/cut) for canvas nodes ---
+  const clipboardRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null)
+
+  const copySelectedNodes = useCallback(() => {
+    const selectedNodes = nodes.filter((n) => n.selected)
+    if (selectedNodes.length === 0) return false
+    const selectedIds = new Set(selectedNodes.map((n) => n.id))
+    const internalEdges = edges.filter((e) => selectedIds.has(e.source) && selectedIds.has(e.target))
+    clipboardRef.current = {
+      nodes: JSON.parse(JSON.stringify(selectedNodes)),
+      edges: JSON.parse(JSON.stringify(internalEdges)),
+    }
+    toast({ title: "Copied", description: `Copied ${selectedNodes.length} node(s)` })
+    return true
+  }, [nodes, edges, toast])
+
+  const pasteNodes = useCallback(() => {
+    const clipboard = clipboardRef.current
+    if (!clipboard || clipboard.nodes.length === 0) return
+    takeSnapshot()
+
+    const idMap = new Map<string, string>()
+    const suffix = Date.now().toString(36)
+    const pastedNodes = clipboard.nodes.map((node, i) => {
+      const newId = `${node.type}_${suffix}_${i}`
+      idMap.set(node.id, newId)
+      return {
+        ...node,
+        id: newId,
+        selected: true,
+        position: { x: node.position.x + 40, y: node.position.y + 40 },
+        data: JSON.parse(JSON.stringify(node.data)),
+      }
+    })
+    const pastedEdges = clipboard.edges.map((edge, i) => ({
+      ...edge,
+      id: `edge_${suffix}_${i}`,
+      source: idMap.get(edge.source)!,
+      target: idMap.get(edge.target)!,
+      selected: false,
+    }))
+
+    setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), ...pastedNodes])
+    setEdges((eds) => [...eds, ...pastedEdges])
+    toast({ title: "Pasted", description: `Pasted ${pastedNodes.length} node(s)` })
+  }, [setNodes, setEdges, takeSnapshot, toast])
+
+  const duplicateNode = useCallback(
+    (nodeToCopy: Node) => {
+      takeSnapshot()
+      const newId = `${nodeToCopy.type}_${Date.now().toString(36)}`
+      const newNode: Node = {
+        ...nodeToCopy,
+        id: newId,
+        selected: false,
+        position: { x: nodeToCopy.position.x + 40, y: nodeToCopy.position.y + 40 },
+        data: JSON.parse(JSON.stringify(nodeToCopy.data)),
+      }
+      setNodes((nds) => [...nds, newNode])
+      toast({ title: "Node Duplicated", description: `Created ${newId}` })
+    },
+    [setNodes, takeSnapshot, toast],
+  )
+
+  const cutSelectedNodes = useCallback(() => {
+    if (!copySelectedNodes()) return
+    takeSnapshot()
+    const selectedIds = new Set(nodes.filter((n) => n.selected).map((n) => n.id))
+    setNodes((nds) => nds.filter((n) => !selectedIds.has(n.id)))
+    setEdges((eds) => eds.filter((e) => !selectedIds.has(e.source) && !selectedIds.has(e.target)))
+    if (selectedNode && selectedIds.has(selectedNode.id)) {
+      setSelectedNode(null)
+    }
+  }, [copySelectedNodes, nodes, selectedNode, setNodes, setEdges, takeSnapshot])
+
+  // Activate global keyboard shortcuts (they dispatch the CustomEvents handled below)
+  useKeyboardShortcuts()
+
+  useEffect(() => {
+    const handlers: Record<string, () => void> = {
+      "save-model": () => setShowSaveDialog(true),
+      "open-model": handleOpenLoadDialog,
+      "new-model": resetCanvas,
+      "reset-canvas": resetCanvas,
+      undo,
+      redo,
+      "generate-code": generateModel,
+      "toggle-help": () => setShowHelpDialog((prev) => !prev),
+      "fit-view": () => reactFlowInstanceRef.current?.fitView({ padding: 0.1, duration: 200 }),
+      "select-all": () => setNodes((nds) => nds.map((n) => ({ ...n, selected: true }))),
+      "deselect-all": () => setNodes((nds) => nds.map((n) => ({ ...n, selected: false }))),
+      "copy-selected": copySelectedNodes,
+      "paste-nodes": pasteNodes,
+      "cut-selected": cutSelectedNodes,
+    }
+
+    const entries = Object.entries(handlers)
+    entries.forEach(([event, handler]) => window.addEventListener(event, handler))
+    return () => {
+      entries.forEach(([event, handler]) => window.removeEventListener(event, handler))
+    }
+  }, [
+    handleOpenLoadDialog,
+    resetCanvas,
+    undo,
+    redo,
+    generateModel,
+    setNodes,
+    copySelectedNodes,
+    pasteNodes,
+    cutSelectedNodes,
+  ])
 
   const parsePyTorchCode = useCallback(
     (code: string) => {
@@ -1201,7 +1339,8 @@ export default function NeuralNetworkDesigner() {
           layerMap.set(layerName, nodeId)
 
           const nodeType = nodeTypeMap[layerType]
-          if (!nodeType) {
+          // Only create nodes for types the canvas can actually render
+          if (!nodeType || !nodeTypes[nodeType]) {
             unsupportedModules.push(layerType)
             warnings.push(`Unsupported layer type: ${layerType}. This layer will be skipped in visualization.`)
             return
@@ -1398,6 +1537,7 @@ export default function NeuralNetworkDesigner() {
     takeSnapshot()
     setNodes(result.nodes)
     setEdges(result.edges)
+    setSelectedNode(null)
     setParseErrors([])
     setParseWarnings(result.warnings)
     setUnsupportedModules(result.unsupportedModules)
@@ -1423,8 +1563,18 @@ export default function NeuralNetworkDesigner() {
   const keyboardShortcuts = [
     { key: "Ctrl + S", description: "Save model" },
     { key: "Ctrl + O", description: "Open model" },
+    { key: "Ctrl + N", description: "New model (reset canvas)" },
     { key: "Ctrl + G", description: "Generate PyTorch code" },
     { key: "Ctrl + R", description: "Reset canvas" },
+    { key: "Ctrl + Z", description: "Undo" },
+    { key: "Ctrl + Y / Ctrl + Shift + Z", description: "Redo" },
+    { key: "Ctrl + A", description: "Select all nodes" },
+    { key: "Ctrl + D", description: "Deselect all nodes" },
+    { key: "Ctrl + C", description: "Copy selected nodes" },
+    { key: "Ctrl + X", description: "Cut selected nodes" },
+    { key: "Ctrl + V", description: "Paste nodes" },
+    { key: "Ctrl + F", description: "Fit view to canvas" },
+    { key: "H", description: "Toggle help dialog" },
     { key: "Delete / Backspace", description: "Delete selected nodes" },
   ]
 
@@ -1505,6 +1655,11 @@ export default function NeuralNetworkDesigner() {
             <h1 className="text-2xl font-bold text-foreground">{currentModelName || "Neural Network Designer"}</h1>
             <p className="text-sm text-muted-foreground">Build PyTorch models visually</p>
           </div>
+          {totalParameters > 0 && (
+            <Badge variant="secondary" className="ml-2" title={`${totalParameters.toLocaleString()} trainable parameters`}>
+              {formatNumber(totalParameters)} params
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowHelpDialog(true)}>
@@ -1551,6 +1706,10 @@ export default function NeuralNetworkDesigner() {
           <Button variant="outline" size="sm" onClick={analyzeCurrentModel} disabled={nodes.length === 0}>
             <BarChart3 className="h-4 w-4 mr-2" />
             Model Analysis
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowCodeInputDialog(true)}>
+            <FileUp className="h-4 w-4 mr-2" />
+            Import Code
           </Button>
           <Button onClick={generateModel} disabled={isGenerating} className="flex items-center">
             {isGenerating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Code className="h-4 w-4 mr-2" />}
@@ -2106,7 +2265,7 @@ export default function NeuralNetworkDesigner() {
                     </div>
                   </Card>
                   <Card
-                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-.colors border-sidebar-border"
+                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
                     onClick={() => addNode("transformerdecoderlayerNode", { d_model: 512, nhead: 8 })}
                   >
                     <div className="flex items-center gap-2">
@@ -2197,6 +2356,15 @@ export default function NeuralNetworkDesigner() {
                     />
                   </div>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => duplicateNode(selectedNode)}
+                >
+                  <Copy className="h-3.5 w-3.5 mr-1.5" />
+                  Duplicate Node
+                </Button>
                 <Separator />
                 <div className="space-y-3">
                   {selectedNode.type === "inputNode" && (
@@ -2260,15 +2428,24 @@ export default function NeuralNetworkDesigner() {
                       <div>
                         <label className="text-sm font-medium text-sidebar-foreground/70">Shape</label>
                         <Input
-                          value={JSON.stringify(selectedNode.data.shape || [])}
-                          onChange={(e) => {
+                          key={selectedNode.id}
+                          defaultValue={JSON.stringify(selectedNode.data.shape || [])}
+                          onBlur={(e) => {
                             try {
                               const newShape = JSON.parse(e.target.value);
                               if (Array.isArray(newShape) && newShape.every(item => typeof item === 'number')) {
                                 updateNodeData(selectedNode.id, { shape: newShape });
+                                return;
                               }
                             } catch (err) {
-                              // Invalid JSON, do nothing
+                              // fall through to reset below
+                            }
+                            // Invalid input: reset the field to the last valid shape
+                            e.target.value = JSON.stringify(selectedNode.data.shape || []);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              (e.target as HTMLInputElement).blur();
                             }
                           }}
                           placeholder="e.g., [1, 1, 768]"
@@ -2869,7 +3046,7 @@ export default function NeuralNetworkDesigner() {
                         value={selectedNode.data.hidden_size as number | undefined}
                         defaultValue={1}
                         min={1}
-                        onUpdate={(value) => updateNodeData(selectedNode.id, { hidden_sizen: value })}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { hidden_size: value })}
                       />
                       <EditableNumberInput
                         label="Number of Layers"

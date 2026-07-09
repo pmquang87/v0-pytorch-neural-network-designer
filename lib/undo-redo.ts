@@ -18,6 +18,18 @@ export class UndoRedoManager {
       timestamp: Date.now(),
     };
 
+    // Skip if identical to the current state (e.g. node + edge removal in the
+    // same tick both snapshot the same pre-delete state, which would make the
+    // user press Undo twice to see a change)
+    const current = this.getCurrentState();
+    if (
+      current &&
+      JSON.stringify(current.nodes) === JSON.stringify(newState.nodes) &&
+      JSON.stringify(current.edges) === JSON.stringify(newState.edges)
+    ) {
+      return;
+    }
+
     // Remove any states after current index (when branching from history)
     this.history = this.history.slice(0, this.currentIndex + 1);
 
@@ -133,6 +145,16 @@ export function useUndoRedo(initialNodes: any[] = [], initialEdges: any[] = []) 
     }
   }, []);
 
+  // Replace the whole history with a single baseline state (e.g. after
+  // restoring a saved session) so Undo cannot step back past it.
+  const resetHistory = React.useCallback((newNodes: any[], newEdges: any[]) => {
+    undoRedoManager.current.clear();
+    undoRedoManager.current.saveState(newNodes, newEdges);
+    setNodes(newNodes);
+    setEdges(newEdges);
+    setHistoryInfo(undoRedoManager.current.getHistoryInfo());
+  }, []);
+
   return {
     nodes,
     setNodes,
@@ -141,6 +163,7 @@ export function useUndoRedo(initialNodes: any[] = [], initialEdges: any[] = []) 
     undo,
     redo,
     takeSnapshot,
+    resetHistory,
     canUndo: historyInfo.canUndo,
     canRedo: historyInfo.canRedo,
   };

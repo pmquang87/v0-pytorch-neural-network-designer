@@ -4,6 +4,7 @@ import { KeyboardShortcut } from "./types"
 export class KeyboardShortcutManager {
   private shortcuts: Map<string, KeyboardShortcut> = new Map()
   private isEnabled: boolean = true
+  private readonly boundHandleKeyDown = this.handleKeyDown.bind(this)
 
   constructor() {
     this.setupGlobalListener()
@@ -34,7 +35,7 @@ export class KeyboardShortcutManager {
   // Setup global keyboard listener
   private setupGlobalListener(): void {
     if (typeof document !== "undefined") {
-      document.addEventListener("keydown", this.handleKeyDown.bind(this))
+      document.addEventListener("keydown", this.boundHandleKeyDown)
     }
   }
 
@@ -50,7 +51,8 @@ export class KeyboardShortcutManager {
 
     const keyString = this.getKeyString({
       key: event.key,
-      ctrlKey: event.ctrlKey,
+      // Treat macOS Cmd as equivalent to Ctrl
+      ctrlKey: event.ctrlKey || event.metaKey,
       shiftKey: event.shiftKey,
       altKey: event.altKey,
       action: () => {},
@@ -77,7 +79,7 @@ export class KeyboardShortcutManager {
   // Cleanup
   destroy(): void {
     if (typeof document !== "undefined") {
-      document.removeEventListener("keydown", this.handleKeyDown.bind(this))
+      document.removeEventListener("keydown", this.boundHandleKeyDown)
     }
     this.shortcuts.clear()
   }
@@ -241,6 +243,13 @@ export const DEFAULT_SHORTCUTS: KeyboardShortcut[] = [
 export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[] = []) {
   const [shortcutManager] = React.useState(() => new KeyboardShortcutManager())
 
+  // Destroy the manager (and its document listener) only on unmount
+  React.useEffect(() => {
+    return () => {
+      shortcutManager.destroy()
+    }
+  }, [shortcutManager])
+
   React.useEffect(() => {
     // Register default shortcuts
     DEFAULT_SHORTCUTS.forEach(shortcut => {
@@ -251,10 +260,6 @@ export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[] = []) {
     shortcuts.forEach(shortcut => {
       shortcutManager.register(shortcut)
     })
-
-    return () => {
-      shortcutManager.destroy()
-    }
   }, [shortcutManager, shortcuts])
 
   return {
