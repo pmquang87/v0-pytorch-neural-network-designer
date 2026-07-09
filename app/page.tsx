@@ -554,19 +554,16 @@ export default function NeuralNetworkDesigner() {
         }
 
         if (node.type === "linearNode" && firstInputShape) {
-            if (typeof firstInputShape.features === "number") {
-                data.in_features = firstInputShape.features;
-            } else if (firstInputShape.features === undefined) {
-                const prevNode = nodeMap.get(inputEdges[0]?.source);
-                const isPrevNodeFlattenOrPool = prevNode && (prevNode.type === 'flattenNode' || prevNode.type?.includes('pool'));
-
-                if (isPrevNodeFlattenOrPool || firstInputShape.channels) { 
-                    const c = typeof firstInputShape.channels === 'number' ? firstInputShape.channels : 1;
-                    const h = typeof firstInputShape.height === 'number' ? firstInputShape.height : 1;
-                    const w = typeof firstInputShape.width === 'number' ? firstInputShape.width : 1;
-                    const flattenedSize = c * h * w;
-                    data.in_features = flattenedSize;
-                }
+            // nn.Linear applies to the LAST dimension only: (*, H_in) -> (*, H_out),
+            // so in_features must track the input's last dimension — not the
+            // flattened product of all dimensions (see issue #5)
+            const linearDimOrder: (keyof TensorShape)[] = [
+                "features", "length", "sequence", "width", "height", "depth", "channels",
+            ];
+            const lastDimKey = linearDimOrder.find((d) => (firstInputShape as any)[d] !== undefined);
+            const lastDimValue = lastDimKey ? (firstInputShape as any)[lastDimKey] : undefined;
+            if (typeof lastDimValue === "number") {
+                data.in_features = lastDimValue;
             }
         }
 

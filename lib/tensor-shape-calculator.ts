@@ -241,27 +241,15 @@ export function validateTensorShapes(
       const in_features = nodeData.in_features;
       const inputShape = inputShapes[0];
       if (in_features && inputShape && Object.keys(inputShape).length > 0) {
-        const featureDims = getFeatureDimValues(inputShape);
-        const isDynamic = featureDims.some(v => v === "dynamic");
-        if (isDynamic) {
-            const dynamic_features = inputShape.features || inputShape.width || inputShape.channels;
-            if (dynamic_features && dynamic_features !== 'dynamic' && in_features !== dynamic_features) {
-                 return {
-                    isValid: false,
-                    error: `Shape mismatch: input features ${dynamic_features} do not match layer's in_features ${in_features}`,
-                };
-            }
-        } else {
-            const totalInputFeatures = featureDims
-                .filter((v): v is number => typeof v === 'number')
-                .reduce((acc, val) => acc * val, 1);
-
-            if (totalInputFeatures > 0 && in_features !== totalInputFeatures) {
-                return {
-                    isValid: false,
-                    error: `Shape mismatch: input features ${totalInputFeatures} do not match layer's in_features ${in_features}`,
-                };
-            }
+        // nn.Linear applies to the LAST dimension only: (*, H_in) -> (*, H_out)
+        const orderedDims = getOrderedDimensions(inputShape);
+        if (orderedDims.length === 0) break;
+        const lastDim = inputShape[orderedDims[orderedDims.length - 1]];
+        if (typeof lastDim === "number" && lastDim !== in_features) {
+          return {
+            isValid: false,
+            error: `Shape mismatch: nn.Linear transforms the last dimension; the input's last dimension is ${lastDim} but the layer's in_features is ${in_features}. Add a Flatten node first if you want to collapse all dimensions.`,
+          };
         }
       }
       break;
@@ -596,10 +584,18 @@ export function calculateOutputShape(
       return inputShape;
     }
 
-    case "linearNode":
-      return {
-        features: nodeData.out_features || 64,
-      };
+    case "linearNode": {
+      // nn.Linear preserves all leading dimensions and replaces the last one:
+      // (*, H_in) -> (*, H_out)
+      const outFeatures = nodeData.out_features || 64;
+      const orderedDims = getOrderedDimensions(inputShape);
+      if (orderedDims.length === 0) {
+        return { features: outFeatures };
+      }
+      const newShape: TensorShape = { ...inputShape };
+      (newShape as any)[orderedDims[orderedDims.length - 1]] = outFeatures;
+      return newShape;
+    }
 
     case "timeDistributedLinearNode": {
       const shape = { ...inputShape };
