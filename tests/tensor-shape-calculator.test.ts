@@ -21,11 +21,31 @@ describe('validateTensorShapes', () => {
         expect(result.error).toMatch(/mismatch/i);
     });
 
-    it('flattens multi-dim input when validating linear in_features', () => {
+    it('validates linear in_features against the last dimension only (issue #5)', () => {
+        // Input [3, 30, 28] -> nn.Linear expects in_features=28, not 3*30*28
         const result = validateTensorShapes(
             'linearNode',
-            [{ channels: 16, height: 4, width: 4 }],
-            { in_features: 256, out_features: 10 },
+            [{ channels: 3, height: 30, width: 28 }],
+            { in_features: 28, out_features: 64 },
+        );
+        expect(result.isValid).toBe(true);
+    });
+
+    it('rejects linear in_features equal to the flattened product of a multi-dim input', () => {
+        const result = validateTensorShapes(
+            'linearNode',
+            [{ channels: 3, height: 30, width: 28 }],
+            { in_features: 2520, out_features: 64 },
+        );
+        expect(result.isValid).toBe(false);
+        expect(result.error).toMatch(/last dimension/i);
+    });
+
+    it('accepts a dynamic last dimension for linear layers', () => {
+        const result = validateTensorShapes(
+            'linearNode',
+            [{ sequence: 10, features: 'dynamic' }],
+            { in_features: 128, out_features: 64 },
         );
         expect(result.isValid).toBe(true);
     });
@@ -50,6 +70,30 @@ describe('validateTensorShapes', () => {
 });
 
 describe('calculateOutputShape', () => {
+    it('linear preserves leading dimensions and replaces the last one (issue #5)', () => {
+        // Input [3, 30, 28] -> Linear(28, 64) -> [3, 30, 64]
+        const out = calculateOutputShape(
+            'linearNode',
+            [{ channels: 3, height: 30, width: 28 }],
+            { in_features: 28, out_features: 64 },
+        );
+        expect(out).toEqual({ channels: 3, height: 30, width: 64 });
+    });
+
+    it('linear on a flat feature vector replaces features', () => {
+        const out = calculateOutputShape(
+            'linearNode',
+            [{ features: 784 }],
+            { in_features: 784, out_features: 128 },
+        );
+        expect(out).toEqual({ features: 128 });
+    });
+
+    it('linear with no input shape falls back to out_features', () => {
+        const out = calculateOutputShape('linearNode', [{}], { in_features: 10, out_features: 5 });
+        expect(out).toEqual({ features: 5 });
+    });
+
     it('preserves channels through MaxPool3d', () => {
         const out = calculateOutputShape(
             'maxpool3dNode',

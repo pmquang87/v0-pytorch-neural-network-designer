@@ -4,9 +4,10 @@ import path from 'path';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { filename: string[] } }
+  { params }: { params: Promise<{ filename: string[] }> }
 ) {
-  const filename = params.filename.join('/');
+  const { filename: filenameParts } = await params;
+  const filename = filenameParts.join('/');
 
   // Prevent path traversal: resolve and verify the path stays inside the
   // examples directory instead of relying on a substring blocklist
