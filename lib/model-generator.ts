@@ -1,6 +1,15 @@
 
 import { type GraphIR, type GraphNode, type GraphEdge, PYTORCH_LAYER_MANIFEST } from "./types";
 
+// Node types handled inline in the forward pass rather than as nn.Module layers
+const FUNCTIONAL_NODE_TYPES = new Set([
+  "reshapeNode",
+  "addNode",
+  "multiplyNode",
+  "concatenateNode",
+  "transposeNode",
+]);
+
 export class ModelGenerator {
   private readonly nodes: GraphNode[];
   private readonly edges: GraphEdge[];
@@ -108,6 +117,7 @@ export class ModelGenerator {
     let classDefinition = `\n\nclass GeneratedModel(nn.Module):\n    def __init__(self):\n        super().__init__()\n`;
 
     const initLines: string[] = [];
+    const definedLayers = new Set<string>();
     for (const node of layerNodes) {
         const manifest = PYTORCH_LAYER_MANIFEST[node.type as keyof typeof PYTORCH_LAYER_MANIFEST];
         const layerName = this.sanitizeArgName(node.id);
@@ -115,7 +125,26 @@ export class ModelGenerator {
         if (manifest && manifest.className) {
             const params = this.buildParameterString(node, manifest.params);
             initLines.push(`        self.${layerName} = ${manifest.className}(${params})`);
-        } else if (!["reshapeNode", "addNode", "multiplyNode", "concatenateNode"].includes(node.type)) {
+            definedLayers.add(node.id);
+        } else if (node.type === "separableconv2dNode") {
+            const d = node.data as any;
+            const inCh = d.in_channels ?? 1;
+            const outCh = d.out_channels ?? 1;
+            const k = this.toPythonLiteral(d.kernel_size ?? 3);
+            const stride = this.toPythonLiteral(d.stride ?? 1);
+            const padding = this.toPythonLiteral(d.padding ?? 0);
+            initLines.push(
+                `        self.${layerName} = nn.Sequential(\n` +
+                `            nn.Conv2d(${inCh}, ${inCh}, kernel_size=${k}, stride=${stride}, padding=${padding}, groups=${inCh}),\n` +
+                `            nn.Conv2d(${inCh}, ${outCh}, kernel_size=1),\n` +
+                `        )`
+            );
+            definedLayers.add(node.id);
+        } else if (node.type === "parameterNode") {
+            const shape = Array.isArray((node.data as any).shape) ? (node.data as any).shape : [1];
+            initLines.push(`        self.${layerName} = nn.Parameter(torch.randn(${shape.join(", ")}))`);
+            definedLayers.add(node.id);
+        } else if (!FUNCTIONAL_NODE_TYPES.has(node.type) && node.type !== "constantNode") {
             console.warn(`Node type ${node.type} does not have a manifest entry and is not a recognized functional node.`);
         }
     }
@@ -126,21 +155,22 @@ export class ModelGenerator {
     const inputArgs = this.inputNodes.map((node) => this.sanitizeArgName(node.data.name || node.id)).join(", ");
     classDefinition += `    def forward(self, ${inputArgs}):\n`;
 
-    const forwardLinesResult = this.generateForwardPass(sortedNodes);
-    classDefinition += forwardLinesResult.map(line => `        ${line}`).join("\n");
+    const { lines: forwardLines, nodeOutputs } = this.generateForwardPass(sortedNodes, definedLayers);
+    classDefinition += forwardLines.map(line => `        ${line}`).join("\n");
 
     const outputNode = sortedNodes.find(n => n.type === 'outputNode');
     if (outputNode) {
         const finalEdge = this.edges.find(edge => edge.target === outputNode.id);
-        if (finalEdge) {
-            const finalOutputVar = this.sanitizeArgName(finalEdge.source);
+        const finalOutputVar = finalEdge ? nodeOutputs.get(finalEdge.source) : undefined;
+        if (finalOutputVar) {
             classDefinition += `\n        return ${finalOutputVar}`;
         } else {
             classDefinition += `\n        # No edge connected to output node\n        return None`;
         }
     } else {
         const lastNode = sortedNodes[sortedNodes.length - 1];
-        classDefinition += `\n        return ${this.sanitizeArgName(lastNode.id)}`;
+        const lastVar = nodeOutputs.get(lastNode.id) ?? this.sanitizeArgName(lastNode.id);
+        classDefinition += `\n        return ${lastVar}`;
     }
 
     code += classDefinition;
@@ -150,15 +180,11 @@ export class ModelGenerator {
       const inputVars = [];
       for (const inputNode of this.inputNodes) {
         const varName = this.sanitizeArgName(inputNode.data.name || inputNode.id);
-        const { channels, height, width, features } = inputNode.data;
-        let shape;
-        if (height !== undefined && width !== undefined) {
-          shape = `(1, ${channels}, ${height}, ${width})`;
-        } else if (features !== undefined) {
-          shape = `(1, ${features})`;
-        } else {
-          shape = `(1, ${channels})`;
-        }
+        const { channels, depth, height, width, sequence, length, features } = inputNode.data as any;
+        const dims = [channels, depth, height, width, sequence, length, features].filter(
+          (d) => typeof d === "number",
+        );
+        const shape = `(1${dims.map((d) => `, ${d}`).join("")})`;
         code += `# ${varName} = torch.randn${shape}\n`;
         inputVars.push(varName);
       }
@@ -173,19 +199,42 @@ export class ModelGenerator {
     for (const paramName of paramNames) {
         const value = node.data[paramName];
         if (value !== undefined && value !== null) {
-            if (Array.isArray(value)) {
-                params.push(`${paramName}=${JSON.stringify(value)}`);
-            } else if (typeof value === "string") {
-                params.push(`${paramName}="${value}"`);
-            } else {
-                params.push(`${paramName}=${value}`);
-            }
+            params.push(`${paramName}=${this.toPythonLiteral(value)}`);
         }
+    }
+    // Depthwise convolutions require groups=in_channels, which the manifest omits
+    if (node.type === "depthwiseconv2dNode" && node.data.in_channels !== undefined) {
+        params.push(`groups=${node.data.in_channels}`);
     }
     return params.join(", ");
   }
 
-  private generateForwardPass(sortedNodes: GraphNode[]): string[] {
+  private toPythonLiteral(value: any): string {
+    if (typeof value === "boolean") {
+        return value ? "True" : "False";
+    }
+    if (Array.isArray(value)) {
+        return `(${value.map((v) => this.toPythonLiteral(v)).join(", ")})`;
+    }
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        // Numeric strings (e.g. "3") and comma-separated tuples (e.g. "3, 3")
+        // come from free-form UI inputs and must not be quoted.
+        if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+            return trimmed;
+        }
+        if (/^-?\d+(\.\d+)?(\s*,\s*-?\d+(\.\d+)?)+$/.test(trimmed)) {
+            return `(${trimmed.split(",").map((s) => s.trim()).join(", ")})`;
+        }
+        return `"${trimmed}"`;
+    }
+    return `${value}`;
+  }
+
+  private generateForwardPass(
+    sortedNodes: GraphNode[],
+    definedLayers: Set<string>,
+  ): { lines: string[]; nodeOutputs: Map<string, string> } {
     const lines: string[] = [];
     const nodeOutputs = new Map<string, string>();
 
@@ -200,8 +249,31 @@ export class ModelGenerator {
         }
 
         const outputVar = this.sanitizeArgName(node.id);
+
+        // Source nodes produce a tensor without any inputs
+        if (node.type === "parameterNode") {
+            lines.push(`${outputVar} = self.${this.sanitizeArgName(node.id)}`);
+            nodeOutputs.set(node.id, outputVar);
+            continue;
+        }
+        if (node.type === "constantNode") {
+            const d = node.data as any;
+            const dims = [d.channels, d.depth, d.height, d.width, d.sequence, d.length, d.features]
+                .filter((v: any) => typeof v === "number");
+            lines.push(`${outputVar} = torch.zeros(1${dims.map((v: number) => `, ${v}`).join("")})`);
+            nodeOutputs.set(node.id, outputVar);
+            continue;
+        }
+
         const inputEdges = this.edges.filter(edge => edge.target === node.id);
-        const inputVars = inputEdges.map(edge => nodeOutputs.get(edge.source)!);
+        const inputVars = inputEdges
+            .map(edge => nodeOutputs.get(edge.source))
+            .filter((v): v is string => v !== undefined);
+
+        if (inputVars.length === 0) {
+            // Disconnected node: nothing to feed it, skip rather than emit broken code
+            continue;
+        }
 
         switch (node.type) {
             case "addNode":
@@ -210,22 +282,74 @@ export class ModelGenerator {
             case "multiplyNode":
                 lines.push(`${outputVar} = ${inputVars.join(" * ")}`);
                 break;
-            case "reshapeNode":
-                const shape = node.data.targetShape;
-                lines.push(`${outputVar} = ${inputVars[0]}.view(${inputVars[0]}.size(0), *${JSON.stringify(shape)})`);
+            case "reshapeNode": {
+                const shapeLiteral = this.formatTargetShape(node.data.targetShape);
+                lines.push(`${outputVar} = ${inputVars[0]}.view(${inputVars[0]}.size(0), *${shapeLiteral})`);
                 break;
-            case "concatenateNode":
-                const dim = node.data.dim || 1;
+            }
+            case "concatenateNode": {
+                const dim = node.data.dim ?? 1;
                 lines.push(`${outputVar} = torch.cat([${inputVars.join(", ")}], dim=${dim})`);
                 break;
-            default:
-                const layerName = this.sanitizeArgName(node.id);
-                lines.push(`${outputVar} = self.${layerName}(${inputVars.join(', ')})`);
+            }
+            case "transposeNode": {
+                // UI dims are 0-based over non-batch dims; tensor dim 0 is batch
+                const dim0 = Number(node.data.dim0 ?? 0) + 1;
+                const dim1 = Number(node.data.dim1 ?? 1) + 1;
+                lines.push(`${outputVar} = torch.transpose(${inputVars[0]}, ${dim0}, ${dim1})`);
                 break;
+            }
+            case "lstmNode":
+            case "gruNode":
+            case "rnnNode":
+                // Recurrent layers return (output, hidden-state) tuples
+                lines.push(`${outputVar}, _ = self.${this.sanitizeArgName(node.id)}(${inputVars[0]})`);
+                break;
+            case "multiheadattentionNode": {
+                // MultiheadAttention takes (query, key, value) and returns (output, weights).
+                // With a single input, use self-attention.
+                const layerName = this.sanitizeArgName(node.id);
+                const [q, k, v] = [
+                    inputVars[0],
+                    inputVars[1] ?? inputVars[0],
+                    inputVars[2] ?? inputVars[1] ?? inputVars[0],
+                ];
+                lines.push(`${outputVar}, _ = self.${layerName}(${q}, ${k}, ${v})`);
+                break;
+            }
+            default: {
+                const layerName = this.sanitizeArgName(node.id);
+                if (definedLayers.has(node.id)) {
+                    lines.push(`${outputVar} = self.${layerName}(${inputVars.join(', ')})`);
+                } else {
+                    // Unsupported node type: pass the input through so the code still runs
+                    lines.push(`${outputVar} = ${inputVars[0]}  # TODO: '${node.type}' is not supported by the code generator yet`);
+                }
+                break;
+            }
         }
         nodeOutputs.set(node.id, outputVar);
     }
-    return lines;
+    return { lines, nodeOutputs };
+  }
+
+  private formatTargetShape(targetShape: any): string {
+    let dims: number[] | null = null;
+    if (Array.isArray(targetShape)) {
+      dims = targetShape.map(Number).filter((n) => !isNaN(n));
+    } else if (typeof targetShape === "string") {
+      const cleaned = targetShape.replace(/[[\]()]/g, "").trim();
+      if (cleaned) {
+        const parsed = cleaned.split(",").map((s) => parseInt(s.trim(), 10));
+        if (parsed.every((n) => !isNaN(n))) {
+          dims = parsed;
+        }
+      }
+    }
+    if (!dims || dims.length === 0) {
+      return "(-1,)";
+    }
+    return `(${dims.join(", ")}${dims.length === 1 ? "," : ""})`;
   }
 
   private sanitizeArgName(name: string): string {

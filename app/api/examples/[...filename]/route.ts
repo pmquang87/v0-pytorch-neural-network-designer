@@ -8,12 +8,13 @@ export async function GET(
 ) {
   const filename = params.filename.join('/');
 
-  // Prevent path traversal
-  if (filename.includes('..')) {
+  // Prevent path traversal: resolve and verify the path stays inside the
+  // examples directory instead of relying on a substring blocklist
+  const baseDir = path.resolve(process.cwd(), 'lib', 'examples');
+  const filePath = path.resolve(baseDir, filename);
+  if (filePath !== baseDir && !filePath.startsWith(baseDir + path.sep)) {
     return new NextResponse('Invalid filename', { status: 400 });
   }
-
-  const filePath = path.join(process.cwd(), 'lib', 'examples', filename);
 
   try {
     const fileContents = await fs.readFile(filePath, 'utf8');

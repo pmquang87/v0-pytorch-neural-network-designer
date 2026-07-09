@@ -35,6 +35,14 @@ function getOrderedDimensions(shape: TensorShape): (keyof TensorShape)[] {
     return CANONICAL_DIM_ORDER.filter(dim => shape[dim] !== undefined);
 }
 
+// Values of the non-batch dimensions of a shape. Shapes coming from node data may
+// carry a `batch` entry, which must never participate in feature/size math.
+function getFeatureDimValues(shape: TensorShape): (number | "dynamic")[] {
+    return CANONICAL_DIM_ORDER
+        .map(dim => shape[dim])
+        .filter((v): v is number | "dynamic" => typeof v === "number" || v === "dynamic");
+}
+
 export function validateTensorShapes(
   nodeType: string,
   inputShapes: (TensorShape | undefined)[], // Allow undefined for disconnected inputs
@@ -188,7 +196,7 @@ export function validateTensorShapes(
         return { isValid: false, error: "Invalid shape: can only have one '-1' dimension." };
       }
 
-      const inputDimValues = Object.values(inputShape).filter(v => typeof v === 'number' || v === 'dynamic');
+      const inputDimValues = getFeatureDimValues(inputShape);
       if (inputDimValues.some(v => v === "dynamic")) {
         if (targetDims.includes(-1)) {
           return { isValid: true, warning: "Cannot infer '-1' dimension when input shape is dynamic." };
@@ -233,24 +241,25 @@ export function validateTensorShapes(
       const in_features = nodeData.in_features;
       const inputShape = inputShapes[0];
       if (in_features && inputShape && Object.keys(inputShape).length > 0) {
-        const isDynamic = Object.values(inputShape).some(v => v === "dynamic");
+        const featureDims = getFeatureDimValues(inputShape);
+        const isDynamic = featureDims.some(v => v === "dynamic");
         if (isDynamic) {
             const dynamic_features = inputShape.features || inputShape.width || inputShape.channels;
             if (dynamic_features && dynamic_features !== 'dynamic' && in_features !== dynamic_features) {
                  return {
                     isValid: false,
-                    error: `Input features ${dynamic_features} do not match layer's in_features ${in_features}`,
+                    error: `Shape mismatch: input features ${dynamic_features} do not match layer's in_features ${in_features}`,
                 };
             }
         } else {
-            const totalInputFeatures = Object.values(inputShape)
+            const totalInputFeatures = featureDims
                 .filter((v): v is number => typeof v === 'number')
                 .reduce((acc, val) => acc * val, 1);
 
             if (totalInputFeatures > 0 && in_features !== totalInputFeatures) {
                 return {
                     isValid: false,
-                    error: `Input features ${totalInputFeatures} do not match layer's in_features ${in_features}`,
+                    error: `Shape mismatch: input features ${totalInputFeatures} do not match layer's in_features ${in_features}`,
                 };
             }
         }
@@ -358,6 +367,18 @@ export function calculateOutputShape(
         }
         return newShape;
       }
+
+    case "constantNode": {
+      // Constant is a source node: its shape comes from its own data fields
+      const constShape: TensorShape = {};
+      const constDims: (keyof TensorShape)[] = ["channels", "depth", "height", "width", "sequence", "length", "features"];
+      for (const dim of constDims) {
+        if (nodeData[dim] !== undefined) {
+          (constShape as any)[dim] = nodeData[dim];
+        }
+      }
+      return constShape;
+    }
 
     case "outputNode":
       // Output node is a sink; pass through the incoming shape unchanged
@@ -482,6 +503,71 @@ export function calculateOutputShape(
       }
       return { ...inputShape, channels: nodeData.out_channels || 16 };
 
+    case "convtranspose1dNode": {
+      const stride1d = nodeData.stride || 2;
+      const kernel1d = nodeData.kernel_size || 2;
+      const padding1d = nodeData.padding || 0;
+      const outPadding1d = nodeData.output_padding || 0;
+      const dilation1dT = nodeData.dilation || 1;
+
+      const lengthKey = inputShape.length !== undefined ? "length" : "width";
+      const inLength = inputShape[lengthKey];
+      if (inLength && typeof inLength === "number") {
+        const newLength =
+          (inLength - 1) * stride1d - 2 * padding1d + dilation1dT * (kernel1d - 1) + outPadding1d + 1;
+        const newShape: TensorShape = { ...inputShape };
+        newShape.channels = nodeData.out_channels || 16;
+        (newShape as any)[lengthKey] = isNaN(newLength) ? "dynamic" : Math.max(1, newLength);
+        return newShape;
+      }
+      return { ...inputShape, channels: nodeData.out_channels || 16 };
+    }
+
+    case "convtranspose3dNode": {
+      const stride3d = nodeData.stride || 2;
+      const kernel3d = nodeData.kernel_size || 2;
+      const padding3d = nodeData.padding || 0;
+      const outPadding3d = nodeData.output_padding || 0;
+      const dilation3dT = nodeData.dilation || 1;
+
+      const upsize = (v: number | "dynamic" | undefined): number | "dynamic" => {
+        if (typeof v !== "number") return "dynamic";
+        const out = (v - 1) * stride3d - 2 * padding3d + dilation3dT * (kernel3d - 1) + outPadding3d + 1;
+        return isNaN(out) ? "dynamic" : Math.max(1, out);
+      };
+
+      if (inputShape.depth && inputShape.height && inputShape.width) {
+        return {
+          channels: nodeData.out_channels || 16,
+          depth: upsize(inputShape.depth),
+          height: upsize(inputShape.height),
+          width: upsize(inputShape.width),
+        };
+      }
+      return { ...inputShape, channels: nodeData.out_channels || 16 };
+    }
+
+    case "mbconvNode": {
+      const mbStride = nodeData.stride || 1;
+      const mbKernel = typeof nodeData.kernel_size === "number" ? nodeData.kernel_size : 3;
+      const mbPadding = Math.floor(mbKernel / 2); // MBConv uses "same" padding on the depthwise conv
+
+      if (inputShape.height && inputShape.width && mbStride > 0) {
+        const newHeight = Math.floor(
+          (Number(inputShape.height) + 2 * mbPadding - (mbKernel - 1) - 1) / mbStride + 1,
+        );
+        const newWidth = Math.floor(
+          (Number(inputShape.width) + 2 * mbPadding - (mbKernel - 1) - 1) / mbStride + 1,
+        );
+        return {
+          channels: nodeData.out_channels,
+          height: isNaN(newHeight) ? "dynamic" : Math.max(1, newHeight),
+          width: isNaN(newWidth) ? "dynamic" : Math.max(1, newWidth),
+        };
+      }
+      return { ...inputShape, channels: nodeData.out_channels };
+    }
+
     case "upsampleNode": {
       const scaleFactor = nodeData.scale_factor || 2;
       if (inputShape.height && inputShape.width) {
@@ -593,7 +679,7 @@ export function calculateOutputShape(
             1,
         );
         return {
-          channels: nodeData.out_channels || 32,
+          channels: inputShape.channels,
           depth: isNaN(newDepth) ? "dynamic" : Math.max(1, newDepth),
           height: isNaN(newHeight) ? "dynamic" : Math.max(1, newHeight),
           width: isNaN(newWidth) ? "dynamic" : Math.max(1, newWidth),
@@ -741,7 +827,7 @@ export function calculateOutputShape(
 
       // If input shape is present, validate and infer the -1 dimension
       if (inputShape && Object.keys(inputShape).length > 0) {
-        const inputDimValues = Object.values(inputShape).filter(v => typeof v === 'number' || v === 'dynamic');
+        const inputDimValues = getFeatureDimValues(inputShape);
 
         if (inputDimValues.some(v => v === "dynamic")) {
           finalDims = targetDims.map(d => (d === -1 ? "dynamic" : d));

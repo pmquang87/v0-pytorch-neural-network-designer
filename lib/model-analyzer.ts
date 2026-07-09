@@ -20,6 +20,26 @@ export interface ModelAnalysis {
   estimatedInferenceTimeMs: number
 }
 
+// kernel_size may be a number, an array like [3, 3], or a string like "3,3".
+// Normalize to per-axis sizes so parameter/FLOP math never produces NaN.
+function parseKernelSizes(value: any, dims: number, defaultValue: number): number[] {
+  let parts: number[] = []
+  if (typeof value === "number" && !isNaN(value)) {
+    parts = [value]
+  } else if (Array.isArray(value)) {
+    parts = value.map(Number).filter((n) => !isNaN(n))
+  } else if (typeof value === "string") {
+    parts = value
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !isNaN(n))
+  }
+  if (parts.length === 0) {
+    parts = [defaultValue]
+  }
+  return Array.from({ length: dims }, (_, i) => parts[i] ?? parts[0])
+}
+
 export function analyzeLayer(
   nodeType: string,
   nodeData: any,
@@ -43,16 +63,16 @@ export function analyzeLayer(
     case "depthwiseconv2dNode":
       const inChannels = nodeData.in_channels || 3
       const outChannels = nodeData.out_channels || 32
-      const kernelSize = nodeData.kernel_size || 3
+      const [kernelH, kernelW] = parseKernelSizes(nodeData.kernel_size, 2, 3)
       const groups = nodeData.groups || 1
 
       // Parameters: weights + bias
-      analysis.parameters = (inChannels * outChannels * kernelSize * kernelSize) / groups + outChannels
+      analysis.parameters = (inChannels * outChannels * kernelH * kernelW) / groups + outChannels
 
-      // FLOPs: for each output pixel, kernel_size^2 * in_channels * out_channels operations
+      // FLOPs: for each output pixel, kernel_h * kernel_w * in_channels * out_channels operations
       if (typeof outputShape.height === "number" && typeof outputShape.width === "number") {
         analysis.flops =
-          (batchSize * outputShape.height * outputShape.width * kernelSize * kernelSize * inChannels * outChannels) /
+          (batchSize * outputShape.height * outputShape.width * kernelH * kernelW * inChannels * outChannels) /
           groups
       }
 
@@ -76,7 +96,7 @@ export function analyzeLayer(
     case "conv1dNode":
       const conv1dIn = nodeData.in_channels || 1
       const conv1dOut = nodeData.out_channels || 32
-      const conv1dKernel = nodeData.kernel_size || 3
+      const [conv1dKernel] = parseKernelSizes(nodeData.kernel_size, 1, 3)
 
       analysis.parameters = conv1dIn * conv1dOut * conv1dKernel + conv1dOut
 
@@ -88,9 +108,9 @@ export function analyzeLayer(
     case "conv3dNode":
       const conv3dIn = nodeData.in_channels || 3
       const conv3dOut = nodeData.out_channels || 32
-      const conv3dKernel = nodeData.kernel_size || 3
+      const [conv3dKd, conv3dKh, conv3dKw] = parseKernelSizes(nodeData.kernel_size, 3, 3)
 
-      analysis.parameters = conv3dIn * conv3dOut * conv3dKernel * conv3dKernel * conv3dKernel + conv3dOut
+      analysis.parameters = conv3dIn * conv3dOut * conv3dKd * conv3dKh * conv3dKw + conv3dOut
 
       if (
         typeof outputShape.depth === "number" &&
@@ -102,9 +122,9 @@ export function analyzeLayer(
           outputShape.depth *
           outputShape.height *
           outputShape.width *
-          conv3dKernel *
-          conv3dKernel *
-          conv3dKernel *
+          conv3dKd *
+          conv3dKh *
+          conv3dKw *
           conv3dIn *
           conv3dOut
       }

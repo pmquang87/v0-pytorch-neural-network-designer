@@ -263,6 +263,38 @@ export const PYTORCH_LAYER_MANIFEST = {
     className: "nn.AvgPool3d",
     params: ["kernel_size", "stride", "padding", "ceil_mode", "count_include_pad", "divisor_override"]
   },
+  adaptiveavgpool1dNode: {
+    className: "nn.AdaptiveAvgPool1d",
+    params: ["output_size"]
+  },
+  adaptiveavgpool2dNode: {
+    className: "nn.AdaptiveAvgPool2d",
+    params: ["output_size"]
+  },
+  adaptiveavgpool3dNode: {
+    className: "nn.AdaptiveAvgPool3d",
+    params: ["output_size"]
+  },
+  adaptivemaxpool1dNode: {
+    className: "nn.AdaptiveMaxPool1d",
+    params: ["output_size"]
+  },
+  adaptivemaxpool2dNode: {
+    className: "nn.AdaptiveMaxPool2d",
+    params: ["output_size"]
+  },
+  adaptivemaxpool3dNode: {
+    className: "nn.AdaptiveMaxPool3d",
+    params: ["output_size"]
+  },
+  lppool2dNode: {
+    className: "nn.LPPool2d",
+    params: ["norm_type", "kernel_size", "stride", "ceil_mode"]
+  },
+  fractionalmaxpool2dNode: {
+    className: "nn.FractionalMaxPool2d",
+    params: ["kernel_size", "output_size", "output_ratio", "return_indices"]
+  },
   batchnorm1dNode: {
     className: "nn.BatchNorm1d",
     params: ["num_features", "eps", "momentum", "affine", "track_running_stats"]
@@ -323,8 +355,28 @@ export const PYTORCH_LAYER_MANIFEST = {
     className: "nn.GELU",
     params: []
   },
+  siluNode: {
+    className: "nn.SiLU",
+    params: ["inplace"]
+  },
+  mishNode: {
+    className: "nn.Mish",
+    params: ["inplace"]
+  },
+  hardswishNode: {
+    className: "nn.Hardswish",
+    params: ["inplace"]
+  },
+  hardsigmoidNode: {
+    className: "nn.Hardsigmoid",
+    params: ["inplace"]
+  },
   softmaxNode: {
     className: "nn.Softmax",
+    params: ["dim"]
+  },
+  logsoftmaxNode: {
+    className: "nn.LogSoftmax",
     params: ["dim"]
   },
   dropoutNode: {

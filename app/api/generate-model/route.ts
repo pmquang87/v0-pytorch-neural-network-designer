@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   try {
     const body: GenerateModelRequest = await request.json()
 
-    if (!body.nodes || !body.edges) {
+    if (!Array.isArray(body.nodes) || !Array.isArray(body.edges)) {
       return NextResponse.json(
         {
           success: false,

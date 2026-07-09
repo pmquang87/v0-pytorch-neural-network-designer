@@ -151,7 +151,15 @@ export class ModelValidator {
       let inputShapes: (TensorShape | undefined)[] = []
 
       if (node.type === "concatenateNode" || node.type === "addNode" || node.type === "multiplyNode") {
-        const numInputs = Number(node.data.num_inputs ?? node.data.inputs ?? 2)
+        // Consider every connected inputN handle, not just a fixed count
+        const handleIndices = inputEdges
+          .map((e) => {
+            const match = /^input(\d+)$/.exec(e.targetHandle ?? "")
+            return match ? Number(match[1]) : 0
+          })
+          .filter((n) => n > 0)
+        const declaredInputs = Number(node.data.num_inputs ?? node.data.inputs ?? 2)
+        const numInputs = Math.max(declaredInputs, ...handleIndices, 2)
         for (let i = 1; i <= numInputs; i++) {
           const handleId = `input${i}`
           const edge = inputEdges.find((e) => e.targetHandle === handleId)
