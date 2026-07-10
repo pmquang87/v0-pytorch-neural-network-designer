@@ -1,0 +1,56 @@
+{
+    "name": "Mixture of Experts (MoE) Layer",
+    "description": "A standalone sparse Mixture-of-Experts feed-forward layer as used in modern LLMs (Mixtral, DeepSeek-V3, Llama 4). A learned gate routes each token to its top-2 of 8 expert MLPs; the selected experts' outputs are combined by the renormalized softmax gate weights. Only top_k experts run per token, so capacity scales without proportional compute.",
+    "nodes": [
+        {
+            "id": "input-1",
+            "type": "inputNode",
+            "position": {
+                "x": 100,
+                "y": 300
+            },
+            "data": {
+                "sequence": 128,
+                "features": 512
+            }
+        },
+        {
+            "id": "moe-1",
+            "type": "moeNode",
+            "position": {
+                "x": 420,
+                "y": 300
+            },
+            "data": {
+                "d_model": 512,
+                "d_ff": 2048,
+                "num_experts": 8,
+                "top_k": 2,
+                "activation": "silu"
+            }
+        },
+        {
+            "id": "output-1",
+            "type": "outputNode",
+            "position": {
+                "x": 720,
+                "y": 300
+            },
+            "data": {
+                "label": "Output"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "e-input-moe",
+            "source": "input-1",
+            "target": "moe-1"
+        },
+        {
+            "id": "e-moe-output",
+            "source": "moe-1",
+            "target": "output-1"
+        }
+    ]
+}

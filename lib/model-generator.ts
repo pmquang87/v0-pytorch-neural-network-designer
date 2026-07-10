@@ -10,10 +10,60 @@ const FUNCTIONAL_NODE_TYPES = new Set([
   "transposeNode",
 ]);
 
+// Maps the MoE node's activation string to the torch.nn class used inside experts.
+const MOE_ACTIVATIONS: Record<string, string> = {
+  gelu: "nn.GELU",
+  silu: "nn.SiLU",
+  relu: "nn.ReLU",
+};
+
+// Reusable helper module emitted once when a graph contains a Mixture-of-Experts
+// node. Implements token-level top-k routing (Mixtral / DeepSeek style): a linear
+// gate scores every expert, the top-k are selected and renormalized, and each
+// token is processed only by its selected experts before a weighted recombination.
+const MOE_HELPER_CLASS = `class MixtureOfExperts(nn.Module):
+    """Sparse Mixture-of-Experts feed-forward block with top-k token routing.
+
+    Each token is routed to \`top_k\` of \`num_experts\` expert MLPs by a learned
+    gating network; the selected experts' outputs are combined with the
+    (renormalized) softmax gate weights. Shape-preserving: (..., d_model) in and out.
+    """
+
+    def __init__(self, d_model, d_ff, num_experts, top_k=2, activation=nn.GELU):
+        super().__init__()
+        self.num_experts = num_experts
+        self.top_k = top_k
+        self.gate = nn.Linear(d_model, num_experts, bias=False)
+        self.experts = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(d_model, d_ff),
+                activation(),
+                nn.Linear(d_ff, d_model),
+            )
+            for _ in range(num_experts)
+        ])
+
+    def forward(self, x):
+        input_shape = x.shape
+        x = x.reshape(-1, input_shape[-1])                      # (tokens, d_model)
+        routing_weights = torch.softmax(self.gate(x), dim=-1)   # (tokens, num_experts)
+        topk_weights, topk_idx = torch.topk(routing_weights, self.top_k, dim=-1)
+        topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
+
+        out = torch.zeros_like(x)
+        for e in range(self.num_experts):
+            token_idx, slot_idx = torch.where(topk_idx == e)
+            if token_idx.numel() == 0:
+                continue
+            weight = topk_weights[token_idx, slot_idx].unsqueeze(-1)
+            out[token_idx] += weight * self.experts[e](x[token_idx])
+        return out.reshape(input_shape)`;
+
 export class ModelGenerator {
   private readonly nodes: GraphNode[];
   private readonly edges: GraphEdge[];
   private readonly inputNodes: GraphNode[] = [];
+  private usesMoE = false;
 
   constructor(graph: GraphIR) {
     this.nodes = graph.nodes;
@@ -144,6 +194,19 @@ export class ModelGenerator {
             const shape = Array.isArray((node.data as any).shape) ? (node.data as any).shape : [1];
             initLines.push(`        self.${layerName} = nn.Parameter(torch.randn(${shape.join(", ")}))`);
             definedLayers.add(node.id);
+        } else if (node.type === "moeNode") {
+            const d = node.data as any;
+            const dModel = d.d_model ?? 512;
+            const dFf = d.d_ff ?? dModel * 4;
+            const numExperts = d.num_experts ?? 8;
+            const topK = d.top_k ?? 2;
+            const activation = MOE_ACTIVATIONS[String(d.activation ?? "gelu").toLowerCase()] ?? "nn.GELU";
+            initLines.push(
+                `        self.${layerName} = MixtureOfExperts(d_model=${dModel}, d_ff=${dFf}, ` +
+                `num_experts=${numExperts}, top_k=${topK}, activation=${activation})`
+            );
+            definedLayers.add(node.id);
+            this.usesMoE = true;
         } else if (!FUNCTIONAL_NODE_TYPES.has(node.type) && node.type !== "constantNode") {
             console.warn(`Node type ${node.type} does not have a manifest entry and is not a recognized functional node.`);
         }
@@ -171,6 +234,12 @@ export class ModelGenerator {
         const lastNode = sortedNodes[sortedNodes.length - 1];
         const lastVar = nodeOutputs.get(lastNode.id) ?? this.sanitizeArgName(lastNode.id);
         classDefinition += `\n        return ${lastVar}`;
+    }
+
+    // Emit reusable helper modules (e.g. MixtureOfExperts) between the imports
+    // and the generated model class, so the generated file is self-contained.
+    if (this.usesMoE) {
+      code += `\n\n${MOE_HELPER_CLASS}\n`;
     }
 
     code += classDefinition;

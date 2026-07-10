@@ -190,6 +190,22 @@ export function analyzeLayer(
       analysis.flops = batchSize * rmsFeatures * 3 // square-mean, rsqrt-normalize, scale
       break
 
+    case "moeNode": {
+      // Sparse MoE: all experts hold parameters, but only top_k run per token.
+      const dModel = nodeData.d_model || 512
+      const dFf = nodeData.d_ff || dModel * 4
+      const numExperts = nodeData.num_experts || 8
+      const topK = nodeData.top_k || 2
+      const expertParams = 2 * dModel * dFf + dFf + dModel // two linears (+biases)
+      const gateParams = dModel * numExperts // router (no bias)
+      analysis.parameters = numExperts * expertParams + gateParams
+      // Only the selected top_k experts execute per token -> active FLOPs.
+      const seqLen = typeof inputShape.sequence === "number" ? inputShape.sequence : 1
+      const activeParams = topK * expertParams + gateParams
+      analysis.flops = batchSize * seqLen * activeParams * 2
+      break
+    }
+
     case "lstmNode":
     case "gruNode":
     case "rnnNode":
