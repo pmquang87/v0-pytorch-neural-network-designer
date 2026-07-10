@@ -61,6 +61,7 @@ import {
   FileUp,
   ArrowUpRight,
   ArrowDownLeft,
+  Share2,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ResizableBox } from "react-resizable"
@@ -79,7 +80,11 @@ import { useModelValidation } from "@/lib/model-validator"
 import { useUndoRedo } from "@/lib/undo-redo"
 import { useKeyboardShortcuts } from "@/lib/keyboard-shortcuts"
 import { parsePyTorchModel } from "@/lib/pytorch-parser"
+import { ModelGenerator, type TrainingOptions } from "@/lib/model-generator"
+import { buildShareUrl, readGraphFromHash } from "@/lib/share"
+import { formatModelSummary } from "@/lib/model-summary"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { EditableNumberInput } from "@/components/ui/EditableNumberInput"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
@@ -339,6 +344,10 @@ export default function NeuralNetworkDesigner() {
   const [showCodeDialog, setShowCodeDialog] = useState(false)
   const [generatedCode, setGeneratedCode] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
+  // Optional training-loop scaffold controls for the Generate Code dialog.
+  const [includeTraining, setIncludeTraining] = useState(false)
+  const [trainingOptimizer, setTrainingOptimizer] = useState<TrainingOptions["optimizer"]>("adam")
+  const [trainingLoss, setTrainingLoss] = useState<TrainingOptions["loss"]>("crossentropy")
   const { toast } = useToast()
   const isUpdatingShapes = useRef(false)
   const [copySuccess, setCopySuccess] = useState(false)
@@ -398,6 +407,27 @@ export default function NeuralNetworkDesigner() {
   }, [nodes, edges])
 
   useEffect(() => {
+    // A model shared via URL hash (#model=...) takes precedence over any
+    // auto-saved session. Uses the same load path as import/load: seed the
+    // graph + undo history, clear selection, fit the view.
+    if (typeof window !== "undefined") {
+      const sharedGraph = readGraphFromHash(window.location.hash)
+      if (sharedGraph && Array.isArray(sharedGraph.nodes) && sharedGraph.nodes.length > 0) {
+        resetHistory(sharedGraph.nodes as Node[], sharedGraph.edges as Edge[])
+        setSelectedNode(null)
+        toast({
+          title: "Loaded shared model",
+          description: "A model shared via link has been loaded onto the canvas.",
+        })
+        // Drop the hash so a refresh doesn't reload the shared model over edits.
+        window.history.replaceState(null, "", window.location.pathname + window.location.search)
+        setTimeout(() => {
+          reactFlowInstanceRef.current?.fitView({ padding: 0.1, duration: 800 })
+        }, 100)
+        return
+      }
+    }
+
     if (autoSave.hasSavedData()) {
       const loadedState = autoSave.load()
       if (loadedState) {
@@ -1056,52 +1086,104 @@ export default function NeuralNetworkDesigner() {
     })
   }, [generatedCode, toast])
 
+  // Shared clipboard helper with a secure (navigator.clipboard) path and an
+  // execCommand fallback for insecure contexts. `onSuccess` runs after a
+  // successful copy; failures surface a generic "Copy Failed" toast. All
+  // window/navigator/document access lives inside this handler (SSR-safe).
+  const copyTextToClipboard = useCallback(
+    (text: string, onSuccess: () => void) => {
+      const notifyFailure = () => {
+        toast({
+          title: "Copy Failed",
+          description: "Failed to copy to clipboard",
+          variant: "destructive",
+        })
+      }
+
+      const unsecuredCopyToClipboard = (value: string) => {
+        const textArea = document.createElement("textarea")
+        textArea.value = value
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        try {
+          document.execCommand("copy")
+          onSuccess()
+        } catch {
+          notifyFailure()
+        }
+        document.body.removeChild(textArea)
+      }
+
+      if (window.isSecureContext && navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(onSuccess).catch(notifyFailure)
+      } else {
+        unsecuredCopyToClipboard(text)
+      }
+    },
+    [toast],
+  )
+
   const copyCode = useCallback(() => {
     if (!generatedCode) return
+    copyTextToClipboard(generatedCode, () => {
+      setCopySuccess(true)
+      toast({
+        title: "Code Copied",
+        description: "Generated code copied to clipboard",
+      })
+      setTimeout(() => setCopySuccess(false), 2000)
+    })
+  }, [generatedCode, copyTextToClipboard, toast])
 
-    const unsecuredCopyToClipboard = (text: string) => {
-        const textArea = document.createElement("textarea");
-        textArea.value = text;
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        try {
-            document.execCommand('copy');
-            setCopySuccess(true);
-            toast({
-                title: "Code Copied",
-                description: "Generated code copied to clipboard",
-            });
-            setTimeout(() => setCopySuccess(false), 2000);
-        } catch (err) {
-            toast({
-                title: "Copy Failed",
-                description: "Failed to copy code to clipboard",
-                variant: "destructive",
-            });
-        }
-        document.body.removeChild(textArea);
-    };
+  // Build a shareable URL that packs the current graph into the URL hash, and
+  // copy it to the clipboard using the shared helper. SSR-safe: `window` is
+  // only read inside this click handler.
+  const handleShare = useCallback(() => {
+    const url = buildShareUrl(window.location.origin + window.location.pathname, { nodes, edges })
+    copyTextToClipboard(url, () => {
+      toast({
+        title: "Share link copied",
+        description:
+          url.length > 2000
+            ? "The link is long because of the model size; some apps may truncate it."
+            : "Paste the link anywhere to share this model.",
+      })
+    })
+  }, [nodes, edges, copyTextToClipboard, toast])
 
-    if (window.isSecureContext && navigator.clipboard) {
-        navigator.clipboard.writeText(generatedCode).then(() => {
-            setCopySuccess(true);
-            toast({
-                title: "Code Copied",
-                description: "Generated code copied to clipboard",
-            });
-            setTimeout(() => setCopySuccess(false), 2000);
-        }).catch(() => {
-            toast({
-                title: "Copy Failed",
-                description: "Failed to copy code to clipboard",
-                variant: "destructive",
-            });
-        });
-    } else {
-        unsecuredCopyToClipboard(generatedCode);
+  // Copy the already-computed model analysis as a torchinfo-style markdown table.
+  const copyModelSummary = useCallback(() => {
+    if (!modelAnalysis) return
+    const summary = formatModelSummary(modelAnalysis, { format: "markdown" })
+    copyTextToClipboard(summary, () => {
+      toast({
+        title: "Summary copied",
+        description: "Model summary copied to clipboard as markdown.",
+      })
+    })
+  }, [modelAnalysis, copyTextToClipboard, toast])
+
+  // While the Code dialog is open, keep the shown code in sync with the training
+  // options: generate WITHOUT training by default, or WITH the training scaffold
+  // when the toggle is on. Regenerated client-side via ModelGenerator so option
+  // changes take effect immediately.
+  useEffect(() => {
+    if (!showCodeDialog) return
+    try {
+      const generator = new ModelGenerator({ nodes, edges } as any)
+      const code = includeTraining
+        ? generator.generateCode({ training: { optimizer: trainingOptimizer, loss: trainingLoss } })
+        : generator.generateCode()
+      setGeneratedCode(code)
+    } catch (error) {
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate model code",
+        variant: "destructive",
+      })
     }
-}, [generatedCode, toast]);
+  }, [showCodeDialog, includeTraining, trainingOptimizer, trainingLoss, nodes, edges, toast])
 
   // --- Clipboard (copy/paste/cut) for canvas nodes ---
   const clipboardRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null)
@@ -1400,6 +1482,10 @@ export default function NeuralNetworkDesigner() {
           <Button variant="outline" size="sm" onClick={handleOpenLoadDialog}>
             <FolderOpen className="h-4 w-4 mr-2" />
             Open
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleShare}>
+            <Share2 className="h-4 w-4 mr-2" />
+            Share
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -3238,6 +3324,47 @@ export default function NeuralNetworkDesigner() {
               Here is the PyTorch code for your model. You can copy it or download it as a Python file.
             </DialogDescription>
           </DialogHeader>
+          <div className="flex flex-wrap items-center gap-4 rounded-md border p-3 text-sm">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={includeTraining}
+                onChange={(e) => setIncludeTraining(e.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
+              <span className="font-medium">Include training loop</span>
+            </label>
+            {includeTraining && (
+              <>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="training-optimizer">Optimizer</Label>
+                  <select
+                    id="training-optimizer"
+                    value={trainingOptimizer}
+                    onChange={(e) => setTrainingOptimizer(e.target.value as TrainingOptions["optimizer"])}
+                    className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    <option value="adam">Adam</option>
+                    <option value="adamw">AdamW</option>
+                    <option value="sgd">SGD</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="training-loss">Loss</Label>
+                  <select
+                    id="training-loss"
+                    value={trainingLoss}
+                    onChange={(e) => setTrainingLoss(e.target.value as TrainingOptions["loss"])}
+                    className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    <option value="crossentropy">CrossEntropy</option>
+                    <option value="mse">MSE</option>
+                    <option value="bce">BCE</option>
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
           <div className="flex-1 relative my-4 min-h-0">
             <ScrollArea className="h-full rounded-md border">
               <pre className="p-4 font-mono text-sm whitespace-pre-wrap">{generatedCode}</pre>
@@ -3395,7 +3522,11 @@ export default function NeuralNetworkDesigner() {
               </div>
             </div>
           )}
-          <div className="flex justify-end pt-4 border-t">
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="secondary" onClick={copyModelSummary} disabled={!modelAnalysis}>
+              <Copy className="h-3.5 w-3.5 mr-1.5" />
+              Copy summary
+            </Button>
             <Button variant="default" onClick={() => setShowAnalysisPanel(false)}>
               Close
             </Button>

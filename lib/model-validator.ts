@@ -1,7 +1,137 @@
 import React from "react"
 import { ValidationResult } from "./types"
 import type { Node, Edge } from "@xyflow/react"
-import { validateTensorShapes, type TensorShape } from "./tensor-shape-calculator"
+import { validateTensorShapes, formatTensorShape, type TensorShape } from "./tensor-shape-calculator"
+
+// Non-batch dimensions in canonical order. Kept in sync with the calculator's
+// own ordering so "last dimension" / "which dim differs" reporting matches the
+// shapes the calculator produces.
+const CANONICAL_DIM_ORDER: (keyof TensorShape)[] = [
+  "channels",
+  "depth",
+  "height",
+  "width",
+  "sequence",
+  "length",
+  "features",
+]
+
+// Conv-family node types whose in_channels must equal the incoming tensor's
+// channel dimension. Used to produce an actionable in_channels mismatch message.
+const CONV_CHANNEL_NODE_TYPES = new Set<string>([
+  "conv1dNode",
+  "conv2dNode",
+  "conv3dNode",
+  "depthwiseconv2dNode",
+  "separableconv2dNode",
+  "convtranspose1dNode",
+  "convtranspose2dNode",
+  "convtranspose3dNode",
+])
+
+function convDisplayName(type: string | undefined): string {
+  const map: Record<string, string> = {
+    conv1dNode: "Conv1d",
+    conv2dNode: "Conv2d",
+    conv3dNode: "Conv3d",
+    depthwiseconv2dNode: "DepthwiseConv2d",
+    separableconv2dNode: "SeparableConv2d",
+    convtranspose1dNode: "ConvTranspose1d",
+    convtranspose2dNode: "ConvTranspose2d",
+    convtranspose3dNode: "ConvTranspose3d",
+  }
+  return map[type ?? ""] ?? "Conv"
+}
+
+function orderedDimNames(shape: TensorShape): (keyof TensorShape)[] {
+  return CANONICAL_DIM_ORDER.filter((d) => (shape as any)[d] !== undefined)
+}
+
+function fmtDim(v: number | "dynamic"): string {
+  return v === "dynamic" ? "?" : String(v)
+}
+
+// First dimension where two Add/Multiply inputs disagree under broadcasting
+// rules (dims must be equal, or one of them 1 / absent).
+function firstBroadcastMismatch(
+  shapes: TensorShape[],
+): { key: keyof TensorShape; a: number; b: number } | null {
+  for (const key of CANONICAL_DIM_ORDER) {
+    const vals: number[] = []
+    for (const s of shapes) {
+      const raw = (s as any)[key]
+      const dim = raw === undefined ? 1 : raw
+      if (typeof dim === "number" && dim !== 1) vals.push(dim)
+    }
+    const distinct = Array.from(new Set(vals))
+    if (distinct.length > 1) {
+      return { key, a: distinct[0], b: distinct[1] }
+    }
+  }
+  return null
+}
+
+// First problem for Concatenate: either a differing rank, or a non-concat
+// dimension whose sizes disagree. codeDim is the 0-based concat axis.
+function firstConcatMismatch(
+  shapes: TensorShape[],
+  codeDim: number,
+):
+  | { kind: "rank"; aLen: number; bLen: number }
+  | { kind: "dim"; index: number; a: number | "dynamic"; b: number | "dynamic" }
+  | null {
+  const dimNames = shapes.map(orderedDimNames)
+  const len = dimNames[0].length
+  for (let i = 1; i < dimNames.length; i++) {
+    if (dimNames[i].length !== len) {
+      return { kind: "rank", aLen: len, bLen: dimNames[i].length }
+    }
+  }
+  for (let idx = 0; idx < len; idx++) {
+    if (idx === codeDim) continue
+    let first: number | "dynamic" | undefined
+    for (let s = 0; s < shapes.length; s++) {
+      const v = (shapes[s] as any)[dimNames[s][idx]] as number | "dynamic" | undefined
+      if (v === undefined) continue
+      if (first === undefined) {
+        first = v
+      } else if (first !== v && first !== "dynamic" && v !== "dynamic") {
+        return { kind: "dim", index: idx, a: first, b: v }
+      }
+    }
+  }
+  return null
+}
+
+// Build an actionable message for Add/Multiply/Concatenate incompatibilities,
+// naming both shapes and the offending dimension. Falls back to the calculator's
+// own error text if the specific offending dim can't be localized.
+function describeOpMismatch(
+  nodeType: string,
+  nodeData: any,
+  shapes: TensorShape[],
+  fallback: string,
+): string {
+  const shapeList = shapes.map((s) => formatTensorShape(s)).join(" and ")
+
+  if (nodeType === "concatenateNode") {
+    const codeDim = Number(nodeData?.dim ?? 1) - 1
+    const detail = firstConcatMismatch(shapes, codeDim)
+    let clause = ""
+    if (detail?.kind === "rank") {
+      clause = `; one input has ${detail.aLen} dimensions and another has ${detail.bLen}`
+    } else if (detail?.kind === "dim") {
+      clause = `; dimension ${detail.index + 1} differs (${fmtDim(detail.a)} vs ${fmtDim(detail.b)})`
+    }
+    if (!detail) return fallback
+    return `Concatenate error: cannot concatenate ${shapeList} — all non-concatenated dimensions must match${clause}.`
+  }
+
+  const name = nodeType === "addNode" ? "Add" : "Multiply"
+  const detail = firstBroadcastMismatch(shapes)
+  if (!detail) return fallback
+  return `${name} error: cannot combine ${shapeList} — all dimensions must match or be broadcastable; dimension '${detail.key}' differs (${detail.a} vs ${detail.b}).`
+}
 
 export class ModelValidator {
   // Validate entire model
@@ -200,9 +330,62 @@ export class ModelValidator {
         }
       }
 
+      const label = (node.data.label as string) || node.id
+
+      // Linear: nn.Linear only transforms the LAST dimension. State expected vs
+      // actual and offer the concrete fixes (Flatten / adjust in_features /
+      // select a single position). This is the BERT/T5 class of bug.
+      if (node.type === "linearNode") {
+        const inFeatures = Number(node.data?.in_features)
+        const incoming = inputShapes.find(
+          (s): s is TensorShape => !!s && Object.keys(s).length > 0,
+        )
+        if (Number.isFinite(inFeatures) && inFeatures > 0 && incoming) {
+          const dims = orderedDimNames(incoming)
+          const last = dims.length ? (incoming as any)[dims[dims.length - 1]] : undefined
+          if (typeof last === "number" && last !== inFeatures) {
+            errors.push(
+              `Node '${label}' (linearNode): Shape mismatch — Linear expects in_features=${inFeatures} but receives a tensor whose last dimension is ${last}. Insert a Flatten node before this Linear, set in_features=${last}, or select a single token/position.`,
+            )
+          }
+        }
+        continue
+      }
+
+      // Conv family: in_channels must equal the incoming tensor's channel count.
+      if (CONV_CHANNEL_NODE_TYPES.has(node.type || "")) {
+        const inChannels = Number(node.data?.in_channels)
+        const incoming = inputShapes.find(
+          (s): s is TensorShape => !!s && Object.keys(s).length > 0,
+        )
+        const incomingChannels = incoming?.channels
+        if (
+          Number.isFinite(inChannels) &&
+          inChannels > 0 &&
+          typeof incomingChannels === "number" &&
+          incomingChannels !== inChannels
+        ) {
+          const convName = convDisplayName(node.type)
+          errors.push(
+            `Node '${label}' (${node.type}): Shape mismatch — ${convName} expects in_channels=${inChannels} but the incoming tensor has ${incomingChannels} channels. Set in_channels=${incomingChannels} to match the previous layer's output.`,
+          )
+        }
+        continue
+      }
+
       const result = validateTensorShapes(node.type || "", inputShapes, node.data)
       if (result && !result.isValid && result.error) {
-        errors.push(`Node '${node.data.label || node.id}' (${node.type}): ${result.error}`)
+        if (
+          node.type === "addNode" ||
+          node.type === "multiplyNode" ||
+          node.type === "concatenateNode"
+        ) {
+          errors.push(
+            `Node '${label}' (${node.type}): ${describeOpMismatch(node.type, node.data, connectedShapes, result.error)}`,
+          )
+        } else {
+          errors.push(`Node '${label}' (${node.type}): ${result.error}`)
+        }
       }
     }
 
@@ -217,19 +400,33 @@ export class ModelValidator {
       const nodeType = node.type
       const nodeData = node.data
 
+      const label = node.data.label || node.id
+
       switch (nodeType) {
-        case "linearNode":
-          if (!nodeData?.in_features || !nodeData?.out_features) {
-            errors.push(`Linear node ${node.data.label || node.id} is missing required parameters: in_features, out_features`)
+        case "linearNode": {
+          const missing: string[] = []
+          if (!nodeData?.in_features)
+            missing.push("in_features — set it to the size of the incoming feature dimension (e.g. 784)")
+          if (!nodeData?.out_features)
+            missing.push("out_features — set it to the desired output size (e.g. 128)")
+          if (missing.length) {
+            errors.push(`Linear node ${label} is missing ${missing.join("; and ")}.`)
           }
           break
-        case "conv2dNode":
-          if (!nodeData?.in_channels || !nodeData?.out_channels || !nodeData?.kernel_size) {
-            errors.push(
-              `Conv2D node ${node.data.label || node.id} is missing required parameters: in_channels, out_channels, kernel_size`,
-            )
+        }
+        case "conv2dNode": {
+          const missing: string[] = []
+          if (!nodeData?.in_channels)
+            missing.push("in_channels — set it to the number of input channels from the previous layer (e.g. 3)")
+          if (!nodeData?.out_channels)
+            missing.push("out_channels — set it to the number of output feature maps (e.g. 64)")
+          if (!nodeData?.kernel_size)
+            missing.push("kernel_size — set the convolution window size (e.g. 3)")
+          if (missing.length) {
+            errors.push(`Conv2d node ${label} is missing ${missing.join("; and ")}.`)
           }
           break
+        }
         case "dropoutNode":
           {
             const p = Number(nodeData?.p)
