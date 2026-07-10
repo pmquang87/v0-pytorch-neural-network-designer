@@ -95,6 +95,7 @@ const LAYER_SECTIONS: LayerSection[] = [
             { type: 'batchnorm1dNode', label: 'BatchNorm1D', icon: <BarChart3 className="h-4 w-4 text-cyan-500" />, data: { num_features: 128 } },
             { type: 'batchnorm2dNode', label: 'BatchNorm2D', icon: <BarChart3 className="h-4 w-4 text-cyan-500" />, data: { num_features: 32 } },
             { type: 'layernormNode', label: 'LayerNorm', icon: <BarChart3 className="h-4 w-4 text-cyan-500" />, data: { normalized_shape: [128] } },
+            { type: 'rmsnormNode', label: 'RMSNorm', icon: <BarChart3 className="h-4 w-4 text-cyan-500" />, data: { normalized_shape: [128] } },
             { type: 'groupnormNode', label: 'GroupNorm', icon: <BarChart3 className="h-4 w-4 text-cyan-500" />, data: { num_groups: 8, num_channels: 32 } },
             { type: 'instancenorm1dNode', label: 'InstanceNorm1D', icon: <BarChart3 className="h-4 w-4 text-cyan-500" />, data: { num_features: 128 } },
             { type: 'instancenorm2dNode', label: 'InstanceNorm2D', icon: <BarChart3 className="h-4 w-4 text-cyan-500" />, data: { num_features: 32 } },

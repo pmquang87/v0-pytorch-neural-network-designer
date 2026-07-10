@@ -949,6 +949,7 @@ export function calculateOutputShape(
     }
 
     case "layernormNode":
+    case "rmsnormNode":
       return inputShape;
 
     case "groupnormNode":

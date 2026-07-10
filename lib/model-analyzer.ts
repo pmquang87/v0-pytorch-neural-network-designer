@@ -181,6 +181,15 @@ export function analyzeLayer(
       analysis.flops = batchSize * lnFeatures * 5 // mean, var, normalize, scale, shift
       break
 
+    case "rmsnormNode":
+      // RMSNorm has only a learnable scale (weight) when elementwise_affine=True,
+      // and no bias/mean subtraction (that is what distinguishes it from LayerNorm).
+      const rmsShape = nodeData.normalized_shape || [128]
+      const rmsFeatures = Array.isArray(rmsShape) ? rmsShape.reduce((a, b) => a * b, 1) : rmsShape
+      analysis.parameters = nodeData.elementwise_affine === false ? 0 : rmsFeatures // gamma only
+      analysis.flops = batchSize * rmsFeatures * 3 // square-mean, rsqrt-normalize, scale
+      break
+
     case "lstmNode":
     case "gruNode":
     case "rnnNode":
