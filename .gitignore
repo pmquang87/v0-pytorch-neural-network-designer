@@ -28,3 +28,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# test coverage
+/coverage
+
+# editors / IDEs
+.idea/
+.vscode/

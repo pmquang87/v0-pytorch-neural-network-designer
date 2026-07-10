@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  build:
+    name: Typecheck, test & build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # TODO(deps-cleanup wave): switch back to `--frozen-lockfile` once the
+      # committed pnpm-lock.yaml is regenerated. This wave adds new devDeps
+      # (eslint, coverage, etc.) to package.json without updating the lockfile,
+      # so the lockfile is intentionally stale until that wave runs.
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      # TODO(type-error cleanup wave): remove `continue-on-error` to make
+      # typechecking a blocking gate once the existing TS errors are fixed.
+      - name: Typecheck
+        run: pnpm run typecheck
+        continue-on-error: true
+
+      - name: Test
+        run: pnpm run test:run
+
+      - name: Build
+        run: pnpm run build

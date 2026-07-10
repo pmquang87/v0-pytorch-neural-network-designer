@@ -1,6 +1,6 @@
 {
-    "name": "YOLOv8n",
-    "description": "YOLOv8 Nano - Latest YOLO with C2f modules",
+    "name": "YOLOv8n (simplified)",
+    "description": "Simplified YOLOv8 Nano backbone: a stem, one C2f-style block with a residual concat, a single-maxpool SPPF stand-in, and a detection head. Note: this is a reduced, structurally-valid approximation, not the full FPN/PAN neck of real YOLOv8n.",
     "nodes": [
       {
         "id": "input-1",

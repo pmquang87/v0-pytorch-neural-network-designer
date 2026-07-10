@@ -39,7 +39,6 @@
     { "id": "e-style-sl3", "source": "style_image", "target": "style_loss_3", "targetHandle": "b" },
     { "id": "e-sl3-total", "source": "style_loss_3", "target": "total_loss", "targetHandle": "input4" },
 
-    { "id": "e-total-opt", "source": "total_loss", "target": "optimizer" },
-    { "id": "e-opt-gen", "source": "optimizer", "target": "generated_image", "label": "update" }
+    { "id": "e-total-opt", "source": "total_loss", "target": "optimizer" }
   ]
 }
