@@ -24,18 +24,14 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      # TODO(deps-cleanup wave): switch back to `--frozen-lockfile` once the
-      # committed pnpm-lock.yaml is regenerated. This wave adds new devDeps
-      # (eslint, coverage, etc.) to package.json without updating the lockfile,
-      # so the lockfile is intentionally stale until that wave runs.
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
-      # TODO(type-error cleanup wave): remove `continue-on-error` to make
-      # typechecking a blocking gate once the existing TS errors are fixed.
       - name: Typecheck
         run: pnpm run typecheck
-        continue-on-error: true
+
+      - name: Lint
+        run: pnpm run lint
 
       - name: Test
         run: pnpm run test:run

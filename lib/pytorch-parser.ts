@@ -529,7 +529,7 @@ function splitStatements(body: string): string[] {
   let quote = ""
   const lines = body.split("\n")
   for (let li = 0; li < lines.length; li++) {
-    let line = lines[li]
+    const line = lines[li]
     for (let i = 0; i < line.length; i++) {
       const ch = line[i]
       if (inStr) {
