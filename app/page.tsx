@@ -106,6 +106,7 @@ import { BatchNorm1DNode } from "@/components/nodes/BatchNorm1DNode"
 import { BatchNorm2DNode } from "@/components/nodes/BatchNorm2DNode"
 import { LayerNormNode } from "@/components/nodes/LayerNormNode"
 import { RMSNormNode } from "@/components/nodes/RMSNormNode"
+import { MoENode } from "@/components/nodes/MoENode"
 import { GroupNormNode } from "@/components/nodes/GroupNormNode"
 import { ConcatenateNode } from "@/components/nodes/ConcatenateNode"
 import { AddNode } from "@/components/nodes/AddNode"
@@ -257,6 +258,7 @@ const nodeTypes: NodeTypes = {
   batchnorm3dNode: BatchNorm3DNode,
   layernormNode: LayerNormNode,
   rmsnormNode: RMSNormNode,
+  moeNode: MoENode,
   groupnormNode: GroupNormNode,
   instancenorm1dNode: InstanceNorm1DNode,
   instancenorm2dNode: InstanceNorm2DNode,
@@ -1287,6 +1289,7 @@ export default function NeuralNetworkDesigner() {
           BatchNorm3d: "batchnorm3dNode",
           LayerNorm: "layernormNode",
           RMSNorm: "rmsnormNode",
+          MixtureOfExperts: "moeNode",
           GroupNorm: "groupnormNode",
           InstanceNorm1d: "instancenorm1dNode",
           InstanceNorm2d: "instancenorm2dNode",
@@ -1614,6 +1617,8 @@ export default function NeuralNetworkDesigner() {
       case 'instancenorm2dNode':
       case 'instancenorm3dNode':
         return '#06b6d4'; // cyan-500
+      case 'moeNode':
+        return '#d946ef'; // fuchsia-500
       case 'concatenateNode':
         return '#6366f1'; // indigo-500
       case 'addNode':
@@ -3028,6 +3033,52 @@ export default function NeuralNetworkDesigner() {
                         <option value="tanh">tanh (approximation)</option>
                       </select>
                     </div>
+                  )}
+                  {selectedNode.type === "moeNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="d_model"
+                        value={selectedNode.data.d_model as number | undefined}
+                        defaultValue={512}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { d_model: value })}
+                        disabled={isInputConnected}
+                      />
+                      <EditableNumberInput
+                        label="Expert Hidden Dim (d_ff)"
+                        value={selectedNode.data.d_ff as number | undefined}
+                        defaultValue={2048}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { d_ff: value })}
+                      />
+                      <EditableNumberInput
+                        label="Number of Experts"
+                        value={selectedNode.data.num_experts as number | undefined}
+                        defaultValue={8}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_experts: value })}
+                      />
+                      <EditableNumberInput
+                        label="Top-K (experts / token)"
+                        value={selectedNode.data.top_k as number | undefined}
+                        defaultValue={2}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { top_k: value })}
+                      />
+                      <div className="space-y-2">
+                        <label htmlFor="moe-activation" className="text-sm font-medium">Expert Activation</label>
+                        <select
+                          id="moe-activation"
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={(selectedNode.data.activation as string | undefined) ?? "gelu"}
+                          onChange={(e) => updateNodeData(selectedNode.id, { activation: e.target.value })}
+                        >
+                          <option value="gelu">GELU</option>
+                          <option value="silu">SiLU (Swish)</option>
+                          <option value="relu">ReLU</option>
+                        </select>
+                      </div>
+                    </>
                   )}
                   {selectedNode.type === "groupnormNode" && (
                     <>

@@ -18,6 +18,7 @@ import {
     Network,
     ArrowUpRight,
     ArrowDownLeft,
+    Boxes,
 } from 'lucide-react';
 
 interface LayerItem {
@@ -151,6 +152,12 @@ const LAYER_SECTIONS: LayerSection[] = [
         title: 'State Space Models',
         items: [
             { type: 'ssmNode', label: 'SSM/Mamba', icon: <Network className="h-4 w-4 text-purple-500" />, data: { d_model: 128, d_state: 16, expand_factor: 2 } },
+        ],
+    },
+    {
+        title: 'Mixture of Experts',
+        items: [
+            { type: 'moeNode', label: 'MoE (Sparse FFN)', icon: <Boxes className="h-4 w-4 text-fuchsia-500" />, data: { d_model: 512, d_ff: 2048, num_experts: 8, top_k: 2, activation: 'silu' } },
         ],
     },
     {

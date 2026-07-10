@@ -193,6 +193,41 @@ describe('ModelGenerator', () => {
         expect(code).toContain('const1 = torch.zeros(1, 1, 4, 4)');
     });
 
+    it('generates a Mixture-of-Experts block with a reusable helper class', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 512 }),
+                { id: 'moe', type: 'moeNode', data: { d_model: 512, d_ff: 2048, num_experts: 8, top_k: 2, activation: 'silu' } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'moe' }],
+        ).generateCode();
+
+        // Helper class is emitted once, before the model, and the layer is instantiated + called
+        expect(code).toContain('class MixtureOfExperts(nn.Module):');
+        expect(code).toContain('self.moe = MixtureOfExperts(d_model=512, d_ff=2048, num_experts=8, top_k=2, activation=nn.SiLU)');
+        expect(code).toContain('moe = self.moe(x)');
+        // Helper appears before the generated model class
+        expect(code.indexOf('class MixtureOfExperts')).toBeLessThan(code.indexOf('class GeneratedModel'));
+    });
+
+    it('emits the MoE helper class only once for multiple MoE nodes and maps activation', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 64 }),
+                { id: 'moe1', type: 'moeNode', data: { d_model: 64, d_ff: 128, num_experts: 4, top_k: 1, activation: 'gelu' } },
+                { id: 'moe2', type: 'moeNode', data: { d_model: 64, d_ff: 128, num_experts: 4, top_k: 2 } },
+            ],
+            [
+                { id: 'e1', source: 'input1', target: 'moe1' },
+                { id: 'e2', source: 'moe1', target: 'moe2' },
+            ],
+        ).generateCode();
+
+        expect(code.match(/class MixtureOfExperts\(nn\.Module\):/g)?.length).toBe(1);
+        expect(code).toContain('activation=nn.GELU'); // explicit gelu
+        expect(code).toContain('activation=nn.GELU)'); // default when unspecified also falls back to GELU
+    });
+
     it('generates nn.RMSNorm with normalized_shape', () => {
         const code = makeGraph(
             [

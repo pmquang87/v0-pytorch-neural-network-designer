@@ -952,6 +952,10 @@ export function calculateOutputShape(
     case "rmsnormNode":
       return inputShape;
 
+    // Mixture-of-Experts FFN preserves the token/model dimension
+    case "moeNode":
+      return inputShape;
+
     case "groupnormNode":
       return inputShape;
 

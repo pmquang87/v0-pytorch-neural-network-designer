@@ -203,8 +203,36 @@ generated with dedicated logic rather than a single `nn` class.
 | `invertedResidualBlockNode` | Inverted residual block (MobileNetV2). |
 | `seBlockNode` / `seBottleneckNode` | Squeeze-and-Excitation channel-attention block / bottleneck. |
 | `ssmNode` | Selective state-space model (Mamba-style) block. |
+| `moeNode` | Sparse **Mixture-of-Experts** feed-forward block (see below). |
+
+### Mixture of Experts (`moeNode`)
+
+A sparse Mixture-of-Experts (MoE) feed-forward block, the defining component of
+state-of-the-art open-weight LLMs (Mixtral, DeepSeek-V3/V4, Llama 4). It replaces
+a dense FFN with `num_experts` expert MLPs and a lightweight learned **gate** that
+routes each token to its **top-k** experts; the selected experts' outputs are
+combined by the renormalized softmax gate weights. Because only `top_k` experts
+run per token, total parameters scale far beyond the active compute per token.
+
+| Parameter | Meaning | Default |
+| --- | --- | --- |
+| `d_model` | Token / model dimension (input == output) | 512 |
+| `d_ff` | Hidden dimension of each expert MLP | 2048 |
+| `num_experts` | Total number of experts | 8 |
+| `top_k` | Experts activated per token | 2 |
+| `activation` | Expert activation: `gelu` \| `silu` \| `relu` | `gelu` |
+
+The code generator emits a self-contained, runnable `MixtureOfExperts(nn.Module)`
+helper class (implementing the gate, `torch.topk` routing, and weighted
+recombination) once per model, then instantiates it. It is shape-preserving:
+`(..., d_model)` in, `(..., d_model)` out. See the **Mixture of Experts (MoE)
+Layer** and **MoE Transformer Block** examples in the app.
 
 ## Further reading
+
+- [Mixtral of Experts (Jiang et al., 2024)](https://arxiv.org/abs/2401.04088)
+- [DeepSeek-V3 Technical Report](https://arxiv.org/abs/2412.19437)
+- [`torch.topk` — top-k selection used by the MoE router](https://docs.pytorch.org/docs/stable/generated/torch.topk.html)
 
 - [`torch.nn` — full module index](https://docs.pytorch.org/docs/stable/nn.html)
 - [PyTorch documentation home](https://docs.pytorch.org/docs/stable/index.html)

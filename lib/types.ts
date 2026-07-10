@@ -135,6 +135,15 @@ export interface MBConvNodeData extends BaseNodeData {
   se_ratio?: number;
 }
 
+// Mixture-of-Experts (sparse MoE feed-forward) node data
+export interface MoENodeData extends BaseNodeData {
+  d_model: number;      // token / model dimension (in == out)
+  d_ff: number;         // hidden dimension of each expert FFN
+  num_experts: number;  // total number of experts
+  top_k: number;        // experts activated per token
+  activation?: string;  // "gelu" | "silu" | "relu"
+}
+
 // Union type for all node data
 export type NodeData = 
   | InputNodeData
@@ -149,6 +158,7 @@ export type NodeData =
   | TransformerNodeData
   | OperationNodeData
   | MBConvNodeData
+  | MoENodeData
 
 // Network state for undo/redo
 export interface NetworkState {
@@ -525,6 +535,13 @@ export const PYTORCH_LAYER_MANIFEST: Record<string, LayerManifestEntry> = {
     className: null, // Special handling in generator
     params: ["in_channels", "out_channels", "kernel_size", "stride", "expand_ratio", "se_ratio"],
     doc: null
+  },
+  moeNode: {
+    // Special handling in generator: emits a reusable MixtureOfExperts helper class.
+    // Sparse Mixture-of-Experts feed-forward block (Mixtral / DeepSeek style).
+    className: null,
+    params: ["d_model", "d_ff", "num_experts", "top_k", "activation"],
+    doc: "https://docs.pytorch.org/docs/stable/generated/torch.topk.html"
   },
   addNode: {
     className: null, // Special handling in generator

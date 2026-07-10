@@ -1,0 +1,166 @@
+{
+    "name": "MoE Transformer Block",
+    "description": "A modern sparse Mixture-of-Experts transformer decoder block in the Mixtral / DeepSeek-V3 style. Uses pre-normalization with RMSNorm, multi-head self-attention with a residual connection, and a sparse MoE feed-forward network (top-2 of 8 experts) replacing the dense FFN, with a second residual connection. This is the core building block of state-of-the-art open-weight LLMs.",
+    "nodes": [
+        {
+            "id": "input-1",
+            "type": "inputNode",
+            "position": {
+                "x": -150,
+                "y": 400
+            },
+            "data": {
+                "sequence": 128,
+                "features": 512
+            }
+        },
+        {
+            "id": "rmsnorm-1",
+            "type": "rmsnormNode",
+            "position": {
+                "x": 150,
+                "y": 250
+            },
+            "data": {
+                "normalized_shape": [
+                    512
+                ]
+            }
+        },
+        {
+            "id": "mha-1",
+            "type": "multiheadattentionNode",
+            "position": {
+                "x": 420,
+                "y": 250
+            },
+            "data": {
+                "embed_dim": 512,
+                "num_heads": 8,
+                "dropout": 0.0,
+                "batch_first": true
+            }
+        },
+        {
+            "id": "add-1",
+            "type": "addNode",
+            "position": {
+                "x": 720,
+                "y": 400
+            },
+            "data": {}
+        },
+        {
+            "id": "rmsnorm-2",
+            "type": "rmsnormNode",
+            "position": {
+                "x": 960,
+                "y": 250
+            },
+            "data": {
+                "normalized_shape": [
+                    512
+                ]
+            }
+        },
+        {
+            "id": "moe-1",
+            "type": "moeNode",
+            "position": {
+                "x": 1220,
+                "y": 250
+            },
+            "data": {
+                "d_model": 512,
+                "d_ff": 2048,
+                "num_experts": 8,
+                "top_k": 2,
+                "activation": "silu"
+            }
+        },
+        {
+            "id": "add-2",
+            "type": "addNode",
+            "position": {
+                "x": 1520,
+                "y": 400
+            },
+            "data": {}
+        },
+        {
+            "id": "output-1",
+            "type": "outputNode",
+            "position": {
+                "x": 1780,
+                "y": 400
+            },
+            "data": {
+                "label": "Output"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "e-input-rms1",
+            "source": "input-1",
+            "target": "rmsnorm-1"
+        },
+        {
+            "id": "e-rms1-mha-q",
+            "source": "rmsnorm-1",
+            "target": "mha-1",
+            "targetHandle": "query"
+        },
+        {
+            "id": "e-rms1-mha-k",
+            "source": "rmsnorm-1",
+            "target": "mha-1",
+            "targetHandle": "key"
+        },
+        {
+            "id": "e-rms1-mha-v",
+            "source": "rmsnorm-1",
+            "target": "mha-1",
+            "targetHandle": "value"
+        },
+        {
+            "id": "e-input-add1",
+            "source": "input-1",
+            "target": "add-1",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "e-mha-add1",
+            "source": "mha-1",
+            "target": "add-1",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "e-add1-rms2",
+            "source": "add-1",
+            "target": "rmsnorm-2"
+        },
+        {
+            "id": "e-rms2-moe",
+            "source": "rmsnorm-2",
+            "target": "moe-1"
+        },
+        {
+            "id": "e-add1-add2",
+            "source": "add-1",
+            "target": "add-2",
+            "targetHandle": "input1"
+        },
+        {
+            "id": "e-moe-add2",
+            "source": "moe-1",
+            "target": "add-2",
+            "targetHandle": "input2"
+        },
+        {
+            "id": "e-add2-output",
+            "source": "add-2",
+            "target": "output-1"
+        }
+    ]
+}

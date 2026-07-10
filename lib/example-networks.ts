@@ -21,6 +21,8 @@ export const EXAMPLE_NETWORKS_METADATA: ExampleNetworkMetadata[] = [
   { name: "BERT", filename: "BERT.json" },
   { name: "GPT2", filename: "GPT2.json" },
   { name: "Mamba", filename: "Mamba.json" },
+  { name: "Mixture of Experts (MoE) Layer", filename: "MoE-Layer.json" },
+  { name: "MoE Transformer Block", filename: "MoE-Transformer-Block.json" },
   { name: "SENet Block", filename: "SENet_Block.json" },
   { name: "U-Net", filename: "U-Net.json" },
   { name: "YOLOv1", filename: "YOLOv1.json" },
