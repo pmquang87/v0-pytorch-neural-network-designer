@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Zap } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function LeakyReLUNode({ data }: { data: any }) {
+function LeakyReLUNodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, features: 128 }
   const outputShape = calculateOutputShape("leakyreluNode", [inputShape], data)
 
@@ -29,3 +30,6 @@ export function LeakyReLUNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const LeakyReLUNode = memo(LeakyReLUNodeImpl)
+LeakyReLUNode.displayName = "LeakyReLUNode"

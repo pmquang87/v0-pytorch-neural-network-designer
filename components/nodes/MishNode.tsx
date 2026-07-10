@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Zap } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function MishNode({ data }: { data: any }) {
+function MishNodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape
   const outputShape = calculateOutputShape("mishNode", [inputShape], data)
 
@@ -24,3 +25,6 @@ export function MishNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const MishNode = memo(MishNodeImpl)
+MishNode.displayName = "MishNode"

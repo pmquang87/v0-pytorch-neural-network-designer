@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 
@@ -9,7 +10,7 @@ interface AdaptiveMaxPool1DNodeProps {
   }
 }
 
-export function AdaptiveMaxPool1DNode({ data }: AdaptiveMaxPool1DNodeProps) {
+function AdaptiveMaxPool1DNodeImpl({ data }: AdaptiveMaxPool1DNodeProps) {
   return (
     <Card className="min-w-[180px] bg-white border-2 border-red-200 shadow-sm">
       <Handle type="target" position={Position.Top} className="w-3 h-3" />
@@ -35,3 +36,6 @@ export function AdaptiveMaxPool1DNode({ data }: AdaptiveMaxPool1DNodeProps) {
     </Card>
   )
 }
+
+export const AdaptiveMaxPool1DNode = memo(AdaptiveMaxPool1DNodeImpl)
+AdaptiveMaxPool1DNode.displayName = "AdaptiveMaxPool1DNode"

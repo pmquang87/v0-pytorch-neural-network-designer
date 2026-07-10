@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Sigma } from "lucide-react"
 import { formatTensorShape } from "@/lib/tensor-shape-calculator"
 
-export function SigmoidNode({ data }: { data: any }) {
+function SigmoidNodeImpl({ data }: { data: any }) {
   return (
     <Card className="w-48 border-2 border-orange-500/50 bg-card">
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-orange-500 border-2 border-background" />
@@ -21,3 +22,6 @@ export function SigmoidNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const SigmoidNode = memo(SigmoidNodeImpl)
+SigmoidNode.displayName = "SigmoidNode"

@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Zap } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function SoftmaxNode({ data }: { data: any }) {
+function SoftmaxNodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, features: 128 }
   const outputShape = calculateOutputShape("softmaxNode", [inputShape], data)
 
@@ -29,3 +30,6 @@ export function SoftmaxNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const SoftmaxNode = memo(SoftmaxNodeImpl)
+SoftmaxNode.displayName = "SoftmaxNode"

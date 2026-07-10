@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { ArrowUpRight } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function UpsampleNode({ data }: { data: any }) {
+function UpsampleNodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, channels: 512, height: 4, width: 4 }
   const outputShape = calculateOutputShape("upsampleNode", [inputShape], data)
 
@@ -29,3 +30,6 @@ export function UpsampleNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const UpsampleNode = memo(UpsampleNodeImpl)
+UpsampleNode.displayName = "UpsampleNode"

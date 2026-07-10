@@ -1,7 +1,8 @@
+import { memo } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
-export function SEBottleneckNode({ data }: NodeProps) {
+function SEBottleneckNodeImpl({ data }: NodeProps) {
   return (
     <Card className="w-56">
       <CardHeader className="p-2">
@@ -18,3 +19,6 @@ export function SEBottleneckNode({ data }: NodeProps) {
     </Card>
   );
 }
+
+export const SEBottleneckNode = memo(SEBottleneckNodeImpl)
+SEBottleneckNode.displayName = "SEBottleneckNode"

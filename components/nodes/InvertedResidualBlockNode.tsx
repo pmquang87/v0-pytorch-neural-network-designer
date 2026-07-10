@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import type { NodeData } from "@/lib/types"
 
@@ -5,7 +6,7 @@ interface InvertedResidualBlockNodeProps {
   data: NodeData
 }
 
-export function InvertedResidualBlockNode({ data }: InvertedResidualBlockNodeProps) {
+function InvertedResidualBlockNodeImpl({ data }: InvertedResidualBlockNodeProps) {
   return (
     <div className="bg-blue-100 border-2 border-blue-300 rounded-lg p-3 min-w-[160px]">
       <Handle type="target" position={Position.Left} />
@@ -26,3 +27,6 @@ export function InvertedResidualBlockNode({ data }: InvertedResidualBlockNodePro
     </div>
   )
 }
+
+export const InvertedResidualBlockNode = memo(InvertedResidualBlockNodeImpl)
+InvertedResidualBlockNode.displayName = "InvertedResidualBlockNode"

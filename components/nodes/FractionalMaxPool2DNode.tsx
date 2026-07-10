@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 
@@ -10,7 +11,7 @@ interface FractionalMaxPool2DNodeProps {
   }
 }
 
-export function FractionalMaxPool2DNode({ data }: FractionalMaxPool2DNodeProps) {
+function FractionalMaxPool2DNodeImpl({ data }: FractionalMaxPool2DNodeProps) {
   return (
     <Card className="min-w-[180px] bg-white border-2 border-red-200 shadow-sm">
       <Handle type="target" position={Position.Top} className="w-3 h-3" />
@@ -39,3 +40,6 @@ export function FractionalMaxPool2DNode({ data }: FractionalMaxPool2DNodeProps) 
     </Card>
   )
 }
+
+export const FractionalMaxPool2DNode = memo(FractionalMaxPool2DNodeImpl)
+FractionalMaxPool2DNode.displayName = "FractionalMaxPool2DNode"

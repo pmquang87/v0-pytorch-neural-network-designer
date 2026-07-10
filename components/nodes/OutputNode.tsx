@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { LogOut } from "lucide-react"
 import { formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function OutputNode({ data }: { data: any }) {
+function OutputNodeImpl({ data }: { data: any }) {
   // For output nodes, we typically show the incoming tensor shape
   const inputShape: TensorShape | undefined = Array.isArray(data.inputShape)
     ? data.inputShape[0]
@@ -32,3 +33,6 @@ export function OutputNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const OutputNode = memo(OutputNodeImpl)
+OutputNode.displayName = "OutputNode"

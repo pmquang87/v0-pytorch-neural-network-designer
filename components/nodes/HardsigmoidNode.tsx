@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Zap } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function HardsigmoidNode({ data }: { data: any }) {
+function HardsigmoidNodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape
   const outputShape = calculateOutputShape("hardsigmoidNode", [inputShape], data)
 
@@ -24,3 +25,6 @@ export function HardsigmoidNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const HardsigmoidNode = memo(HardsigmoidNodeImpl)
+HardsigmoidNode.displayName = "HardsigmoidNode"

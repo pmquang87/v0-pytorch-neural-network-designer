@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Minimize2 } from "lucide-react"
 import { formatTensorShape } from "@/lib/tensor-shape-calculator"
 
-export function FlattenNode({ data }: { data: any }) {
+function FlattenNodeImpl({ data }: { data: any }) {
   const inputShape = data.inputShape || { batch: 1, channels: 1, height: 28, width: 28 }
   const outputShape = data.outputShape || { batch: 1, features: 784 }
 
@@ -24,3 +25,6 @@ export function FlattenNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const FlattenNode = memo(FlattenNodeImpl)
+FlattenNode.displayName = "FlattenNode"

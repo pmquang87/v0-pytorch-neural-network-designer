@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import type { HelpContent } from "@/lib/types"
 import { HelpCircle } from "lucide-react"
@@ -47,7 +48,7 @@ const selectNodeHelp: HelpContent = {
   ]
 }
 
-export function SelectNode({ data }: SelectNodeProps) {
+function SelectNodeImpl({ data }: SelectNodeProps) {
   return (
     <div className="bg-purple-100 border-2 border-purple-300 rounded-lg p-3 min-w-[120px]">
       <Handle type="target" position={Position.Left} />
@@ -80,3 +81,6 @@ export function SelectNode({ data }: SelectNodeProps) {
     </div>
   )
 }
+
+export const SelectNode = memo(SelectNodeImpl)
+SelectNode.displayName = "SelectNode"

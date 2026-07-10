@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { BrainCircuit } from "lucide-react"
 import { formatTensorShape } from "@/lib/tensor-shape-calculator"
 
-export function ReLUNode({ data }: { data: any }) {
+function ReLUNodeImpl({ data }: { data: any }) {
   return (
     <Card className="w-48 border-2 border-red-500/50 bg-card">
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-red-500 border-2 border-background" />
@@ -21,3 +22,6 @@ export function ReLUNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const ReLUNode = memo(ReLUNodeImpl)
+ReLUNode.displayName = "ReLUNode"

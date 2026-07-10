@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Shrink } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function MaxPool2DNode({ data }: { data: any }) {
+function MaxPool2DNodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, channels: 32, height: 28, width: 28 }
   const outputShape = calculateOutputShape("maxpool2dNode", [inputShape], data)
 
@@ -31,3 +32,6 @@ export function MaxPool2DNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const MaxPool2DNode = memo(MaxPool2DNodeImpl)
+MaxPool2DNode.displayName = "MaxPool2DNode"

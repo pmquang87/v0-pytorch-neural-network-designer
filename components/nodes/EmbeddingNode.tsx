@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Hash } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function EmbeddingNode({ data }: { data: any }) {
+function EmbeddingNodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, sequence: 128 }
   const outputShape = calculateOutputShape("embeddingNode", [inputShape], data)
 
@@ -30,3 +31,6 @@ export function EmbeddingNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const EmbeddingNode = memo(EmbeddingNodeImpl)
+EmbeddingNode.displayName = "EmbeddingNode"

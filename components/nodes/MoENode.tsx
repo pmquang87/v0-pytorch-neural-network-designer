@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Boxes } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function MoENode({ data }: { data: any }) {
+function MoENodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape
   const outputShape = calculateOutputShape("moeNode", [inputShape], data)
 
@@ -30,3 +31,6 @@ export function MoENode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const MoENode = memo(MoENodeImpl)
+MoENode.displayName = "MoENode"

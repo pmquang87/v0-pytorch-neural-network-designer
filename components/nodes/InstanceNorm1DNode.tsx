@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import type { NodeData } from "@/lib/types"
 import { formatTensorShape } from "@/lib/tensor-shape-calculator"
@@ -6,7 +7,7 @@ interface InstanceNorm1DNodeProps {
   data: NodeData
 }
 
-export function InstanceNorm1DNode({ data }: InstanceNorm1DNodeProps) {
+function InstanceNorm1DNodeImpl({ data }: InstanceNorm1DNodeProps) {
   return (
     <div className="bg-cyan-100 border-2 border-cyan-300 rounded-lg p-3 min-w-[140px]">
       <Handle type="target" position={Position.Left} />
@@ -24,3 +25,6 @@ export function InstanceNorm1DNode({ data }: InstanceNorm1DNodeProps) {
     </div>
   )
 }
+
+export const InstanceNorm1DNode = memo(InstanceNorm1DNodeImpl)
+InstanceNorm1DNode.displayName = "InstanceNorm1DNode"

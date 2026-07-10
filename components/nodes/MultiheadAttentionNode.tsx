@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import type { NodeData } from "@/lib/types"
 import { formatTensorShape } from "@/lib/tensor-shape-calculator"
@@ -6,7 +7,7 @@ interface MultiheadAttentionNodeProps {
   data: NodeData
 }
 
-export function MultiheadAttentionNode({ data }: MultiheadAttentionNodeProps) {
+function MultiheadAttentionNodeImpl({ data }: MultiheadAttentionNodeProps) {
   return (
     <div className="bg-purple-100 border-2 border-purple-300 rounded-lg p-3 min-w-[160px]">
       <Handle type="target" position={Position.Left} id="query" style={{ top: "25%" }} />
@@ -23,3 +24,6 @@ export function MultiheadAttentionNode({ data }: MultiheadAttentionNodeProps) {
     </div>
   )
 }
+
+export const MultiheadAttentionNode = memo(MultiheadAttentionNodeImpl)
+MultiheadAttentionNode.displayName = "MultiheadAttentionNode"

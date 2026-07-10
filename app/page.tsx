@@ -81,6 +81,8 @@ import { useKeyboardShortcuts } from "@/lib/keyboard-shortcuts"
 import { parsePyTorchModel } from "@/lib/pytorch-parser"
 import { Input } from "@/components/ui/input"
 import { EditableNumberInput } from "@/components/ui/EditableNumberInput"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 
 // Custom Node Components
 import { InputNode } from "@/components/nodes/InputNode"
@@ -1386,6 +1388,7 @@ export default function NeuralNetworkDesigner() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <Button variant="outline" size="sm" onClick={() => setShowHelpDialog(true)}>
             <HelpCircle className="h-4 w-4 mr-2" />
             Help
@@ -2023,6 +2026,7 @@ export default function NeuralNetworkDesigner() {
 
         {/* Main Canvas Area */}
         <div className="flex-1 h-full w-full" ref={reactFlowWrapper}>
+          <ErrorBoundary>
           <ReactFlowProvider>
             <ReactFlow
               nodes={nodes}
@@ -2048,6 +2052,7 @@ export default function NeuralNetworkDesigner() {
               <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
             </ReactFlow>
           </ReactFlowProvider>
+          </ErrorBoundary>
         </div>
 
         {/* Right Panel: Properties & Live Validation */}
@@ -2670,7 +2675,7 @@ export default function NeuralNetworkDesigner() {
                           onChange={(e) =>
                             updateNodeData(selectedNode.id, { dim: parseInt(e.target.value, 10) })
                           }
-                          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-black"
+                          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-background text-foreground"
                         >
                           <option value={1}>1</option>
                           <option value={2}>2</option>
@@ -3155,7 +3160,7 @@ export default function NeuralNetworkDesigner() {
                           onChange={(e) =>
                             updateNodeData(selectedNode.id, { downsample: e.target.value === 'true' })
                           }
-                          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-black"
+                          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-background text-foreground"
                         >
                           <option value="true">Yes</option>
                           <option value="false">No</option>
@@ -3226,7 +3231,7 @@ export default function NeuralNetworkDesigner() {
 
       {/* Code Generation Dialog */}
       <Dialog open={showCodeDialog} onOpenChange={setShowCodeDialog}>
-        <DialogContent className="w-[65vw] h-[80vh] flex flex-col bg-gray-200 text-gray-900">
+        <DialogContent className="w-[65vw] h-[80vh] flex flex-col bg-background text-foreground">
           <DialogHeader>
             <DialogTitle>Generated PyTorch Code</DialogTitle>
             <DialogDescription>
@@ -3272,7 +3277,7 @@ export default function NeuralNetworkDesigner() {
       </Dialog>
 
       <Dialog open={showAnalysisPanel} onOpenChange={setShowAnalysisPanel}>
-        <DialogContent className="max-w-4xl max-h-[90vh] w-[65vw] bg-gray-200 text-gray-900">
+        <DialogContent className="max-w-4xl max-h-[90vh] w-[65vw] bg-background text-foreground">
           <DialogHeader>
             <DialogTitle>Model Analysis</DialogTitle>
           </DialogHeader>
@@ -3315,28 +3320,28 @@ export default function NeuralNetworkDesigner() {
                       {modelAnalysis.layers.map((layer, index) => (
                         <div
                           key={index}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg min-w-0"
+                          className="flex items-center justify-between p-3 bg-muted rounded-lg min-w-0"
                         >
                           <div className="flex-1 min-w-0 mr-4">
                             <div className="font-medium text-sm truncate">{layer.name}</div>
-                            <div className="text-xs text-gray-600 truncate">{layer.type}</div>
+                            <div className="text-xs text-muted-foreground truncate">{layer.type}</div>
                           </div>
                           <div className="flex gap-4 text-xs flex-shrink-0">
                             <div className="text-center min-w-0">
-                              <div className="font-medium break-words text-gray-900">
+                              <div className="font-medium break-words text-foreground">
                                 {formatNumber(layer.parameters)}
                               </div>
-                              <div className="text-gray-600">Params</div>
+                              <div className="text-muted-foreground">Params</div>
                             </div>
                             <div className="text-center min-w-0">
-                              <div className="font-medium break-words text-gray-900">{formatNumber(layer.flops)}</div>
-                              <div className="text-gray-600">FLOPs</div>
+                              <div className="font-medium break-words text-foreground">{formatNumber(layer.flops)}</div>
+                              <div className="text-muted-foreground">FLOPs</div>
                             </div>
                             <div className="text-center min-w-0">
-                              <div className="font-medium break-words text-gray-900">
+                              <div className="font-medium break-words text-foreground">
                                 {layer.memoryMB.toFixed(1)} MB
                               </div>
-                              <div className="text-gray-600">Memory</div>
+                              <div className="text-muted-foreground">Memory</div>
                             </div>
                           </div>
                         </div>
@@ -3399,7 +3404,7 @@ export default function NeuralNetworkDesigner() {
       </Dialog>
 
       <Dialog open={showValidationPanel} onOpenChange={setShowValidationPanel}>
-        <DialogContent className="w-[65vw] h-[80vh] flex flex-col bg-gray-200 text-gray-900">
+        <DialogContent className="w-[65vw] h-[80vh] flex flex-col bg-background text-foreground">
           <DialogHeader>
             <DialogTitle>Model Validation Results</DialogTitle>
           </DialogHeader>
@@ -3435,7 +3440,7 @@ export default function NeuralNetworkDesigner() {
               ) : (
                 <div className="flex flex-col items-center justify-center h-full">
                   <p className="text-lg font-semibold">No issues found.</p>
-                  <p className="text-sm text-gray-700">Your model is looking good!</p>
+                  <p className="text-sm text-muted-foreground">Your model is looking good!</p>
                 </div>
               )}
             </ScrollArea>
@@ -3449,7 +3454,7 @@ export default function NeuralNetworkDesigner() {
       </Dialog>
 
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-        <DialogContent className="w-[50vw] bg-gray-200 text-gray-900">
+        <DialogContent className="w-[50vw] bg-background text-foreground">
           <DialogHeader>
             <DialogTitle>Save Model</DialogTitle>
             <DialogDescription>
@@ -3462,7 +3467,7 @@ export default function NeuralNetworkDesigner() {
               value={modelName}
               onChange={(e) => setModelName(e.target.value)}
               placeholder="My-CNN-Model"
-              className="bg-white text-black"
+              className="bg-background text-foreground"
             />
           </div>
           <DialogFooter>
@@ -3478,7 +3483,7 @@ export default function NeuralNetworkDesigner() {
       </Dialog>
 
       <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
-        <DialogContent className="w-[50vw] bg-gray-200 text-gray-900">
+        <DialogContent className="w-[50vw] bg-background text-foreground">
           <DialogHeader>
             <DialogTitle>Open Model</DialogTitle>
             <DialogDescription>
@@ -3492,11 +3497,11 @@ export default function NeuralNetworkDesigner() {
                   savedModels.map((model) => (
                     <div
                       key={model.key}
-                      className="flex items-center justify-between rounded-lg border p-3 transition-all hover:bg-gray-100"
+                      className="flex items-center justify-between rounded-lg border p-3 transition-all hover:bg-muted"
                     >
                       <div>
                         <div className="font-semibold">{model.name}</div>
-                        <div className="text-xs text-gray-600">Saved: {new Date(model.timestamp).toLocaleString()}</div>
+                        <div className="text-xs text-muted-foreground">Saved: {new Date(model.timestamp).toLocaleString()}</div>
                       </div>
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => handleLoadModel(model.key)}>
@@ -3509,7 +3514,7 @@ export default function NeuralNetworkDesigner() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center text-gray-500 py-10">No saved models found.</div>
+                  <div className="text-center text-muted-foreground py-10">No saved models found.</div>
                 )}
               </div>
             </ScrollArea>
@@ -3533,7 +3538,7 @@ export default function NeuralNetworkDesigner() {
       </Dialog>
 
       <Dialog open={showCodeInputDialog} onOpenChange={setShowCodeInputDialog}>
-        <DialogContent className="w-[80vw] h-[80vh] flex flex-col bg-gray-200 text-gray-900">
+        <DialogContent className="w-[80vw] h-[80vh] flex flex-col bg-background text-foreground">
           <DialogHeader>
             <DialogTitle>Input PyTorch Code</DialogTitle>
             <DialogDescription>
@@ -3620,7 +3625,7 @@ class MyModel(nn.Module):
       </Dialog>
 
       <Dialog open={showHelpDialog} onOpenChange={setShowHelpDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] w-[65vw] bg-gray-200 text-gray-900">
+        <DialogContent className="max-w-4xl max-h-[90vh] w-[65vw] bg-background text-foreground">
           <DialogHeader>
             <DialogTitle>Neural Network Designer - Help Guide</DialogTitle>
           </DialogHeader>
@@ -3629,7 +3634,7 @@ class MyModel(nn.Module):
               {/* Getting Started */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">🚀 Getting Started</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     Welcome to the Neural Network Designer! This tool helps you build PyTorch models visually by
                     connecting blocks on a canvas.
@@ -3640,7 +3645,7 @@ class MyModel(nn.Module):
               {/* Adding Blocks */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">📦 Adding Blocks</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>1.</strong> Browse the left sidebar to find different layer types (Input, Linear,
                     Convolution, etc.)
@@ -3660,7 +3665,7 @@ class MyModel(nn.Module):
               {/* Connecting Blocks */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">🔗 Connecting Blocks</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>1.</strong> Drag from the output handle (right side) of one block
                   </p>
@@ -3679,7 +3684,7 @@ class MyModel(nn.Module):
               {/* Configuring Parameters */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">⚙️ Configuring Parameters</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>1.</strong> Click on any block to select it
                   </p>
@@ -3698,13 +3703,13 @@ class MyModel(nn.Module):
               {/* Deleting Blocks */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">🗑️ Deleting Blocks</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>1.</strong> Click on a block to select it (shows selection border)
                   </p>
                   <p>
-                    <strong>2.</strong> Press the <kbd className="px-2 py-1 bg-gray-100 rounded text-xs">Delete</kbd> or{' '}
-                    <kbd className="px-2 py-1 bg-gray-100 rounded text-xs">Backspace</kbd> key
+                    <strong>2.</strong> Press the <kbd className="px-2 py-1 bg-muted rounded text-xs">Delete</kbd> or{' '}
+                    <kbd className="px-2 py-1 bg-muted rounded text-xs">Backspace</kbd> key
                   </p>
                   <p>
                     <strong>3.</strong> The block and its connections will be removed
@@ -3715,11 +3720,11 @@ class MyModel(nn.Module):
               {/* Keyboard Shortcuts */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">⌨️ Keyboard Shortcuts</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   {keyboardShortcuts.map((shortcut, index) => (
                     <div key={index} className="flex items-center justify-between">
                       <p>{shortcut.description}</p>
-                      <kbd className="px-2 py-1 bg-gray-300 rounded text-xs font-semibold">{shortcut.key}</kbd>
+                      <kbd className="px-2 py-1 bg-muted rounded text-xs font-semibold">{shortcut.key}</kbd>
                     </div>
                   ))}
                 </div>
@@ -3728,7 +3733,7 @@ class MyModel(nn.Module):
               {/* Saving, Loading, Importing & Exporting */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">💾 Saving, Loading, Importing & Exporting</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>To Save:</strong> Click the "Save" button, enter a name, and save it to your browser's local storage.
                   </p>
@@ -3747,7 +3752,7 @@ class MyModel(nn.Module):
               {/* Using Examples */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">📚 Loading Examples</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>1.</strong> Click the "Load Example" button in the header
                   </p>
@@ -3766,7 +3771,7 @@ class MyModel(nn.Module):
               {/* Generating Code */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">🐍 Generating PyTorch Code</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>1.</strong> Click "Generate PyTorch Code" when your network is ready
                   </p>
@@ -3785,7 +3790,7 @@ class MyModel(nn.Module):
               {/* Model Analysis */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">📊 Model Analysis</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>1.</strong> Click "Analyze Model" to get detailed insights
                   </p>
@@ -3804,7 +3809,7 @@ class MyModel(nn.Module):
               {/* Tips */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">💡 Pro Tips</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>• Always start with an Input block to define your data dimensions</p>
                   <p>• Watch tensor shapes to ensure compatibility between layers</p>
                   <p>• Use skip connections (Add/Concatenate blocks) for advanced architectures</p>
@@ -3816,7 +3821,7 @@ class MyModel(nn.Module):
               {/* Available Blocks */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">🧱 Available Block Types</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
+                <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
                   <div>
                     <p>
                       <strong>Basic:</strong> Input, Linear, Dropout
@@ -3851,7 +3856,7 @@ class MyModel(nn.Module):
               {/* Feedback & Contact */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">📧 Feedback & Contact</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     Have suggestions, found a bug, or want to request new features? Send your feedback to:{' '}
                     <strong>pmquang87@icloud.com</strong>

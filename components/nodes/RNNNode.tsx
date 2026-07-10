@@ -1,8 +1,9 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { GitBranch } from "lucide-react"
 
-export function RNNNode({ data }: { data: any }) {
+function RNNNodeImpl({ data }: { data: any }) {
   return (
     <Card className="min-w-[160px] bg-card border-border shadow-sm">
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-primary" />
@@ -25,3 +26,6 @@ export function RNNNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const RNNNode = memo(RNNNodeImpl)
+RNNNode.displayName = "RNNNode"

@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Shrink } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function AvgPool2DNode({ data }: { data: any }) {
+function AvgPool2DNodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, channels: 32, height: 28, width: 28 }
   const outputShape = calculateOutputShape("avgpool2dNode", [inputShape], data)
 
@@ -35,3 +36,6 @@ export function AvgPool2DNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const AvgPool2DNode = memo(AvgPool2DNodeImpl)
+AvgPool2DNode.displayName = "AvgPool2DNode"

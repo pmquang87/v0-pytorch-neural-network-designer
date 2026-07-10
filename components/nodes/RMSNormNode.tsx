@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Network } from "lucide-react"
 import { formatTensorShape } from "@/lib/tensor-shape-calculator"
 
-export function RMSNormNode({ data }: { data: any }) {
+function RMSNormNodeImpl({ data }: { data: any }) {
   return (
     <Card className="w-56 border-2 border-cyan-500/50 bg-card">
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-cyan-500 border-2 border-background" />
@@ -26,3 +27,6 @@ export function RMSNormNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const RMSNormNode = memo(RMSNormNodeImpl)
+RMSNormNode.displayName = "RMSNormNode"

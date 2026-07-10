@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Shield } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function DropoutNode({ data }: { data: any }) {
+function DropoutNodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, features: 128 }
   const outputShape = calculateOutputShape("dropoutNode", [inputShape], data)
 
@@ -27,3 +28,6 @@ export function DropoutNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const DropoutNode = memo(DropoutNodeImpl)
+DropoutNode.displayName = "DropoutNode"

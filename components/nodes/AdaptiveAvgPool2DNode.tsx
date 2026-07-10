@@ -1,8 +1,9 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Shrink } from "lucide-react"
 
-export function AdaptiveAvgPool2DNode({ data }: { data: any }) {
+function AdaptiveAvgPool2DNodeImpl({ data }: { data: any }) {
   return (
     <Card className="min-w-[160px] bg-card border-border shadow-sm">
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-primary" />
@@ -19,3 +20,6 @@ export function AdaptiveAvgPool2DNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const AdaptiveAvgPool2DNode = memo(AdaptiveAvgPool2DNodeImpl)
+AdaptiveAvgPool2DNode.displayName = "AdaptiveAvgPool2DNode"
