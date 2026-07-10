@@ -1,10 +1,11 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { BarChart3 } from "lucide-react"
 import { formatTensorShape } from "@/lib/tensor-shape-calculator"
 import type { NodeData } from "@/lib/types"
 
-export function BatchNorm1DNode({ data }: { data: NodeData }) {
+function BatchNorm1DNodeImpl({ data }: { data: NodeData }) {
   return (
     <Card className="min-w-[160px] bg-card border-2 border-purple-500/50 shadow-sm">
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-purple-500 border-2 border-background" />
@@ -27,3 +28,6 @@ export function BatchNorm1DNode({ data }: { data: NodeData }) {
     </Card>
   )
 }
+
+export const BatchNorm1DNode = memo(BatchNorm1DNodeImpl)
+BatchNorm1DNode.displayName = "BatchNorm1DNode"

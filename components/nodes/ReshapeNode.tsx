@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react";
 import { Card } from "@/components/ui/card";
 import { Layers } from "lucide-react";
@@ -8,7 +9,7 @@ interface ReshapeNodeData {
   inputShape?: TensorShape
 }
 
-export function ReshapeNode({ data }: { data: ReshapeNodeData }) {
+function ReshapeNodeImpl({ data }: { data: ReshapeNodeData }) {
   const inputShape: TensorShape | undefined = data.inputShape;
 
   const outputShape = calculateOutputShape("reshapeNode", [(inputShape || {}) as TensorShape], { targetShape: data.targetShape });
@@ -50,3 +51,6 @@ export function ReshapeNode({ data }: { data: ReshapeNodeData }) {
     </Card>
   );
 }
+
+export const ReshapeNode = memo(ReshapeNodeImpl)
+ReshapeNode.displayName = "ReshapeNode"

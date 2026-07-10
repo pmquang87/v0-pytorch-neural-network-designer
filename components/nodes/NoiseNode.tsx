@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Waves } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function NoiseNode({ data }: { data: any }) {
+function NoiseNodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, features: 512, height: 4, width: 4 }
   const outputShape = calculateOutputShape("noiseNode", [inputShape], data)
 
@@ -31,3 +32,6 @@ export function NoiseNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const NoiseNode = memo(NoiseNodeImpl)
+NoiseNode.displayName = "NoiseNode"

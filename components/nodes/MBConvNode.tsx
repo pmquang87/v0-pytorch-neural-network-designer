@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Layers } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function MBConvNode({ data }: { data: any }) {
+function MBConvNodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, channels: 3, height: 224, width: 224 }
   const outputShape = calculateOutputShape("mbconvNode", [inputShape], data)
 
@@ -34,3 +35,6 @@ export function MBConvNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const MBConvNode = memo(MBConvNodeImpl)
+MBConvNode.displayName = "MBConvNode"

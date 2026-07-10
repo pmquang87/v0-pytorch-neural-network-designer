@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 
@@ -11,7 +12,7 @@ interface LPPool2DNodeProps {
   }
 }
 
-export function LPPool2DNode({ data }: LPPool2DNodeProps) {
+function LPPool2DNodeImpl({ data }: LPPool2DNodeProps) {
   return (
     <Card className="min-w-[180px] bg-white border-2 border-red-200 shadow-sm">
       <Handle type="target" position={Position.Top} className="w-3 h-3" />
@@ -41,3 +42,6 @@ export function LPPool2DNode({ data }: LPPool2DNodeProps) {
     </Card>
   )
 }
+
+export const LPPool2DNode = memo(LPPool2DNodeImpl)
+LPPool2DNode.displayName = "LPPool2DNode"

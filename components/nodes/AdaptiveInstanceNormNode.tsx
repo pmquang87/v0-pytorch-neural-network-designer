@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { GitBranch } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function AdaptiveInstanceNormNode({ data }: { data: any }) {
+function AdaptiveInstanceNormNodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, features: 512, height: 4, width: 4 }
   const styleShape: TensorShape = data.styleShape || { batch: 1, features: 512 }
   const outputShape = calculateOutputShape("adaptiveInstanceNormNode", [inputShape, styleShape], data)
@@ -44,3 +45,6 @@ export function AdaptiveInstanceNormNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const AdaptiveInstanceNormNode = memo(AdaptiveInstanceNormNodeImpl)
+AdaptiveInstanceNormNode.displayName = "AdaptiveInstanceNormNode"

@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { BrainCircuit } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function SsmNode({ data }: { data: any }) {
+function SsmNodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, channels: 1, features: 512 }
   const outputShape = calculateOutputShape("ssmNode", [inputShape], data)
 
@@ -32,3 +33,6 @@ export function SsmNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const SsmNode = memo(SsmNodeImpl)
+SsmNode.displayName = "SsmNode"

@@ -1,6 +1,32 @@
 
 import { type GraphIR, type GraphNode, type GraphEdge, PYTORCH_LAYER_MANIFEST } from "./types";
 
+// Options controlling the optional training-scaffold emitted after the model class.
+// When passed to `generateCode({ training })`, a runnable `if __name__ == "__main__":`
+// block is appended that instantiates the model, builds an optimizer + criterion,
+// creates a dummy dataset matching the Input node shape, and runs an epoch loop.
+export interface TrainingOptions {
+  optimizer: "adam" | "adamw" | "sgd";
+  loss: "crossentropy" | "mse" | "bce";
+  learningRate?: number;
+  epochs?: number;
+  batchSize?: number;
+}
+
+// Enum -> torch.optim class name for the training scaffold.
+const OPTIMIZER_CLASSES: Record<TrainingOptions["optimizer"], string> = {
+  adam: "Adam",
+  adamw: "AdamW",
+  sgd: "SGD",
+};
+
+// Enum -> torch.nn criterion expression for the training scaffold.
+const LOSS_CRITERIA: Record<TrainingOptions["loss"], string> = {
+  crossentropy: "nn.CrossEntropyLoss()",
+  mse: "nn.MSELoss()",
+  bce: "nn.BCEWithLogitsLoss()",
+};
+
 // Node types handled inline in the forward pass rather than as nn.Module layers
 const FUNCTIONAL_NODE_TYPES = new Set([
   "reshapeNode",
@@ -151,11 +177,13 @@ export class ModelGenerator {
     return result;
   }
 
-  generateCode(): string {
+  generateCode(options?: { training?: TrainingOptions }): string {
     const validation = this.validateGraph();
     if (!validation.valid) {
       throw new Error(validation.error);
     }
+
+    const training = options?.training;
 
     const sortedNodes = this.topologicalSort();
     const layerNodes = sortedNodes.filter(
@@ -163,6 +191,9 @@ export class ModelGenerator {
     );
 
     let code = `import torch\nimport torch.nn as nn\n`;
+    if (training) {
+      code += `from torch.utils.data import TensorDataset, DataLoader\n`;
+    }
 
     let classDefinition = `\n\nclass GeneratedModel(nn.Module):\n    def __init__(self):\n        super().__init__()\n`;
 
@@ -266,7 +297,82 @@ export class ModelGenerator {
       code += `# output = model(${inputVars.join(", ")})\n`;
       code += `# print(f"Output shape: {output.shape}")\n`;
     }
+
+    if (training) {
+      code += this.buildTrainingScaffold(training);
+    }
     return code;
+  }
+
+  // Emits a runnable training scaffold appended after the model class:
+  // an `if __name__ == "__main__":` block that instantiates GeneratedModel, moves
+  // it to the best available device, builds the optimizer + criterion, creates a
+  // dummy TensorDataset/DataLoader whose input tensor(s) match the Input node
+  // shape, and runs a forward/backward/step epoch loop with a printed loss.
+  private buildTrainingScaffold(training: TrainingOptions): string {
+    const lr = training.learningRate ?? 1e-3;
+    const epochs = training.epochs ?? 10;
+    const batchSize = training.batchSize ?? 32;
+    const numSamples = batchSize * 4;
+
+    const optimizerClass = OPTIMIZER_CLASSES[training.optimizer];
+    const criterion = LOSS_CRITERIA[training.loss];
+
+    const inputVarNames: string[] = [];
+    const inputTensorLines: string[] = [];
+    for (const inputNode of this.inputNodes) {
+      const varName = this.sanitizeArgName(inputNode.data.name || inputNode.id);
+      const d = inputNode.data as any;
+      const dims = [d.channels, d.depth, d.height, d.width, d.sequence, d.length, d.features].filter(
+        (v: any) => typeof v === "number",
+      );
+      const shape = `(num_samples${dims.map((v: number) => `, ${v}`).join("")})`;
+      inputTensorLines.push(`    ${varName} = torch.randn${shape}`);
+      inputVarNames.push(varName);
+    }
+
+    // Dummy targets sized for the selected loss. These are placeholders; replace
+    // the whole data-loading section with your real dataset.
+    const targetLines: string[] = [];
+    if (training.loss === "crossentropy") {
+      targetLines.push(`    num_classes = 10`);
+      targetLines.push(`    targets = torch.randint(0, num_classes, (num_samples,))`);
+    } else if (training.loss === "bce") {
+      targetLines.push(`    targets = torch.randint(0, 2, (num_samples, 1)).float()`);
+    } else {
+      targetLines.push(`    targets = torch.randn(num_samples, 1)`);
+    }
+
+    const datasetArgs = [...inputVarNames, "targets"].join(", ");
+
+    let scaffold = `\n\nif __name__ == "__main__":\n`;
+    scaffold += `    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")\n`;
+    scaffold += `    model = GeneratedModel().to(device)\n\n`;
+    scaffold += `    optimizer = torch.optim.${optimizerClass}(model.parameters(), lr=${lr})\n`;
+    scaffold += `    criterion = ${criterion}\n\n`;
+    scaffold += `    # Dummy data for demonstration; replace with your real dataset.\n`;
+    scaffold += `    num_samples = ${numSamples}\n`;
+    scaffold += inputTensorLines.join("\n") + `\n`;
+    scaffold += targetLines.join("\n") + `\n`;
+    scaffold += `    dataset = TensorDataset(${datasetArgs})\n`;
+    scaffold += `    dataloader = DataLoader(dataset, batch_size=${batchSize}, shuffle=True)\n\n`;
+    scaffold += `    epochs = ${epochs}\n`;
+    scaffold += `    model.train()\n`;
+    scaffold += `    for epoch in range(epochs):\n`;
+    scaffold += `        running_loss = 0.0\n`;
+    scaffold += `        for batch in dataloader:\n`;
+    scaffold += `            *inputs, targets = batch\n`;
+    scaffold += `            inputs = [t.to(device) for t in inputs]\n`;
+    scaffold += `            targets = targets.to(device)\n\n`;
+    scaffold += `            optimizer.zero_grad()\n`;
+    scaffold += `            outputs = model(*inputs)\n`;
+    scaffold += `            loss = criterion(outputs, targets)\n`;
+    scaffold += `            loss.backward()\n`;
+    scaffold += `            optimizer.step()\n\n`;
+    scaffold += `            running_loss += loss.item()\n\n`;
+    scaffold += `        avg_loss = running_loss / len(dataloader)\n`;
+    scaffold += `        print(f"Epoch {epoch + 1}/{epochs} - loss: {avg_loss:.4f}")\n`;
+    return scaffold;
   }
 
   private buildParameterString(node: GraphNode, paramNames: string[]): string {

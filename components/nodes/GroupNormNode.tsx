@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { BarChart3 } from "lucide-react"
 import { formatTensorShape } from "@/lib/tensor-shape-calculator"
 
-export function GroupNormNode({ data }: { data: any }) {
+function GroupNormNodeImpl({ data }: { data: any }) {
   return (
     <Card className="min-w-[160px] bg-card border-border shadow-sm">
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-primary" />
@@ -30,3 +31,6 @@ export function GroupNormNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const GroupNormNode = memo(GroupNormNodeImpl)
+GroupNormNode.displayName = "GroupNormNode"

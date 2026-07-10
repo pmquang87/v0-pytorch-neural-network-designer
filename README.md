@@ -14,18 +14,20 @@ This application provides a powerful drag-and-drop interface that allows users t
 
 -   **Visual Model Building:** Drag, drop, and connect nodes to build your network architecture.
 -   **Rich Layer Library:** A wide range of PyTorch layers are supported, including:
-    -   Core layers (Linear, Conv1D/2D/3D, Transposed Conv, Pooling, Dropout)
+    -   Core layers (Linear, Embedding, Conv1D/2D/3D, Transposed Conv, Pooling, Dropout)
     -   Activation functions (ReLU, LeakyReLU, GELU, SiLU, Mish, Hardswish, Softmax, etc.)
     -   Normalization layers (BatchNorm, LayerNorm, **RMSNorm**, GroupNorm, InstanceNorm)
     -   Advanced layers (LSTM, GRU, RNN, MultiheadAttention, Transformer encoder/decoder)
     -   Modern LLM building blocks (**Mixture of Experts / sparse MoE FFN**, SSM/Mamba)
 -   **Up-to-date PyTorch API:** Layers are mapped to the current **PyTorch 2.x** `torch.nn` API, including recent additions such as `nn.RMSNorm` (PyTorch 2.4+) and the `approximate` option on `nn.GELU`. See the [PyTorch Layer Reference](docs/PYTORCH.md) for the full mapping and links to the official docs.
 -   **Real-time Shape Propagation:** Automatically calculates and displays the output tensor shape for each layer as you build.
--   **Model Validation:** Checks for common errors such as shape mismatches, disconnected nodes, and cycles.
--   **Code Generation:** Export your visual model to clean, readable PyTorch code.
+-   **Model Validation with actionable diagnostics:** Checks for common errors such as shape mismatches, disconnected nodes, and cycles — and reports *expected vs. actual* values with a concrete fix (e.g. "Linear expects `in_features=768` but receives a tensor whose last dimension is 393216 — insert a Flatten, set `in_features=393216`, or select a single token").
+-   **Code Generation:** Export your visual model to clean, readable PyTorch code — optionally including a runnable **training loop** (device, optimizer, loss, and a `DataLoader` scaffold) so you can go from diagram to something you can actually train.
 -   **Model Importer (full-graph reconstruction):** Paste existing PyTorch model code and the importer parses the `forward()` method to rebuild the *complete* computation graph — residual/skip connections, concatenations, branches, element-wise merges, functional activations (`F.relu`, `torch.cat`, …) and recursively **inlined submodules** (e.g. a ResNet's `BasicBlock`) — instead of a naive top-to-bottom list of layers.
 -   **Save, Load, Import & Export:** Save models to your browser's local storage, or export/import them as `.json` files to share and back up your work.
--   **Model Analysis:** Get insights into your model's complexity, including total parameters, FLOPs, and estimated memory usage.
+-   **Shareable Links:** Encode an entire model into a URL and share it — opening the link reconstructs the graph on the canvas (fully client-side, no backend).
+-   **Model Analysis & Summary Export:** Get insights into your model's complexity — total parameters, FLOPs, and estimated memory usage — and copy a `torchinfo`-style per-layer summary table as Markdown.
+-   **Dark Mode:** A built-in light/dark theme toggle.
 -   **Example Library:** Load and explore pre-built models like LeNet-5, ResNet, U-Net, YOLO, and modern architectures such as the **MoE Transformer Block** (Mixtral / DeepSeek style) to learn common designs.
 
 ## Documentation

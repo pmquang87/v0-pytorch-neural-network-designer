@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import type { NodeData } from "@/lib/types"
 
@@ -5,7 +6,7 @@ interface ScaledDotProductAttentionNodeProps {
   data: NodeData
 }
 
-export function ScaledDotProductAttentionNode({ data }: ScaledDotProductAttentionNodeProps) {
+function ScaledDotProductAttentionNodeImpl({ data }: ScaledDotProductAttentionNodeProps) {
   return (
     <div className="bg-blue-100 border-2 border-blue-300 rounded-lg p-3 min-w-[160px]">
       <Handle type="target" position={Position.Left} id="query" style={{ top: "25%" }} />
@@ -24,3 +25,6 @@ export function ScaledDotProductAttentionNode({ data }: ScaledDotProductAttentio
     </div>
   )
 }
+
+export const ScaledDotProductAttentionNode = memo(ScaledDotProductAttentionNodeImpl)
+ScaledDotProductAttentionNode.displayName = "ScaledDotProductAttentionNode"

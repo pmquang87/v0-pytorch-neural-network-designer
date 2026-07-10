@@ -2,9 +2,9 @@ import { Handle, Position, useUpdateNodeInternals } from "@xyflow/react";
 import { Card } from "@/components/ui/card";
 import { GitBranch } from "lucide-react";
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator";
-import { useEffect } from "react";
+import { useEffect, memo } from "react"
 
-export function ConcatenateNode({ id, data }: { id: string; data: any }) {
+function ConcatenateNodeImpl({ id, data }: { id: string; data: any }) {
   const updateNodeInternals = useUpdateNodeInternals();
   // data.inputShape is an array of shapes (or undefined) populated by propagateTensorShapes
   const inputShapes: (TensorShape | undefined)[] = Array.isArray(data.inputShape) ? data.inputShape : [];
@@ -64,3 +64,6 @@ export function ConcatenateNode({ id, data }: { id: string; data: any }) {
     </Card>
   );
 }
+
+export const ConcatenateNode = memo(ConcatenateNodeImpl)
+ConcatenateNode.displayName = "ConcatenateNode"

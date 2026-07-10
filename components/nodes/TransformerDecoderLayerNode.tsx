@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import type { NodeData } from "@/lib/types"
 
@@ -5,7 +6,7 @@ interface TransformerDecoderLayerNodeProps {
   data: NodeData
 }
 
-export function TransformerDecoderLayerNode({ data }: TransformerDecoderLayerNodeProps) {
+function TransformerDecoderLayerNodeImpl({ data }: TransformerDecoderLayerNodeProps) {
   return (
     <div className="bg-violet-100 border-2 border-violet-300 rounded-lg p-3 min-w-[180px]">
       <Handle type="target" position={Position.Left} id="tgt" style={{ top: "33%" }} />
@@ -26,3 +27,6 @@ export function TransformerDecoderLayerNode({ data }: TransformerDecoderLayerNod
     </div>
   )
 }
+
+export const TransformerDecoderLayerNode = memo(TransformerDecoderLayerNodeImpl)
+TransformerDecoderLayerNode.displayName = "TransformerDecoderLayerNode"

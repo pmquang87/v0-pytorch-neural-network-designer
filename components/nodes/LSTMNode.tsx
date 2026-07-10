@@ -1,8 +1,9 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { GitBranch } from "lucide-react"
 
-export function LSTMNode({ data }: { data: any }) {
+function LSTMNodeImpl({ data }: { data: any }) {
   return (
     <Card className="min-w-[150px] border-2 border-orange-500/50 bg-card">
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-orange-500 border-2 border-background" />
@@ -21,3 +22,6 @@ export function LSTMNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const LSTMNode = memo(LSTMNodeImpl)
+LSTMNode.displayName = "LSTMNode"

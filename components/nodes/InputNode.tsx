@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { LogIn } from "lucide-react"
 import { formatTensorShape } from "@/lib/tensor-shape-calculator"
 
-export function InputNode({ data }: { data: any }) {
+function InputNodeImpl({ data }: { data: any }) {
   return (
     <Card className="min-w-[160px] bg-card border-green-500/50 shadow-sm">
       <div className="p-3">
@@ -24,3 +25,6 @@ export function InputNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const InputNode = memo(InputNodeImpl)
+InputNode.displayName = "InputNode"

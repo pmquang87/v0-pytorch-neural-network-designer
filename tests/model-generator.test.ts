@@ -452,6 +452,106 @@ describe('ModelGenerator', () => {
         expect(() => generator.generateCode()).toThrow(/input node/i);
     });
 
+    it('emits no training scaffold by default (byte-for-byte model-only output)', () => {
+        const graph = () => makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 784 }),
+                { id: 'fc1', type: 'linearNode', data: { in_features: 784, out_features: 128 } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'fc1' }],
+        );
+
+        const code = graph().generateCode();
+        expect(code).not.toContain('__main__');
+        expect(code).not.toContain('torch.optim');
+        expect(code).not.toContain('DataLoader');
+        expect(code).not.toContain('from torch.utils.data');
+
+        // Passing an options object without `training` is identical to no options.
+        expect(graph().generateCode({})).toBe(code);
+    });
+
+    it('appends a training scaffold with optimizer, criterion, DataLoader and epoch loop', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 784 }),
+                { id: 'fc1', type: 'linearNode', data: { in_features: 784, out_features: 10 } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'fc1' }],
+        ).generateCode({ training: { optimizer: 'adam', loss: 'crossentropy' } });
+
+        // Imports for training only appear when training is emitted.
+        expect(code).toContain('from torch.utils.data import TensorDataset, DataLoader');
+        // Scaffold structure
+        expect(code).toContain('if __name__ == "__main__":');
+        expect(code).toContain('device = torch.device("cuda" if torch.cuda.is_available() else "cpu")');
+        expect(code).toContain('model = GeneratedModel().to(device)');
+        expect(code).toContain('torch.optim.Adam(model.parameters(), lr=0.001)');
+        expect(code).toContain('criterion = nn.CrossEntropyLoss()');
+        expect(code).toContain('dataset = TensorDataset(x, targets)');
+        expect(code).toContain('dataloader = DataLoader(dataset, batch_size=32, shuffle=True)');
+        expect(code).toContain('for epoch in range(epochs):');
+        expect(code).toContain('optimizer.zero_grad()');
+        expect(code).toContain('loss.backward()');
+        expect(code).toContain('optimizer.step()');
+        // Scaffold comes after the model class.
+        expect(code.indexOf('class GeneratedModel')).toBeLessThan(code.indexOf('__main__'));
+    });
+
+    it('maps each optimizer enum to the right torch.optim class', () => {
+        const build = (optimizer: 'adam' | 'adamw' | 'sgd') => makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 8 }),
+                { id: 'fc1', type: 'linearNode', data: { in_features: 8, out_features: 2 } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'fc1' }],
+        ).generateCode({ training: { optimizer, loss: 'mse' } });
+
+        expect(build('adam')).toContain('torch.optim.Adam(model.parameters()');
+        expect(build('adamw')).toContain('torch.optim.AdamW(model.parameters()');
+        expect(build('sgd')).toContain('torch.optim.SGD(model.parameters()');
+    });
+
+    it('maps each loss enum to the right criterion', () => {
+        const build = (loss: 'crossentropy' | 'mse' | 'bce') => makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 8 }),
+                { id: 'fc1', type: 'linearNode', data: { in_features: 8, out_features: 2 } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'fc1' }],
+        ).generateCode({ training: { optimizer: 'adam', loss } });
+
+        expect(build('crossentropy')).toContain('criterion = nn.CrossEntropyLoss()');
+        expect(build('mse')).toContain('criterion = nn.MSELoss()');
+        expect(build('bce')).toContain('criterion = nn.BCEWithLogitsLoss()');
+    });
+
+    it('honours learningRate, epochs and batchSize overrides', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 8 }),
+                { id: 'fc1', type: 'linearNode', data: { in_features: 8, out_features: 2 } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'fc1' }],
+        ).generateCode({ training: { optimizer: 'sgd', loss: 'mse', learningRate: 0.05, epochs: 3, batchSize: 16 } });
+
+        expect(code).toContain('lr=0.05');
+        expect(code).toContain('epochs = 3');
+        expect(code).toContain('batch_size=16');
+    });
+
+    it('sizes the dummy input tensor from the Input node shape', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', channels: 3, height: 28, width: 28 }),
+                { id: 'conv1', type: 'conv2dNode', data: { in_channels: 3, out_channels: 16, kernel_size: 3 } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'conv1' }],
+        ).generateCode({ training: { optimizer: 'adam', loss: 'crossentropy' } });
+
+        expect(code).toContain('x = torch.randn(num_samples, 3, 28, 28)');
+    });
+
     it('rejects cyclic graphs', () => {
         const generator = makeGraph(
             [

@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { AppWindow } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function ConstantNode({ data }: { data: any }) {
+function ConstantNodeImpl({ data }: { data: any }) {
   const outputShape = calculateOutputShape("constantNode", [], data)
 
   return (
@@ -28,3 +29,6 @@ export function ConstantNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const ConstantNode = memo(ConstantNodeImpl)
+ConstantNode.displayName = "ConstantNode"

@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Layers } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function LinearNode({ data }: { data: any }) {
+function LinearNodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, features: 128 }
   const outputShape = calculateOutputShape("linearNode", [inputShape], data)
 
@@ -30,3 +31,6 @@ export function LinearNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const LinearNode = memo(LinearNodeImpl)
+LinearNode.displayName = "LinearNode"

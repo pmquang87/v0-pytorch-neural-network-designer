@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Waves } from "lucide-react"
 import { formatTensorShape } from "@/lib/tensor-shape-calculator"
 
-export function TanhNode({ data }: { data: any }) {
+function TanhNodeImpl({ data }: { data: any }) {
   return (
     <Card className="min-w-[120px] border-2 border-yellow-500/50 bg-card">
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-yellow-500 border-2 border-background" />
@@ -21,3 +22,6 @@ export function TanhNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const TanhNode = memo(TanhNodeImpl)
+TanhNode.displayName = "TanhNode"

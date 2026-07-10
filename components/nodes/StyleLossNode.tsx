@@ -1,8 +1,9 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react";
 import { Card } from "@/components/ui/card";
 import { BrainCircuit } from "lucide-react";
 
-export function StyleLossNode({ data }: { data: any }) {
+function StyleLossNodeImpl({ data }: { data: any }) {
   return (
     <Card className="w-48 border-2 border-purple-500/50 bg-card">
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-purple-500 border-2 border-background" />
@@ -20,3 +21,6 @@ export function StyleLossNode({ data }: { data: any }) {
     </Card>
   );
 }
+
+export const StyleLossNode = memo(StyleLossNodeImpl)
+StyleLossNode.displayName = "StyleLossNode"

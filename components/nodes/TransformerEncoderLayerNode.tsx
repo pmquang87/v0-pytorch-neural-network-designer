@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Layers } from "lucide-react"
 import { formatTensorShape } from "@/lib/tensor-shape-calculator"
 
-export function TransformerEncoderLayerNode({ data }: { data: any }) {
+function TransformerEncoderLayerNodeImpl({ data }: { data: any }) {
   return (
     <Card className="w-64 bg-card border-purple-500/50 shadow-sm">
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-primary" />
@@ -30,3 +31,6 @@ export function TransformerEncoderLayerNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const TransformerEncoderLayerNode = memo(TransformerEncoderLayerNodeImpl)
+TransformerEncoderLayerNode.displayName = "TransformerEncoderLayerNode"

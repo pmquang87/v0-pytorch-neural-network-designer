@@ -61,6 +61,7 @@ import {
   FileUp,
   ArrowUpRight,
   ArrowDownLeft,
+  Share2,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ResizableBox } from "react-resizable"
@@ -79,8 +80,14 @@ import { useModelValidation } from "@/lib/model-validator"
 import { useUndoRedo } from "@/lib/undo-redo"
 import { useKeyboardShortcuts } from "@/lib/keyboard-shortcuts"
 import { parsePyTorchModel } from "@/lib/pytorch-parser"
+import { ModelGenerator, type TrainingOptions } from "@/lib/model-generator"
+import { buildShareUrl, readGraphFromHash } from "@/lib/share"
+import { formatModelSummary } from "@/lib/model-summary"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { EditableNumberInput } from "@/components/ui/EditableNumberInput"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 
 // Custom Node Components
 import { InputNode } from "@/components/nodes/InputNode"
@@ -337,6 +344,10 @@ export default function NeuralNetworkDesigner() {
   const [showCodeDialog, setShowCodeDialog] = useState(false)
   const [generatedCode, setGeneratedCode] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
+  // Optional training-loop scaffold controls for the Generate Code dialog.
+  const [includeTraining, setIncludeTraining] = useState(false)
+  const [trainingOptimizer, setTrainingOptimizer] = useState<TrainingOptions["optimizer"]>("adam")
+  const [trainingLoss, setTrainingLoss] = useState<TrainingOptions["loss"]>("crossentropy")
   const { toast } = useToast()
   const isUpdatingShapes = useRef(false)
   const [copySuccess, setCopySuccess] = useState(false)
@@ -396,6 +407,27 @@ export default function NeuralNetworkDesigner() {
   }, [nodes, edges])
 
   useEffect(() => {
+    // A model shared via URL hash (#model=...) takes precedence over any
+    // auto-saved session. Uses the same load path as import/load: seed the
+    // graph + undo history, clear selection, fit the view.
+    if (typeof window !== "undefined") {
+      const sharedGraph = readGraphFromHash(window.location.hash)
+      if (sharedGraph && Array.isArray(sharedGraph.nodes) && sharedGraph.nodes.length > 0) {
+        resetHistory(sharedGraph.nodes as Node[], sharedGraph.edges as Edge[])
+        setSelectedNode(null)
+        toast({
+          title: "Loaded shared model",
+          description: "A model shared via link has been loaded onto the canvas.",
+        })
+        // Drop the hash so a refresh doesn't reload the shared model over edits.
+        window.history.replaceState(null, "", window.location.pathname + window.location.search)
+        setTimeout(() => {
+          reactFlowInstanceRef.current?.fitView({ padding: 0.1, duration: 800 })
+        }, 100)
+        return
+      }
+    }
+
     if (autoSave.hasSavedData()) {
       const loadedState = autoSave.load()
       if (loadedState) {
@@ -1054,52 +1086,104 @@ export default function NeuralNetworkDesigner() {
     })
   }, [generatedCode, toast])
 
+  // Shared clipboard helper with a secure (navigator.clipboard) path and an
+  // execCommand fallback for insecure contexts. `onSuccess` runs after a
+  // successful copy; failures surface a generic "Copy Failed" toast. All
+  // window/navigator/document access lives inside this handler (SSR-safe).
+  const copyTextToClipboard = useCallback(
+    (text: string, onSuccess: () => void) => {
+      const notifyFailure = () => {
+        toast({
+          title: "Copy Failed",
+          description: "Failed to copy to clipboard",
+          variant: "destructive",
+        })
+      }
+
+      const unsecuredCopyToClipboard = (value: string) => {
+        const textArea = document.createElement("textarea")
+        textArea.value = value
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        try {
+          document.execCommand("copy")
+          onSuccess()
+        } catch {
+          notifyFailure()
+        }
+        document.body.removeChild(textArea)
+      }
+
+      if (window.isSecureContext && navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(onSuccess).catch(notifyFailure)
+      } else {
+        unsecuredCopyToClipboard(text)
+      }
+    },
+    [toast],
+  )
+
   const copyCode = useCallback(() => {
     if (!generatedCode) return
+    copyTextToClipboard(generatedCode, () => {
+      setCopySuccess(true)
+      toast({
+        title: "Code Copied",
+        description: "Generated code copied to clipboard",
+      })
+      setTimeout(() => setCopySuccess(false), 2000)
+    })
+  }, [generatedCode, copyTextToClipboard, toast])
 
-    const unsecuredCopyToClipboard = (text: string) => {
-        const textArea = document.createElement("textarea");
-        textArea.value = text;
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        try {
-            document.execCommand('copy');
-            setCopySuccess(true);
-            toast({
-                title: "Code Copied",
-                description: "Generated code copied to clipboard",
-            });
-            setTimeout(() => setCopySuccess(false), 2000);
-        } catch (err) {
-            toast({
-                title: "Copy Failed",
-                description: "Failed to copy code to clipboard",
-                variant: "destructive",
-            });
-        }
-        document.body.removeChild(textArea);
-    };
+  // Build a shareable URL that packs the current graph into the URL hash, and
+  // copy it to the clipboard using the shared helper. SSR-safe: `window` is
+  // only read inside this click handler.
+  const handleShare = useCallback(() => {
+    const url = buildShareUrl(window.location.origin + window.location.pathname, { nodes, edges })
+    copyTextToClipboard(url, () => {
+      toast({
+        title: "Share link copied",
+        description:
+          url.length > 2000
+            ? "The link is long because of the model size; some apps may truncate it."
+            : "Paste the link anywhere to share this model.",
+      })
+    })
+  }, [nodes, edges, copyTextToClipboard, toast])
 
-    if (window.isSecureContext && navigator.clipboard) {
-        navigator.clipboard.writeText(generatedCode).then(() => {
-            setCopySuccess(true);
-            toast({
-                title: "Code Copied",
-                description: "Generated code copied to clipboard",
-            });
-            setTimeout(() => setCopySuccess(false), 2000);
-        }).catch(() => {
-            toast({
-                title: "Copy Failed",
-                description: "Failed to copy code to clipboard",
-                variant: "destructive",
-            });
-        });
-    } else {
-        unsecuredCopyToClipboard(generatedCode);
+  // Copy the already-computed model analysis as a torchinfo-style markdown table.
+  const copyModelSummary = useCallback(() => {
+    if (!modelAnalysis) return
+    const summary = formatModelSummary(modelAnalysis, { format: "markdown" })
+    copyTextToClipboard(summary, () => {
+      toast({
+        title: "Summary copied",
+        description: "Model summary copied to clipboard as markdown.",
+      })
+    })
+  }, [modelAnalysis, copyTextToClipboard, toast])
+
+  // While the Code dialog is open, keep the shown code in sync with the training
+  // options: generate WITHOUT training by default, or WITH the training scaffold
+  // when the toggle is on. Regenerated client-side via ModelGenerator so option
+  // changes take effect immediately.
+  useEffect(() => {
+    if (!showCodeDialog) return
+    try {
+      const generator = new ModelGenerator({ nodes, edges } as any)
+      const code = includeTraining
+        ? generator.generateCode({ training: { optimizer: trainingOptimizer, loss: trainingLoss } })
+        : generator.generateCode()
+      setGeneratedCode(code)
+    } catch (error) {
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate model code",
+        variant: "destructive",
+      })
     }
-}, [generatedCode, toast]);
+  }, [showCodeDialog, includeTraining, trainingOptimizer, trainingLoss, nodes, edges, toast])
 
   // --- Clipboard (copy/paste/cut) for canvas nodes ---
   const clipboardRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null)
@@ -1386,6 +1470,7 @@ export default function NeuralNetworkDesigner() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <Button variant="outline" size="sm" onClick={() => setShowHelpDialog(true)}>
             <HelpCircle className="h-4 w-4 mr-2" />
             Help
@@ -1397,6 +1482,10 @@ export default function NeuralNetworkDesigner() {
           <Button variant="outline" size="sm" onClick={handleOpenLoadDialog}>
             <FolderOpen className="h-4 w-4 mr-2" />
             Open
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleShare}>
+            <Share2 className="h-4 w-4 mr-2" />
+            Share
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -2023,6 +2112,7 @@ export default function NeuralNetworkDesigner() {
 
         {/* Main Canvas Area */}
         <div className="flex-1 h-full w-full" ref={reactFlowWrapper}>
+          <ErrorBoundary>
           <ReactFlowProvider>
             <ReactFlow
               nodes={nodes}
@@ -2048,6 +2138,7 @@ export default function NeuralNetworkDesigner() {
               <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
             </ReactFlow>
           </ReactFlowProvider>
+          </ErrorBoundary>
         </div>
 
         {/* Right Panel: Properties & Live Validation */}
@@ -2670,7 +2761,7 @@ export default function NeuralNetworkDesigner() {
                           onChange={(e) =>
                             updateNodeData(selectedNode.id, { dim: parseInt(e.target.value, 10) })
                           }
-                          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-black"
+                          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-background text-foreground"
                         >
                           <option value={1}>1</option>
                           <option value={2}>2</option>
@@ -3155,7 +3246,7 @@ export default function NeuralNetworkDesigner() {
                           onChange={(e) =>
                             updateNodeData(selectedNode.id, { downsample: e.target.value === 'true' })
                           }
-                          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-black"
+                          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-background text-foreground"
                         >
                           <option value="true">Yes</option>
                           <option value="false">No</option>
@@ -3226,13 +3317,54 @@ export default function NeuralNetworkDesigner() {
 
       {/* Code Generation Dialog */}
       <Dialog open={showCodeDialog} onOpenChange={setShowCodeDialog}>
-        <DialogContent className="w-[65vw] h-[80vh] flex flex-col bg-gray-200 text-gray-900">
+        <DialogContent className="w-[65vw] h-[80vh] flex flex-col bg-background text-foreground">
           <DialogHeader>
             <DialogTitle>Generated PyTorch Code</DialogTitle>
             <DialogDescription>
               Here is the PyTorch code for your model. You can copy it or download it as a Python file.
             </DialogDescription>
           </DialogHeader>
+          <div className="flex flex-wrap items-center gap-4 rounded-md border p-3 text-sm">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={includeTraining}
+                onChange={(e) => setIncludeTraining(e.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
+              <span className="font-medium">Include training loop</span>
+            </label>
+            {includeTraining && (
+              <>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="training-optimizer">Optimizer</Label>
+                  <select
+                    id="training-optimizer"
+                    value={trainingOptimizer}
+                    onChange={(e) => setTrainingOptimizer(e.target.value as TrainingOptions["optimizer"])}
+                    className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    <option value="adam">Adam</option>
+                    <option value="adamw">AdamW</option>
+                    <option value="sgd">SGD</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="training-loss">Loss</Label>
+                  <select
+                    id="training-loss"
+                    value={trainingLoss}
+                    onChange={(e) => setTrainingLoss(e.target.value as TrainingOptions["loss"])}
+                    className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    <option value="crossentropy">CrossEntropy</option>
+                    <option value="mse">MSE</option>
+                    <option value="bce">BCE</option>
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
           <div className="flex-1 relative my-4 min-h-0">
             <ScrollArea className="h-full rounded-md border">
               <pre className="p-4 font-mono text-sm whitespace-pre-wrap">{generatedCode}</pre>
@@ -3272,7 +3404,7 @@ export default function NeuralNetworkDesigner() {
       </Dialog>
 
       <Dialog open={showAnalysisPanel} onOpenChange={setShowAnalysisPanel}>
-        <DialogContent className="max-w-4xl max-h-[90vh] w-[65vw] bg-gray-200 text-gray-900">
+        <DialogContent className="max-w-4xl max-h-[90vh] w-[65vw] bg-background text-foreground">
           <DialogHeader>
             <DialogTitle>Model Analysis</DialogTitle>
           </DialogHeader>
@@ -3315,28 +3447,28 @@ export default function NeuralNetworkDesigner() {
                       {modelAnalysis.layers.map((layer, index) => (
                         <div
                           key={index}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg min-w-0"
+                          className="flex items-center justify-between p-3 bg-muted rounded-lg min-w-0"
                         >
                           <div className="flex-1 min-w-0 mr-4">
                             <div className="font-medium text-sm truncate">{layer.name}</div>
-                            <div className="text-xs text-gray-600 truncate">{layer.type}</div>
+                            <div className="text-xs text-muted-foreground truncate">{layer.type}</div>
                           </div>
                           <div className="flex gap-4 text-xs flex-shrink-0">
                             <div className="text-center min-w-0">
-                              <div className="font-medium break-words text-gray-900">
+                              <div className="font-medium break-words text-foreground">
                                 {formatNumber(layer.parameters)}
                               </div>
-                              <div className="text-gray-600">Params</div>
+                              <div className="text-muted-foreground">Params</div>
                             </div>
                             <div className="text-center min-w-0">
-                              <div className="font-medium break-words text-gray-900">{formatNumber(layer.flops)}</div>
-                              <div className="text-gray-600">FLOPs</div>
+                              <div className="font-medium break-words text-foreground">{formatNumber(layer.flops)}</div>
+                              <div className="text-muted-foreground">FLOPs</div>
                             </div>
                             <div className="text-center min-w-0">
-                              <div className="font-medium break-words text-gray-900">
+                              <div className="font-medium break-words text-foreground">
                                 {layer.memoryMB.toFixed(1)} MB
                               </div>
-                              <div className="text-gray-600">Memory</div>
+                              <div className="text-muted-foreground">Memory</div>
                             </div>
                           </div>
                         </div>
@@ -3390,7 +3522,11 @@ export default function NeuralNetworkDesigner() {
               </div>
             </div>
           )}
-          <div className="flex justify-end pt-4 border-t">
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="secondary" onClick={copyModelSummary} disabled={!modelAnalysis}>
+              <Copy className="h-3.5 w-3.5 mr-1.5" />
+              Copy summary
+            </Button>
             <Button variant="default" onClick={() => setShowAnalysisPanel(false)}>
               Close
             </Button>
@@ -3399,7 +3535,7 @@ export default function NeuralNetworkDesigner() {
       </Dialog>
 
       <Dialog open={showValidationPanel} onOpenChange={setShowValidationPanel}>
-        <DialogContent className="w-[65vw] h-[80vh] flex flex-col bg-gray-200 text-gray-900">
+        <DialogContent className="w-[65vw] h-[80vh] flex flex-col bg-background text-foreground">
           <DialogHeader>
             <DialogTitle>Model Validation Results</DialogTitle>
           </DialogHeader>
@@ -3435,7 +3571,7 @@ export default function NeuralNetworkDesigner() {
               ) : (
                 <div className="flex flex-col items-center justify-center h-full">
                   <p className="text-lg font-semibold">No issues found.</p>
-                  <p className="text-sm text-gray-700">Your model is looking good!</p>
+                  <p className="text-sm text-muted-foreground">Your model is looking good!</p>
                 </div>
               )}
             </ScrollArea>
@@ -3449,7 +3585,7 @@ export default function NeuralNetworkDesigner() {
       </Dialog>
 
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-        <DialogContent className="w-[50vw] bg-gray-200 text-gray-900">
+        <DialogContent className="w-[50vw] bg-background text-foreground">
           <DialogHeader>
             <DialogTitle>Save Model</DialogTitle>
             <DialogDescription>
@@ -3462,7 +3598,7 @@ export default function NeuralNetworkDesigner() {
               value={modelName}
               onChange={(e) => setModelName(e.target.value)}
               placeholder="My-CNN-Model"
-              className="bg-white text-black"
+              className="bg-background text-foreground"
             />
           </div>
           <DialogFooter>
@@ -3478,7 +3614,7 @@ export default function NeuralNetworkDesigner() {
       </Dialog>
 
       <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
-        <DialogContent className="w-[50vw] bg-gray-200 text-gray-900">
+        <DialogContent className="w-[50vw] bg-background text-foreground">
           <DialogHeader>
             <DialogTitle>Open Model</DialogTitle>
             <DialogDescription>
@@ -3492,11 +3628,11 @@ export default function NeuralNetworkDesigner() {
                   savedModels.map((model) => (
                     <div
                       key={model.key}
-                      className="flex items-center justify-between rounded-lg border p-3 transition-all hover:bg-gray-100"
+                      className="flex items-center justify-between rounded-lg border p-3 transition-all hover:bg-muted"
                     >
                       <div>
                         <div className="font-semibold">{model.name}</div>
-                        <div className="text-xs text-gray-600">Saved: {new Date(model.timestamp).toLocaleString()}</div>
+                        <div className="text-xs text-muted-foreground">Saved: {new Date(model.timestamp).toLocaleString()}</div>
                       </div>
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => handleLoadModel(model.key)}>
@@ -3509,7 +3645,7 @@ export default function NeuralNetworkDesigner() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center text-gray-500 py-10">No saved models found.</div>
+                  <div className="text-center text-muted-foreground py-10">No saved models found.</div>
                 )}
               </div>
             </ScrollArea>
@@ -3533,7 +3669,7 @@ export default function NeuralNetworkDesigner() {
       </Dialog>
 
       <Dialog open={showCodeInputDialog} onOpenChange={setShowCodeInputDialog}>
-        <DialogContent className="w-[80vw] h-[80vh] flex flex-col bg-gray-200 text-gray-900">
+        <DialogContent className="w-[80vw] h-[80vh] flex flex-col bg-background text-foreground">
           <DialogHeader>
             <DialogTitle>Input PyTorch Code</DialogTitle>
             <DialogDescription>
@@ -3620,7 +3756,7 @@ class MyModel(nn.Module):
       </Dialog>
 
       <Dialog open={showHelpDialog} onOpenChange={setShowHelpDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] w-[65vw] bg-gray-200 text-gray-900">
+        <DialogContent className="max-w-4xl max-h-[90vh] w-[65vw] bg-background text-foreground">
           <DialogHeader>
             <DialogTitle>Neural Network Designer - Help Guide</DialogTitle>
           </DialogHeader>
@@ -3629,7 +3765,7 @@ class MyModel(nn.Module):
               {/* Getting Started */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">🚀 Getting Started</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     Welcome to the Neural Network Designer! This tool helps you build PyTorch models visually by
                     connecting blocks on a canvas.
@@ -3640,7 +3776,7 @@ class MyModel(nn.Module):
               {/* Adding Blocks */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">📦 Adding Blocks</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>1.</strong> Browse the left sidebar to find different layer types (Input, Linear,
                     Convolution, etc.)
@@ -3660,7 +3796,7 @@ class MyModel(nn.Module):
               {/* Connecting Blocks */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">🔗 Connecting Blocks</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>1.</strong> Drag from the output handle (right side) of one block
                   </p>
@@ -3679,7 +3815,7 @@ class MyModel(nn.Module):
               {/* Configuring Parameters */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">⚙️ Configuring Parameters</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>1.</strong> Click on any block to select it
                   </p>
@@ -3698,13 +3834,13 @@ class MyModel(nn.Module):
               {/* Deleting Blocks */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">🗑️ Deleting Blocks</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>1.</strong> Click on a block to select it (shows selection border)
                   </p>
                   <p>
-                    <strong>2.</strong> Press the <kbd className="px-2 py-1 bg-gray-100 rounded text-xs">Delete</kbd> or{' '}
-                    <kbd className="px-2 py-1 bg-gray-100 rounded text-xs">Backspace</kbd> key
+                    <strong>2.</strong> Press the <kbd className="px-2 py-1 bg-muted rounded text-xs">Delete</kbd> or{' '}
+                    <kbd className="px-2 py-1 bg-muted rounded text-xs">Backspace</kbd> key
                   </p>
                   <p>
                     <strong>3.</strong> The block and its connections will be removed
@@ -3715,11 +3851,11 @@ class MyModel(nn.Module):
               {/* Keyboard Shortcuts */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">⌨️ Keyboard Shortcuts</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   {keyboardShortcuts.map((shortcut, index) => (
                     <div key={index} className="flex items-center justify-between">
                       <p>{shortcut.description}</p>
-                      <kbd className="px-2 py-1 bg-gray-300 rounded text-xs font-semibold">{shortcut.key}</kbd>
+                      <kbd className="px-2 py-1 bg-muted rounded text-xs font-semibold">{shortcut.key}</kbd>
                     </div>
                   ))}
                 </div>
@@ -3728,7 +3864,7 @@ class MyModel(nn.Module):
               {/* Saving, Loading, Importing & Exporting */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">💾 Saving, Loading, Importing & Exporting</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>To Save:</strong> Click the "Save" button, enter a name, and save it to your browser's local storage.
                   </p>
@@ -3747,7 +3883,7 @@ class MyModel(nn.Module):
               {/* Using Examples */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">📚 Loading Examples</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>1.</strong> Click the "Load Example" button in the header
                   </p>
@@ -3766,7 +3902,7 @@ class MyModel(nn.Module):
               {/* Generating Code */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">🐍 Generating PyTorch Code</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>1.</strong> Click "Generate PyTorch Code" when your network is ready
                   </p>
@@ -3785,7 +3921,7 @@ class MyModel(nn.Module):
               {/* Model Analysis */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">📊 Model Analysis</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     <strong>1.</strong> Click "Analyze Model" to get detailed insights
                   </p>
@@ -3804,7 +3940,7 @@ class MyModel(nn.Module):
               {/* Tips */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">💡 Pro Tips</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>• Always start with an Input block to define your data dimensions</p>
                   <p>• Watch tensor shapes to ensure compatibility between layers</p>
                   <p>• Use skip connections (Add/Concatenate blocks) for advanced architectures</p>
@@ -3816,7 +3952,7 @@ class MyModel(nn.Module):
               {/* Available Blocks */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">🧱 Available Block Types</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
+                <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
                   <div>
                     <p>
                       <strong>Basic:</strong> Input, Linear, Dropout
@@ -3851,7 +3987,7 @@ class MyModel(nn.Module):
               {/* Feedback & Contact */}
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">📧 Feedback & Contact</h3>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
                     Have suggestions, found a bug, or want to request new features? Send your feedback to:{' '}
                     <strong>pmquang87@icloud.com</strong>

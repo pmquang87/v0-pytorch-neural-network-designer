@@ -2,7 +2,7 @@ import { Handle, Position, useUpdateNodeInternals } from "@xyflow/react";
 import { Card } from "@/components/ui/card";
 import { X } from "lucide-react";
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator";
-import { useEffect } from "react";
+import { useEffect, memo } from "react"
 
 interface MultiplyNodeData {
   inputShape?: (TensorShape | undefined)[]
@@ -10,7 +10,7 @@ interface MultiplyNodeData {
   [key: string]: unknown
 }
 
-export function MultiplyNode({ id, data }: { id: string; data: MultiplyNodeData }) {
+function MultiplyNodeImpl({ id, data }: { id: string; data: MultiplyNodeData }) {
   const updateNodeInternals = useUpdateNodeInternals();
   // data.inputShape is an array of shapes (or undefined) populated by propagateTensorShapes
   const inputShapes: (TensorShape | undefined)[] = Array.isArray(data.inputShape) ? data.inputShape : [];
@@ -70,3 +70,6 @@ export function MultiplyNode({ id, data }: { id: string; data: MultiplyNodeData 
     </Card>
   );
 }
+
+export const MultiplyNode = memo(MultiplyNodeImpl)
+MultiplyNode.displayName = "MultiplyNode"

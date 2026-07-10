@@ -1,9 +1,10 @@
+import { memo } from "react"
 import { Handle, Position } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Layers } from "lucide-react"
 import { calculateOutputShape, formatTensorShape, type TensorShape } from "@/lib/tensor-shape-calculator"
 
-export function Conv3DNode({ data }: { data: any }) {
+function Conv3DNodeImpl({ data }: { data: any }) {
   const inputShape: TensorShape = data.inputShape || { batch: 1, channels: 1, depth: 16, height: 16, width: 16 }
   const outputShape = calculateOutputShape("conv3dNode", [inputShape], data)
 
@@ -33,3 +34,6 @@ export function Conv3DNode({ data }: { data: any }) {
     </Card>
   )
 }
+
+export const Conv3DNode = memo(Conv3DNodeImpl)
+Conv3DNode.displayName = "Conv3DNode"

@@ -1,7 +1,8 @@
+import { memo } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
-export function SEBlockNode({ data }: NodeProps) {
+function SEBlockNodeImpl({ data }: NodeProps) {
   return (
     <Card className="w-48">
       <CardHeader className="p-2">
@@ -16,3 +17,6 @@ export function SEBlockNode({ data }: NodeProps) {
     </Card>
   );
 }
+
+export const SEBlockNode = memo(SEBlockNodeImpl)
+SEBlockNode.displayName = "SEBlockNode"
