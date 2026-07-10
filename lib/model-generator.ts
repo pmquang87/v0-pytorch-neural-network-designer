@@ -172,7 +172,13 @@ export class ModelGenerator {
         const manifest = PYTORCH_LAYER_MANIFEST[node.type as keyof typeof PYTORCH_LAYER_MANIFEST];
         const layerName = this.sanitizeArgName(node.id);
 
-        if (manifest && manifest.className) {
+        const variantLayer = this.buildVariantLayer(node);
+        if (variantLayer) {
+            // Convention 2: layer variants (LogSoftmax, ReLU6, Dropout2d/3d, LazyLinear, Bilinear)
+            // are emitted from data.variant BEFORE the generic manifest path.
+            initLines.push(`        self.${layerName} = ${variantLayer}`);
+            definedLayers.add(node.id);
+        } else if (manifest && manifest.className) {
             const params = this.buildParameterString(node, manifest.params);
             initLines.push(`        self.${layerName} = ${manifest.className}(${params})`);
             definedLayers.add(node.id);
@@ -345,12 +351,24 @@ export class ModelGenerator {
         }
 
         switch (node.type) {
-            case "addNode":
-                lines.push(`${outputVar} = ${inputVars.join(" + ")}`);
+            case "addNode": {
+                // Convention 1: preserve the source operator (+ default, - for subtraction)
+                const op = (node.data as any).op;
+                const sep = op === "-" ? " - " : " + ";
+                lines.push(`${outputVar} = ${inputVars.join(sep)}`);
                 break;
-            case "multiplyNode":
-                lines.push(`${outputVar} = ${inputVars.join(" * ")}`);
+            }
+            case "multiplyNode": {
+                // Convention 1: preserve the source operator (* default, / , @ , matmul)
+                const op = (node.data as any).op;
+                if (op === "matmul") {
+                    lines.push(`${outputVar} = ${this.buildMatmulExpr(inputVars)}`);
+                } else {
+                    const sep = op === "/" ? " / " : op === "@" ? " @ " : " * ";
+                    lines.push(`${outputVar} = ${inputVars.join(sep)}`);
+                }
                 break;
+            }
             case "reshapeNode": {
                 const shapeLiteral = this.formatTargetShape(node.data.targetShape);
                 lines.push(`${outputVar} = ${inputVars[0]}.view(${inputVars[0]}.size(0), *${shapeLiteral})`);
@@ -422,6 +440,69 @@ export class ModelGenerator {
   }
 
   private sanitizeArgName(name: string): string {
-    return name.replace(/[^a-zA-Z0-9_]/g, "_").replace(/\s+/g, "_").toLowerCase();
+    const sanitized = name.replace(/[^a-zA-Z0-9_]/g, "_").replace(/\s+/g, "_").toLowerCase();
+    // Python identifiers may not start with a digit; numeric node ids would emit
+    // invalid `self.123 = ...`, so prefix them with `n_`.
+    if (/^\d/.test(sanitized)) {
+      return `n_${sanitized}`;
+    }
+    return sanitized;
+  }
+
+  // Convention 1: build a right-associative torch.matmul chain for @-style matmul nodes.
+  // 2 inputs -> torch.matmul(a, b); 3 -> torch.matmul(a, torch.matmul(b, c)); etc.
+  private buildMatmulExpr(vars: string[]): string {
+    if (vars.length === 1) return vars[0];
+    return vars
+      .slice(0, -1)
+      .reduceRight((acc, v) => `torch.matmul(${v}, ${acc})`, vars[vars.length - 1]);
+  }
+
+  // Convention 2: emit a variant layer (className + args) from data.variant, or null
+  // when the node has no variant (in which case the generic manifest path is used).
+  private buildVariantLayer(node: GraphNode): string | null {
+    const d = node.data as any;
+    const variant = d.variant;
+    if (!variant) return null;
+
+    switch (node.type) {
+      case "softmaxNode":
+        if (variant === "log") {
+          return d.dim !== undefined && d.dim !== null
+            ? `nn.LogSoftmax(dim=${this.toPythonLiteral(d.dim)})`
+            : `nn.LogSoftmax()`;
+        }
+        break;
+      case "reluNode":
+        if (variant === "relu6") return `nn.ReLU6()`;
+        break;
+      case "dropoutNode": {
+        const pArg = d.p !== undefined && d.p !== null ? `p=${this.toPythonLiteral(d.p)}` : "";
+        if (variant === "dropout2d") return `nn.Dropout2d(${pArg})`;
+        if (variant === "dropout3d") return `nn.Dropout3d(${pArg})`;
+        break;
+      }
+      case "linearNode":
+        if (variant === "lazy") {
+          // nn.LazyLinear infers in_features at runtime; emit out_features only (+ bias).
+          const args: string[] = [];
+          if (d.out_features !== undefined && d.out_features !== null) {
+            args.push(this.toPythonLiteral(d.out_features));
+          }
+          if (d.bias !== undefined && d.bias !== null) {
+            args.push(`bias=${this.toPythonLiteral(d.bias)}`);
+          }
+          return `nn.LazyLinear(${args.join(", ")})`;
+        }
+        if (variant === "bilinear") {
+          const args = ["in1_features", "in2_features", "out_features"]
+            .map((k) => d[k])
+            .filter((v) => v !== undefined && v !== null)
+            .map((v) => this.toPythonLiteral(v));
+          return `nn.Bilinear(${args.join(", ")})`;
+        }
+        break;
+    }
+    return null;
   }
 }

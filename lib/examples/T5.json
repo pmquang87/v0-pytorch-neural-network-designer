@@ -197,15 +197,6 @@
             }
         },
         {
-            "id": "t5-flatten-17",
-            "type": "flattenNode",
-            "position": {
-                "x": 2200,
-                "y": 600
-            },
-            "data": {}
-        },
-        {
             "id": "t5-linear-15",
             "type": "linearNode",
             "position": {
@@ -213,7 +204,7 @@
                 "y": 600
             },
             "data": {
-                "in_features": 262144,
+                "in_features": 512,
                 "out_features": 32128
             }
         },
@@ -333,19 +324,14 @@
             "targetHandle": "memory"
         },
         {
-            "id": "td7-8",
+            "id": "td7-15",
             "source": "t5-decoder-layer6-14",
-            "target": "t5-flatten-17"
+            "target": "t5-linear-15"
         },
         {
             "id": "td8-9",
             "source": "t5-linear-15",
             "target": "t5-softmax-16"
-        },
-        {
-            "id": "t5-flatten-linear-17-15",
-            "source": "t5-flatten-17",
-            "target": "t5-linear-15"
         }
     ]
 }

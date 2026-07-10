@@ -6,7 +6,7 @@
         "id": "bert-input-1",
         "type": "inputNode",
         "position": { "x": 100, "y": 200 },
-        "data": { "channels": 768, "height": 1, "width": 512 }
+        "data": { "sequence": 512, "features": 768 }
       },
       {
         "id": "bert-transformer1-2",
@@ -81,10 +81,10 @@
         "data": { "d_model": 768, "nhead": 12, "dim_feedforward": 3072, "dropout": 0.1 }
       },
       {
-        "id": "bert-flatten-15",
-        "type": "flattenNode",
+        "id": "bert-cls-select-15",
+        "type": "selectNode",
         "position": { "x": 4250, "y": 200 },
-        "data": {}
+        "data": { "dim": 1, "index": 0 }
       },
       {
         "id": "bert-pooler-16",
@@ -112,8 +112,8 @@
       { "id": "be10-11", "source": "bert-transformer9-10", "target": "bert-transformer10-11" },
       { "id": "be11-12", "source": "bert-transformer10-11", "target": "bert-transformer11-12" },
       { "id": "be12-13", "source": "bert-transformer11-12", "target": "bert-transformer12-13" },
-      { "id": "be13-15", "source": "bert-transformer12-13", "target": "bert-flatten-15" },
-      { "id": "be15-16", "source": "bert-flatten-15", "target": "bert-pooler-16" },
+      { "id": "be13-15", "source": "bert-transformer12-13", "target": "bert-cls-select-15" },
+      { "id": "be15-16", "source": "bert-cls-select-15", "target": "bert-pooler-16" },
       { "id": "be16-17", "source": "bert-pooler-16", "target": "bert-pooler-act-17" }
     ]
 }

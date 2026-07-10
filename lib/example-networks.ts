@@ -32,7 +32,7 @@ export const EXAMPLE_NETWORKS_METADATA: ExampleNetworkMetadata[] = [
   { name: "RNNCell", filename: "RNNCell.json" },
   { name: "U-Net++", filename: "U-Net++.json" },
   { name: "YOLOv5s", filename: "YOLOv5s.json" },
-  { name: "YOLOv8n", filename: "YOLOv8n.json" },
+  { name: "YOLOv8n (simplified)", filename: "YOLOv8n.json" },
   { name: "CoAtNet-7", filename: "CoAtNet7.json" },
   { name: "CoAtNet-7 (Simplified)", filename: "CoAtNet7-simplified.json" },
   { name: "GRU-Node", filename: "GRU-Node.json" },

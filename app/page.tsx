@@ -40,6 +40,7 @@ import {
   Network,
   HelpCircle,
   BarChart3,
+  Hash,
   Loader2,
   Download,
   Copy,
@@ -91,6 +92,7 @@ import { FractionalMaxPool2DNode } from "@/components/nodes/FractionalMaxPool2DN
 import { LPPool2DNode } from "@/components/nodes/LPPool2DNode"
 import { AdaptiveMaxPool1DNode } from "@/components/nodes/AdaptiveMaxPool1DNode"
 import { LinearNode } from "@/components/nodes/LinearNode"
+import { EmbeddingNode } from "@/components/nodes/EmbeddingNode"
 import { TimeDistributedLinearNode } from "@/components/nodes/TimeDistributedLinearNode"
 import { Conv2DNode } from "@/components/nodes/Conv2DNode"
 import { ReLUNode } from "@/components/nodes/ReLUNode"
@@ -225,6 +227,7 @@ const nodeTypes: NodeTypes = {
   constantNode: ConstantNode,
   parameterNode: ParameterNode,
   linearNode: LinearNode,
+  embeddingNode: EmbeddingNode,
   timeDistributedLinearNode: TimeDistributedLinearNode,
   conv2dNode: Conv2DNode,
   conv1dNode: Conv1DNode,
@@ -314,7 +317,7 @@ export default function NeuralNetworkDesigner() {
       const removals = changes.filter((c: NodeChange) => c.type === "remove")
       if (removals.length > 0) {
         takeSnapshot()
-        if (selectedNode && removals.some((r) => r.id === selectedNode.id)) {
+        if (selectedNode && removals.some((r) => "id" in r && r.id === selectedNode.id)) {
           setSelectedNode(null)
         }
       }
@@ -1305,6 +1308,7 @@ export default function NeuralNetworkDesigner() {
       case 'reshapeNode':
         return '#22c55e'; // green-500
       case 'linearNode':
+      case 'embeddingNode':
       case 'downsampleNode':
         return '#3b82f6'; // blue-500
       case 'maxpool2dNode':
@@ -1489,6 +1493,15 @@ export default function NeuralNetworkDesigner() {
                     <div className="flex items-center gap-2">
                       <BarChart3 className="h-4 w-4 text-blue-500" />
                       <span className="text-sm font-medium text-sidebar-foreground">Linear</span>
+                    </div>
+                  </Card>
+                  <Card
+                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
+                    onClick={() => addNode("embeddingNode", { num_embeddings: 30000, embedding_dim: 512 })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Hash className="h-4 w-4 text-blue-500" />
+                      <span className="text-sm font-medium text-sidebar-foreground">Embedding</span>
                     </div>
                   </Card>
                 </div>
@@ -2202,6 +2215,31 @@ export default function NeuralNetworkDesigner() {
                         defaultValue={64}
                         min={1}
                         onUpdate={(value) => updateNodeData(selectedNode.id, { out_features: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "embeddingNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Num Embeddings"
+                        value={selectedNode.data.num_embeddings as number | undefined}
+                        defaultValue={30000}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { num_embeddings: value })}
+                      />
+                      <EditableNumberInput
+                        label="Embedding Dim"
+                        value={selectedNode.data.embedding_dim as number | undefined}
+                        defaultValue={512}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { embedding_dim: value })}
+                      />
+                      <EditableNumberInput
+                        label="Padding Idx"
+                        value={selectedNode.data.padding_idx as number | undefined}
+                        defaultValue={0}
+                        min={0}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { padding_idx: value })}
                       />
                     </>
                   )}
