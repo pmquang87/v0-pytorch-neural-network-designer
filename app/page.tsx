@@ -77,6 +77,7 @@ import { useAutoSave, StorageUtils } from "@/lib/auto-save"
 import { useModelValidation } from "@/lib/model-validator"
 import { useUndoRedo } from "@/lib/undo-redo"
 import { useKeyboardShortcuts } from "@/lib/keyboard-shortcuts"
+import { parsePyTorchModel } from "@/lib/pytorch-parser"
 import { Input } from "@/components/ui/input"
 import { EditableNumberInput } from "@/components/ui/EditableNumberInput"
 
@@ -1210,318 +1211,12 @@ export default function NeuralNetworkDesigner() {
     cutSelectedNodes,
   ])
 
-  const parsePyTorchCode = useCallback(
-    (code: string) => {
-      const errors: string[] = []
-      const warnings: string[] = []
-      const unsupportedModules: string[] = []
-      const newNodes: Node[] = []
-      const newEdges: Edge[] = []
-
-      try {
-        const classPatterns = [
-          /class\s+(\w+)\s*\(\s*nn\.Module\s*\):/,
-          /class\s+(\w+)\s*\(\s*torch\.nn\.Module\s*\):/,
-          /class\s+(\w+)\s*\([^)]*nn\.Module[^)]*\):/,
-          /class\s+(\w+)\s*\([^)]*torch\.nn\.Module[^)]*\):/,
-        ]
-
-        let className = ""
-        let classFound = false
-
-        for (const pattern of classPatterns) {
-          const match = code.match(pattern)
-          if (match) {
-            className = match[1]
-            classFound = true
-            break
-          }
-        }
-
-        if (!classFound) {
-          errors.push(
-            "No PyTorch model class found. Expected 'class YourModelName(nn.Module):' or similar inheritance from nn.Module",
-          )
-          return { nodes: [], edges: [], errors, warnings, unsupportedModules }
-        }
-
-        const initPattern = /def\s+__init__\s*\([^)]*\)\s*:([\s\S]*?)(?=\n\s*def\s+\w+|\n\s*class\s+\w+|$)/
-        const initMatch = code.match(initPattern)
-
-        if (!initMatch) {
-          errors.push("No __init__ method found in the model class")
-          return { nodes: [], edges: [], errors, warnings, unsupportedModules }
-        }
-
-        const initContent = initMatch[1]
-
-        const layerPatterns = [
-          /self\.(\w+)\s*=\s*nn\.(\w+)\s*\(([^)]*)\)/g,
-          /self\.(\w+)\s*=\s*torch\.nn\.(\w+)\s*\(([^)]*)\)/g,
-        ]
-
-        const allLayerMatches: RegExpMatchArray[] = []
-
-        for (const pattern of layerPatterns) {
-          let match
-          while ((match = pattern.exec(initContent)) !== null) {
-            allLayerMatches.push(match)
-          }
-        }
-
-        if (allLayerMatches.length === 0) {
-          errors.push(
-            "No PyTorch layers found in __init__ method. Make sure layers are defined as 'self.layer_name = nn.LayerType(...)'",
-          )
-          return { nodes: [], edges: [], errors, warnings, unsupportedModules }
-        }
-
-        const nodeTypeMap: Record<string, string> = {
-          Linear: "linearNode",
-          Conv1d: "conv1dNode",
-          Conv2d: "conv2dNode",
-          Conv3d: "conv3dNode",
-          ConvTranspose1d: "convtranspose1dNode",
-          ConvTranspose2d: "convtranspose2dNode",
-          ConvTranspose3d: "convtranspose3dNode",
-          BatchNorm1d: "batchnorm1dNode",
-          BatchNorm2d: "batchnorm2dNode",
-          BatchNorm3d: "batchnorm3dNode",
-          LayerNorm: "layernormNode",
-          RMSNorm: "rmsnormNode",
-          MixtureOfExperts: "moeNode",
-          GroupNorm: "groupnormNode",
-          InstanceNorm1d: "instancenorm1dNode",
-          InstanceNorm2d: "instancenorm2dNode",
-          InstanceNorm3d: "instancenorm3dNode",
-          ReLU: "reluNode",
-          LeakyReLU: "leakyreluNode",
-          ELU: "eluNode",
-          GELU: "geluNode",
-          SiLU: "siluNode",
-          Mish: "mishNode",
-          Hardswish: "hardswishNode",
-          Hardsigmoid: "hardsigmoidNode",
-          Tanh: "tanhNode",
-          Sigmoid: "sigmoidNode",
-          Softmax: "softmaxNode",
-          LogSoftmax: "logsoftmaxNode",
-          MaxPool1d: "maxpool1dNode",
-          MaxPool2d: "maxpool2dNode",
-          MaxPool3d: "maxpool3dNode",
-          AvgPool1d: "avgpool1dNode",
-          AvgPool2d: "avgpool2dNode",
-          AvgPool3d: "avgpool3dNode",
-          AdaptiveAvgPool1d: "adaptiveavgpool1dNode",
-          AdaptiveAvgPool2d: "adaptiveavgpool2dNode",
-          AdaptiveAvgPool3d: "adaptiveavgpool3dNode",
-          AdaptiveMaxPool1d: "adaptivemaxpool1dNode",
-          AdaptiveMaxPool2d: "adaptivemaxpool2dNode",
-          Dropout: "dropoutNode",
-          Dropout2d: "dropout2dNode",
-          Dropout3d: "dropout3dNode",
-          LSTM: "lstmNode",
-          GRU: "gruNode",
-          RNN: "rnnNode",
-          MultiheadAttention: "multiheadattentionNode",
-          TransformerEncoderLayer: "transformerencoderlayerNode",
-          TransformerDecoderLayer: "transformerdecoderlayerNode",
-          Flatten: "flattenNode",
-          Unflatten: "unflattenNode",
-          Transpose: "transposeNode",
-          Add: "addNode",
-          Concatenate: "concatenateNode",
-        }
-
-        let yPosition = 100
-        const layerMap = new Map<string, string>()
-
-        allLayerMatches.forEach((match, index) => {
-          const [, layerName, layerType, params] = match
-          const nodeId = `${layerName}-${Date.now()}-${index}`
-          layerMap.set(layerName, nodeId)
-
-          const nodeType = nodeTypeMap[layerType]
-          // Only create nodes for types the canvas can actually render
-          if (!nodeType || !nodeTypes[nodeType]) {
-            unsupportedModules.push(layerType)
-            warnings.push(`Unsupported layer type: ${layerType}. This layer will be skipped in visualization.`)
-            return
-          }
-
-          const nodeData: any = { label: layerName }
-
-          if (params && params.trim()) {
-            try {
-              const paramPairs = parseParameters(params)
-              paramPairs.forEach((param) => {
-                if (!param) return
-
-                if (param.includes("=")) {
-                  const [key, value] = param.split("=").map((s) => s.trim())
-                  if (key && value) {
-                    nodeData[key] = parseParameterValue(value)
-                  }
-                } else {
-                  const numValue = Number.parseInt(param.trim())
-                  if (!isNaN(numValue)) {
-                    mapPositionalParameter(layerType, nodeData, numValue)
-                  }
-                }
-              })
-            } catch (paramError) {
-              warnings.push(`Could not parse parameters for ${layerName}: ${params}`)
-            }
-          }
-
-          const newNode: Node = {
-            id: nodeId,
-            type: nodeType,
-            position: { x: 300, y: yPosition },
-            data: nodeData,
-            draggable: true,
-            selectable: true,
-            deletable: true,
-          }
-
-          newNodes.push(newNode)
-          yPosition += 120
-        })
-
-        for (let i = 0; i < newNodes.length - 1; i++) {
-          const edgeId = `e-${newNodes[i].id}-${newNodes[i + 1].id}`
-          newEdges.push({
-            id: edgeId,
-            source: newNodes[i].id,
-            target: newNodes[i + 1].id,
-            type: "default",
-            animated: false,
-            deletable: true,
-          })
-        }
-
-        if (newNodes.length > 0) {
-          const inputNode: Node = {
-            id: `input-${Date.now()}`,
-            type: "inputNode",
-            position: { x: 300, y: 20 },
-            data: { channels: 3, height: 224, width: 224 },
-            draggable: true,
-            selectable: true,
-            deletable: true,
-          }
-
-          newNodes.unshift(inputNode)
-
-          const inputEdgeId = `e-${inputNode.id}-${newNodes[1].id}`
-          newEdges.unshift({
-            id: inputEdgeId,
-            source: inputNode.id,
-            target: newNodes[1].id,
-            type: "default",
-            animated: false,
-            deletable: true,
-          })
-        }
-
-        if (unsupportedModules.length > 0) {
-          const uniqueUnsupported = [...new Set(unsupportedModules)]
-          warnings.push(`Found ${uniqueUnsupported.length} unsupported module types: ${uniqueUnsupported.join(", ")}`)
-          warnings.push("Consider requesting support for these modules in future updates.")
-        }
-
-        return { nodes: newNodes, edges: newEdges, errors, warnings, unsupportedModules }
-      } catch (error) {
-        errors.push(`Parsing error: ${error instanceof Error ? error.message : "Unknown error"}`)
-        return { nodes: [], edges: [], errors, warnings, unsupportedModules }
-      }
-    },
-    [],
-  )
-
-  const parseParameters = (params: string): string[] => {
-    const result: string[] = []
-    let current = ""
-    let depth = 0
-    let inQuotes = false
-    let quoteChar = ""
-
-    for (let i = 0; i < params.length; i++) {
-      const char = params[i]
-
-      if (!inQuotes && (char === "'" || char === '"')) {
-        inQuotes = true
-        quoteChar = char
-      } else if (inQuotes && char === quoteChar) {
-        inQuotes = false
-        quoteChar = ""
-      } else if (!inQuotes && char === "(") {
-        depth++
-      } else if (!inQuotes && char === ")") {
-        depth--
-      } else if (!inQuotes && char === "," && depth === 0) {
-        if (current.trim()) {
-          result.push(current.trim())
-        }
-        current = ""
-        continue
-      }
-
-      current += char
-    }
-
-    if (current.trim()) {
-      result.push(current.trim())
-    }
-
-    return result
-  }
-
-  const parseParameterValue = (value: string): any => {
-    const trimmedValue = value.trim()
-
-    if (trimmedValue === "True") return true
-    if (trimmedValue === "False") return false
-    if (trimmedValue === "None") return null
-    if (/^\d+$/.test(trimmedValue)) return Number.parseInt(trimmedValue)
-    if (/^\d*\.\d+$/.test(trimmedValue)) return Number.parseFloat(trimmedValue)
-
-    if (trimmedValue.startsWith("(") && trimmedValue.endsWith(")")) {
-      let tupleContent = trimmedValue.slice(1, -1)
-      if (tupleContent.endsWith(",")) {
-        tupleContent = tupleContent.slice(0, -1)
-      }
-      const tupleValues = tupleContent.split(",").map((v) => {
-        const tv = v.trim()
-        if (tv === "") return null
-        const num = Number.parseInt(tv)
-        return isNaN(num) ? parseParameterValue(tv) : num
-      })
-      return tupleValues.length === 1 ? tupleValues[0] : tupleValues
-    }
-
-    if ((trimmedValue.startsWith("'") && trimmedValue.endsWith("'")) || (trimmedValue.startsWith('"') && trimmedValue.endsWith('"'))) {
-      return trimmedValue.slice(1, -1)
-    }
-
-    return trimmedValue
-  }
-
-  const mapPositionalParameter = (layerType: string, nodeData: any, numValue: number): void => {
-    const paramCount = Object.keys(nodeData).length - 1
-
-    if (layerType === "Linear") {
-      if (paramCount === 0) nodeData.in_features = numValue
-      else if (paramCount === 1) nodeData.out_features = numValue
-    } else if (layerType.includes("Conv")) {
-      if (paramCount === 0) nodeData.in_channels = numValue
-      else if (paramCount === 1) nodeData.out_channels = numValue
-      else if (paramCount === 2) nodeData.kernel_size = numValue
-    }
-  }
-
+  // Convert the parser's logical graph into React-Flow nodes/edges. The parser
+  // (lib/pytorch-parser.ts) reconstructs the *complete* computation graph from
+  // the model's forward() method — branches, residuals, concatenations,
+  // functional ops and inlined submodules — rather than a naive linear chain.
   const handleCodeInput = useCallback(() => {
-    const result = parsePyTorchCode(inputCode)
+    const result = parsePyTorchModel(inputCode)
 
     if (result.errors.length > 0) {
       setParseErrors(result.errors)
@@ -1530,16 +1225,39 @@ export default function NeuralNetworkDesigner() {
       return
     }
 
-    if (result.nodes.length === 0) {
+    const graphNodes = result.nodes.filter((n) => nodeTypes[n.type])
+    if (graphNodes.length === 0) {
       setParseErrors(["No valid layers found in the code"])
       setParseWarnings([])
       setUnsupportedModules([])
       return
     }
 
+    const validIds = new Set(graphNodes.map((n) => n.id))
+    const newNodes: Node[] = graphNodes.map((n) => ({
+      id: n.id,
+      type: n.type,
+      position: n.position,
+      data: n.data as any,
+      draggable: true,
+      selectable: true,
+      deletable: true,
+    }))
+    const newEdges: Edge[] = result.edges
+      .filter((e) => validIds.has(e.source) && validIds.has(e.target))
+      .map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        type: e.type || "default",
+        ...(e.targetHandle ? { targetHandle: e.targetHandle } : {}),
+        animated: false,
+        deletable: true,
+      }))
+
     takeSnapshot()
-    setNodes(result.nodes)
-    setEdges(result.edges)
+    setNodes(newNodes)
+    setEdges(newEdges)
     setSelectedNode(null)
     setParseErrors([])
     setParseWarnings(result.warnings)
@@ -1547,21 +1265,17 @@ export default function NeuralNetworkDesigner() {
     setShowCodeInputDialog(false)
     setInputCode("")
 
-    if (result.nodes.length > 0) {
-      const supportedCount = result.nodes.length - 1
-      const totalLayers = supportedCount + result.unsupportedModules.length
-
-      toast({
-        title: "PyTorch Code Imported",
-        description: `Successfully imported ${supportedCount} / ${totalLayers} layers. ${
-          result.unsupportedModules.length > 0
-            ? `${result.unsupportedModules.length} unsupported modules were skipped.`
-            : "All modules are supported!"
-        }`,
-        duration: 5000,
-      })
-    }
-  }, [inputCode, parsePyTorchCode, toast, setNodes, setEdges, takeSnapshot])
+    const layerCount = newNodes.filter((n) => n.type !== "inputNode" && n.type !== "outputNode").length
+    toast({
+      title: "PyTorch Code Imported",
+      description:
+        `Reconstructed the full graph: ${layerCount} layers / ${newEdges.length} connections. ` +
+        (result.unsupportedModules.length > 0
+          ? `${result.unsupportedModules.length} unsupported module type(s) kept as pass-through nodes.`
+          : "All modules are supported!"),
+      duration: 5000,
+    })
+  }, [inputCode, toast, setNodes, setEdges, takeSnapshot])
 
   const keyboardShortcuts = [
     { key: "Ctrl + S", description: "Save model" },
@@ -3785,7 +3499,10 @@ export default function NeuralNetworkDesigner() {
           <DialogHeader>
             <DialogTitle>Input PyTorch Code</DialogTitle>
             <DialogDescription>
-              Paste your PyTorch model code below and we'll recreate it visually in the canvas
+              Paste your PyTorch model code below. We parse the <code>forward()</code> method to
+              reconstruct the complete computation graph — including residual/skip connections,
+              concatenations, branches, functional ops and inlined submodules — not just a linear
+              list of layers.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 flex flex-col gap-4 py-4 overflow-y-auto">
