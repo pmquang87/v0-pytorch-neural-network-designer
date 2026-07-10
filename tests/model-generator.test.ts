@@ -261,6 +261,189 @@ describe('ModelGenerator', () => {
         expect(tanh).toContain('self.act = nn.GELU(approximate="tanh")');
     });
 
+    it('emits subtraction for addNode with op "-"', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 8 }),
+                { id: 'bias', type: 'parameterNode', data: { shape: [8] } },
+                { id: 'sub1', type: 'addNode', data: { op: '-' } },
+            ],
+            [
+                { id: 'e1', source: 'input1', target: 'sub1' },
+                { id: 'e2', source: 'bias', target: 'sub1' },
+            ],
+        ).generateCode();
+
+        expect(code).toMatch(/sub1 = .*-.*/);
+        expect(code).not.toMatch(/sub1 = .*\+.*/);
+    });
+
+    it('emits division for multiplyNode with op "/"', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 8 }),
+                { id: 'scale', type: 'parameterNode', data: { shape: [8] } },
+                { id: 'div1', type: 'multiplyNode', data: { op: '/' } },
+            ],
+            [
+                { id: 'e1', source: 'input1', target: 'div1' },
+                { id: 'e2', source: 'scale', target: 'div1' },
+            ],
+        ).generateCode();
+
+        expect(code).toMatch(/div1 = x \/ scale|div1 = scale \/ x/);
+        expect(code).not.toMatch(/div1 = .*\*.*/);
+    });
+
+    it('emits @ operator for multiplyNode with op "@"', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 8 }),
+                { id: 'w', type: 'parameterNode', data: { shape: [8, 8] } },
+                { id: 'mm', type: 'multiplyNode', data: { op: '@' } },
+            ],
+            [
+                { id: 'e1', source: 'input1', target: 'mm' },
+                { id: 'e2', source: 'w', target: 'mm' },
+            ],
+        ).generateCode();
+
+        expect(code).toMatch(/mm = .* @ .*/);
+    });
+
+    it('emits torch.matmul for multiplyNode with op "matmul"', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 8 }),
+                { id: 'w', type: 'parameterNode', data: { shape: [8, 8] } },
+                { id: 'mm', type: 'multiplyNode', data: { op: 'matmul' } },
+            ],
+            [
+                { id: 'e1', source: 'input1', target: 'mm' },
+                { id: 'e2', source: 'w', target: 'mm' },
+            ],
+        ).generateCode();
+
+        expect(code).toMatch(/mm = torch\.matmul\((x, w|w, x)\)/);
+    });
+
+    it('nests torch.matmul right-associatively for 3+ inputs', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 8 }),
+                { id: 'a', type: 'parameterNode', data: { shape: [8, 8] } },
+                { id: 'b', type: 'parameterNode', data: { shape: [8, 8] } },
+                { id: 'mm', type: 'multiplyNode', data: { op: 'matmul' } },
+            ],
+            [
+                { id: 'e1', source: 'input1', target: 'mm' },
+                { id: 'e2', source: 'a', target: 'mm' },
+                { id: 'e3', source: 'b', target: 'mm' },
+            ],
+        ).generateCode();
+
+        expect(code).toContain('torch.matmul(');
+        // right-associative nesting: outer matmul contains an inner matmul
+        expect(code).toMatch(/mm = torch\.matmul\([^,]+, torch\.matmul\(/);
+    });
+
+    it('emits nn.LogSoftmax for softmaxNode variant "log"', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 10 }),
+                { id: 'sm', type: 'softmaxNode', data: { variant: 'log', dim: 1 } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'sm' }],
+        ).generateCode();
+
+        expect(code).toContain('self.sm = nn.LogSoftmax(dim=1)');
+        expect(code).toContain('sm = self.sm(x)');
+        expect(code).not.toContain('nn.Softmax(');
+    });
+
+    it('emits nn.ReLU6 for reluNode variant "relu6"', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 10 }),
+                { id: 'act', type: 'reluNode', data: { variant: 'relu6' } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'act' }],
+        ).generateCode();
+
+        expect(code).toContain('self.act = nn.ReLU6()');
+    });
+
+    it('emits nn.Dropout2d and nn.Dropout3d for dropout variants', () => {
+        const code2d = makeGraph(
+            [
+                inputNode(),
+                { id: 'do', type: 'dropoutNode', data: { variant: 'dropout2d', p: 0.3 } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'do' }],
+        ).generateCode();
+        expect(code2d).toContain('self.do = nn.Dropout2d(p=0.3)');
+
+        const code3d = makeGraph(
+            [
+                inputNode(),
+                { id: 'do', type: 'dropoutNode', data: { variant: 'dropout3d', p: 0.5 } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'do' }],
+        ).generateCode();
+        expect(code3d).toContain('self.do = nn.Dropout3d(p=0.5)');
+    });
+
+    it('emits nn.LazyLinear without in_features for linearNode variant "lazy"', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 784 }),
+                { id: 'fc', type: 'linearNode', data: { variant: 'lazy', out_features: 128, bias: false } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'fc' }],
+        ).generateCode();
+
+        expect(code).toContain('self.fc = nn.LazyLinear(128, bias=False)');
+        expect(code).not.toContain('in_features');
+        expect(code).toContain('fc = self.fc(x)');
+    });
+
+    it('emits nn.Bilinear for linearNode variant "bilinear"', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 20 }),
+                { id: 'bi', type: 'linearNode', data: { variant: 'bilinear', in1_features: 20, in2_features: 30, out_features: 40 } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'bi' }],
+        ).generateCode();
+
+        expect(code).toContain('self.bi = nn.Bilinear(20, 30, 40)');
+    });
+
+    it('behaves as plain nn.Softmax/nn.Linear when no variant is set', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 10 }),
+                { id: 'sm', type: 'softmaxNode', data: { dim: 1 } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'sm' }],
+        ).generateCode();
+        expect(code).toContain('self.sm = nn.Softmax(dim=1)');
+    });
+
+    it('prefixes numeric node ids so no invalid self.<digit> is emitted', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 10 }),
+                { id: '123', type: 'linearNode', data: { in_features: 10, out_features: 2 } },
+            ],
+            [{ id: 'e1', source: 'input1', target: '123' }],
+        ).generateCode();
+
+        expect(code).toContain('self.n_123 = nn.Linear');
+        expect(code).toContain('n_123 = self.n_123(x)');
+        expect(code).not.toContain('self.123');
+    });
+
     it('rejects graphs without an input node', () => {
         const generator = makeGraph(
             [{ id: 'fc1', type: 'linearNode', data: { in_features: 4, out_features: 2 } }],

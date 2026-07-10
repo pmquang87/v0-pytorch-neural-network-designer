@@ -235,16 +235,326 @@ class B(nn.Module):
 class M(nn.Module):
     def __init__(self):
         super().__init__()
-        self.embed = nn.Embedding(100, 32)
+        self.shuffle = nn.PixelShuffle(2)
         self.fc = nn.Linear(32, 10)
+    def forward(self, x):
+        x = self.shuffle(x)
+        return self.fc(x)
+`
+    const result = parsePyTorchModel(code)
+    expect(result.unsupportedModules).toContain("PixelShuffle")
+    expect(result.nodes.some((n) => n.type === "defaultNode")).toBe(true)
+    // Graph is still connected end-to-end.
+    expect(result.nodes.some((n) => n.type === "outputNode")).toBe(true)
+  })
+
+  // -------------------------------------------------------------------------
+  // Wave 2 — operator preservation (Convention 1)
+  // -------------------------------------------------------------------------
+  it("preserves subtraction as an addNode with op '-'", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.a = nn.Linear(4, 4)
+        self.b = nn.Linear(4, 4)
+    def forward(self, x):
+        return self.a(x) - self.b(x)
+`
+    const result = parsePyTorchModel(code)
+    const add = result.nodes.find((n) => n.type === "addNode")!
+    expect(add).toBeTruthy()
+    expect(add.data.op).toBe("-")
+  })
+
+  it("preserves addition as an addNode with op '+'", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.a = nn.Linear(4, 4)
+    def forward(self, x):
+        return self.a(x) + x
+`
+    const result = parsePyTorchModel(code)
+    const add = result.nodes.find((n) => n.type === "addNode")!
+    expect(add.data.op).toBe("+")
+  })
+
+  it("preserves division as a multiplyNode with op '/'", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.a = nn.Linear(4, 4)
+        self.b = nn.Linear(4, 4)
+    def forward(self, x):
+        return self.a(x) / self.b(x)
+`
+    const result = parsePyTorchModel(code)
+    const mul = result.nodes.find((n) => n.type === "multiplyNode")!
+    expect(mul).toBeTruthy()
+    expect(mul.data.op).toBe("/")
+  })
+
+  it("preserves the @ operator as a multiplyNode with op '@'", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.a = nn.Linear(4, 4)
+        self.b = nn.Linear(4, 4)
+    def forward(self, x):
+        return self.a(x) @ self.b(x)
+`
+    const result = parsePyTorchModel(code)
+    const mul = result.nodes.find((n) => n.type === "multiplyNode")!
+    expect(mul.data.op).toBe("@")
+  })
+
+  it("preserves torch.matmul / torch.bmm as a multiplyNode with op 'matmul'", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.a = nn.Linear(4, 4)
+        self.b = nn.Linear(4, 4)
+    def forward(self, x):
+        return torch.matmul(self.a(x), self.b(x))
+`
+    const result = parsePyTorchModel(code)
+    const mul = result.nodes.find((n) => n.type === "multiplyNode")!
+    expect(mul).toBeTruthy()
+    expect(mul.data.op).toBe("matmul")
+    const edges = result.edges.filter((e) => e.target === mul.id)
+    expect(edges).toHaveLength(2)
+  })
+
+  it("preserves plain multiplication as a multiplyNode with op '*'", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.a = nn.Linear(4, 4)
+        self.b = nn.Linear(4, 4)
+    def forward(self, x):
+        return self.a(x) * self.b(x)
+`
+    const result = parsePyTorchModel(code)
+    const mul = result.nodes.find((n) => n.type === "multiplyNode")!
+    expect(mul.data.op).toBe("*")
+  })
+
+  // -------------------------------------------------------------------------
+  // Wave 2 — layer variants (Convention 2)
+  // -------------------------------------------------------------------------
+  it("tags nn.LogSoftmax as a softmaxNode with variant 'log'", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.act = nn.LogSoftmax(dim=1)
+    def forward(self, x):
+        return self.act(x)
+`
+    const result = parsePyTorchModel(code)
+    const sm = result.nodes.find((n) => n.type === "softmaxNode")!
+    expect(sm).toBeTruthy()
+    expect(sm.data.variant).toBe("log")
+    expect(sm.data.dim).toBe(1)
+  })
+
+  it("tags nn.ReLU6 as a reluNode with variant 'relu6'", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.act = nn.ReLU6()
+    def forward(self, x):
+        return self.act(x)
+`
+    const result = parsePyTorchModel(code)
+    const relu = result.nodes.find((n) => n.type === "reluNode")!
+    expect(relu).toBeTruthy()
+    expect(relu.data.variant).toBe("relu6")
+  })
+
+  it("tags nn.Dropout2d / nn.Dropout3d as dropoutNodes with the right variant", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.d2 = nn.Dropout2d(0.3)
+        self.d3 = nn.Dropout3d(p=0.4)
+    def forward(self, x):
+        x = self.d2(x)
+        return self.d3(x)
+`
+    const result = parsePyTorchModel(code)
+    const dropouts = result.nodes.filter((n) => n.type === "dropoutNode")
+    expect(dropouts).toHaveLength(2)
+    const d2 = dropouts.find((n) => n.data.variant === "dropout2d")!
+    const d3 = dropouts.find((n) => n.data.variant === "dropout3d")!
+    expect(d2.data.p).toBe(0.3)
+    expect(d3.data.p).toBe(0.4)
+  })
+
+  it("tags nn.LazyLinear as a linearNode with variant 'lazy' and no in_features", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.LazyLinear(128)
+    def forward(self, x):
+        return self.fc(x)
+`
+    const result = parsePyTorchModel(code)
+    const fc = result.nodes.find((n) => n.type === "linearNode")!
+    expect(fc.data.variant).toBe("lazy")
+    expect(fc.data.out_features).toBe(128)
+    expect(fc.data.in_features).toBeUndefined()
+  })
+
+  it("tags nn.Bilinear as a linearNode with variant 'bilinear' and its feature args", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.Bilinear(20, 30, 40)
+    def forward(self, a, b):
+        return self.fc(a, b)
+`
+    const result = parsePyTorchModel(code)
+    const fc = result.nodes.find((n) => n.type === "linearNode")!
+    expect(fc.data.variant).toBe("bilinear")
+    expect(fc.data.in1_features).toBe(20)
+    expect(fc.data.in2_features).toBe(30)
+    expect(fc.data.out_features).toBe(40)
+  })
+
+  // -------------------------------------------------------------------------
+  // Wave 2 — Embedding (Convention 3)
+  // -------------------------------------------------------------------------
+  it("maps nn.Embedding to an embeddingNode with its constructor args", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.embed = nn.Embedding(1000, 64, padding_idx=0)
+        self.fc = nn.Linear(64, 10)
     def forward(self, x):
         x = self.embed(x)
         return self.fc(x)
 `
     const result = parsePyTorchModel(code)
-    expect(result.unsupportedModules).toContain("Embedding")
-    expect(result.nodes.some((n) => n.type === "defaultNode")).toBe(true)
-    // Graph is still connected end-to-end.
-    expect(result.nodes.some((n) => n.type === "outputNode")).toBe(true)
+    expect(result.unsupportedModules).not.toContain("Embedding")
+    const embed = result.nodes.find((n) => n.type === "embeddingNode")!
+    expect(embed).toBeTruthy()
+    expect(embed.data.num_embeddings).toBe(1000)
+    expect(embed.data.embedding_dim).toBe(64)
+    expect(embed.data.padding_idx).toBe(0)
+  })
+
+  // -------------------------------------------------------------------------
+  // Wave 2 — positional dim capture (kwargOrArgNumber fix)
+  // -------------------------------------------------------------------------
+  it("captures a positional dim for torch.cat", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.a = nn.Conv2d(3, 4, 3)
+        self.b = nn.Conv2d(3, 4, 3)
+    def forward(self, x):
+        return torch.cat([self.a(x), self.b(x)], 2)
+`
+    const result = parsePyTorchModel(code)
+    const cat = result.nodes.find((n) => n.type === "concatenateNode")!
+    expect(cat.data.dim).toBe(2)
+  })
+
+  it("captures a positional dim for F.softmax", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.Linear(4, 4)
+    def forward(self, x):
+        return F.softmax(self.fc(x), 1)
+`
+    const result = parsePyTorchModel(code)
+    const sm = result.nodes.find((n) => n.type === "softmaxNode")!
+    expect(sm.data.dim).toBe(1)
+  })
+
+  // -------------------------------------------------------------------------
+  // Wave 2 — reshape/view interior -1 preservation
+  // -------------------------------------------------------------------------
+  it("preserves an interior -1 in a non-flatten view", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.Linear(4, 12)
+    def forward(self, x):
+        x = self.fc(x)
+        return x.view(8, -1, 3)
+`
+    const result = parsePyTorchModel(code)
+    const reshape = result.nodes.find((n) => n.type === "reshapeNode")!
+    expect(reshape).toBeTruthy()
+    expect(reshape.data.targetShape).toEqual([8, -1, 3])
+  })
+
+  it("still treats view(N, -1) as a flatten", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.Linear(4, 12)
+    def forward(self, x):
+        x = self.fc(x)
+        return x.view(x.size(0), -1)
+`
+    const result = parsePyTorchModel(code)
+    expect(result.nodes.some((n) => n.type === "flattenNode")).toBe(true)
+    expect(result.nodes.some((n) => n.type === "reshapeNode")).toBe(false)
+  })
+
+  // -------------------------------------------------------------------------
+  // Wave 2 — transpose / permute dim capture
+  // -------------------------------------------------------------------------
+  it("captures transpose dims into data.dim0 / data.dim1", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.Linear(4, 4)
+    def forward(self, x):
+        x = self.fc(x)
+        return x.transpose(1, 2)
+`
+    const result = parsePyTorchModel(code)
+    const t = result.nodes.find((n) => n.type === "transposeNode")!
+    expect(t).toBeTruthy()
+    expect(t.data.dim0).toBe(1)
+    expect(t.data.dim1).toBe(2)
+  })
+
+  it("captures permute dims into data.dims", () => {
+    const code = `
+class M(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.Linear(4, 4)
+    def forward(self, x):
+        x = self.fc(x)
+        return x.permute(0, 2, 1)
+`
+    const result = parsePyTorchModel(code)
+    const t = result.nodes.find((n) => n.type === "transposeNode")!
+    expect(t.data.dims).toEqual([0, 2, 1])
+    expect(t.data.dim0).toBe(0)
+    expect(t.data.dim1).toBe(2)
   })
 })

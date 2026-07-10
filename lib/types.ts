@@ -34,6 +34,13 @@ export interface LinearNodeData extends BaseNodeData {
   out_features: number
 }
 
+// Embedding layer data
+export interface EmbeddingNodeData extends BaseNodeData {
+  num_embeddings: number
+  embedding_dim: number
+  padding_idx?: number
+}
+
 // Convolutional layer data
 export interface ConvNodeData extends BaseNodeData {
   in_channels: number
@@ -148,6 +155,7 @@ export interface MoENodeData extends BaseNodeData {
 export type NodeData = 
   | InputNodeData
   | LinearNodeData
+  | EmbeddingNodeData
   | ConvNodeData
   | PoolNodeData
   | NormNodeData
@@ -255,6 +263,11 @@ export const PYTORCH_LAYER_MANIFEST: Record<string, LayerManifestEntry> = {
     className: "nn.Linear",
     params: ["in_features", "out_features", "bias"],
     doc: nnDoc("Linear")
+  },
+  embeddingNode: {
+    className: "nn.Embedding",
+    params: ["num_embeddings", "embedding_dim", "padding_idx"],
+    doc: nnDoc("Embedding")
   },
   conv1dNode: {
     className: "nn.Conv1d",

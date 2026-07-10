@@ -4,6 +4,9 @@ export interface LayerAnalysis {
   name: string
   type: string
   parameters: number
+  // Trainable parameters (excludes non-trainable buffers such as BatchNorm's
+  // running_mean/running_var). Falls back to `parameters` when not set explicitly.
+  trainableParameters?: number
   flops: number
   memoryMB: number
   inputShape: TensorShape
@@ -61,13 +64,19 @@ export function analyzeLayer(
   switch (nodeType) {
     case "conv2dNode":
     case "depthwiseconv2dNode":
+    case "convtranspose2dNode":
       const inChannels = nodeData.in_channels || 3
       const outChannels = nodeData.out_channels || 32
       const [kernelH, kernelW] = parseKernelSizes(nodeData.kernel_size, 2, 3)
-      const groups = nodeData.groups || 1
+      // A depthwise conv defaults to groups = in_channels (one filter group per
+      // input channel), NOT groups = 1 which would massively over-count params.
+      const groups =
+        nodeData.groups || (nodeType === "depthwiseconv2dNode" ? inChannels : 1)
 
-      // Parameters: weights + bias
-      analysis.parameters = (inChannels * outChannels * kernelH * kernelW) / groups + outChannels
+      // Parameters: weights + bias (bias only when nodeData.bias !== false)
+      analysis.parameters =
+        (inChannels * outChannels * kernelH * kernelW) / groups +
+        (nodeData.bias !== false ? outChannels : 0)
 
       // FLOPs: for each output pixel, kernel_h * kernel_w * in_channels * out_channels operations
       if (typeof outputShape.height === "number" && typeof outputShape.width === "number") {
@@ -94,11 +103,15 @@ export function analyzeLayer(
       break
 
     case "conv1dNode":
+    case "convtranspose1dNode":
       const conv1dIn = nodeData.in_channels || 1
       const conv1dOut = nodeData.out_channels || 32
       const [conv1dKernel] = parseKernelSizes(nodeData.kernel_size, 1, 3)
+      const conv1dGroups = nodeData.groups || 1
 
-      analysis.parameters = conv1dIn * conv1dOut * conv1dKernel + conv1dOut
+      analysis.parameters =
+        (conv1dIn * conv1dOut * conv1dKernel) / conv1dGroups +
+        (nodeData.bias !== false ? conv1dOut : 0)
 
       if (typeof outputShape.length === "number") {
         analysis.flops = batchSize * outputShape.length * conv1dKernel * conv1dIn * conv1dOut
@@ -106,11 +119,15 @@ export function analyzeLayer(
       break
 
     case "conv3dNode":
+    case "convtranspose3dNode":
       const conv3dIn = nodeData.in_channels || 3
       const conv3dOut = nodeData.out_channels || 32
       const [conv3dKd, conv3dKh, conv3dKw] = parseKernelSizes(nodeData.kernel_size, 3, 3)
+      const conv3dGroups = nodeData.groups || 1
 
-      analysis.parameters = conv3dIn * conv3dOut * conv3dKd * conv3dKh * conv3dKw + conv3dOut
+      analysis.parameters =
+        (conv3dIn * conv3dOut * conv3dKd * conv3dKh * conv3dKw) / conv3dGroups +
+        (nodeData.bias !== false ? conv3dOut : 0)
 
       if (
         typeof outputShape.depth === "number" &&
@@ -134,7 +151,8 @@ export function analyzeLayer(
       const inFeatures = nodeData.in_features || 128
       const outFeatures = nodeData.out_features || 64
 
-      analysis.parameters = inFeatures * outFeatures + outFeatures // weights + bias
+      analysis.parameters =
+        inFeatures * outFeatures + (nodeData.bias !== false ? outFeatures : 0) // weights + bias
       analysis.flops = batchSize * inFeatures * outFeatures * 2 // multiply-add operations
 
       const linearInputMem = batchSize * inFeatures * 4
@@ -161,8 +179,12 @@ export function analyzeLayer(
 
     case "batchnorm2dNode":
     case "batchnorm1dNode":
+    case "batchnorm3dNode":
       const bnFeatures = nodeData.num_features || 32
-      analysis.parameters = bnFeatures * 4 // gamma, beta, running_mean, running_var
+      // Total state = gamma, beta (trainable) + running_mean, running_var (buffers).
+      // Only gamma & beta are trainable parameters (2 * C).
+      analysis.parameters = bnFeatures * 4
+      analysis.trainableParameters = bnFeatures * 2
 
       if (typeof outputShape.height === "number" && typeof outputShape.width === "number") {
         analysis.flops =
@@ -189,6 +211,63 @@ export function analyzeLayer(
       analysis.parameters = nodeData.elementwise_affine === false ? 0 : rmsFeatures // gamma only
       analysis.flops = batchSize * rmsFeatures * 3 // square-mean, rsqrt-normalize, scale
       break
+
+    case "groupnormNode": {
+      // GroupNorm has per-channel affine params (gamma, beta) when affine=True.
+      const gnChannels = nodeData.num_channels || nodeData.num_features || 32
+      analysis.parameters = nodeData.affine === false ? 0 : gnChannels * 2
+      analysis.flops = batchSize * gnChannels * 5 // mean, var, normalize, scale, shift
+      break
+    }
+
+    case "instancenorm1dNode":
+    case "instancenorm2dNode":
+    case "instancenorm3dNode": {
+      // InstanceNorm affine params (gamma, beta) per channel; affine defaults to
+      // False in PyTorch, so only count params when explicitly enabled.
+      const inFeat = nodeData.num_features || nodeData.num_channels || 32
+      analysis.parameters = nodeData.affine === true ? inFeat * 2 : 0
+      analysis.flops = batchSize * inFeat * 5
+      break
+    }
+
+    case "embeddingNode": {
+      // Lookup table of shape (num_embeddings, embedding_dim); no FLOPs (gather).
+      const numEmbeddings = nodeData.num_embeddings || 1000
+      const embeddingDim = nodeData.embedding_dim || 128
+      analysis.parameters = numEmbeddings * embeddingDim
+      analysis.flops = 0
+      break
+    }
+
+    case "transformerencoderlayerNode":
+    case "transformerdecoderlayerNode": {
+      // Estimate for one nn.Transformer{Encoder,Decoder}Layer.
+      // Self-attention (Q,K,V,out projections): 4 * d^2 weights + 4 * d biases.
+      // Feed-forward: (d -> dff) + (dff -> d): 2 * d * dff weights + (dff + d) biases.
+      // LayerNorms: 2 (encoder) or 3 (decoder) * 2 * d affine params.
+      // Decoder additionally has a cross-attention block (another 4 * d^2 + 4 * d).
+      const dModel = nodeData.d_model || 512
+      const dFf = nodeData.dim_feedforward || 2048
+      const isDecoder = nodeType === "transformerdecoderlayerNode"
+
+      const selfAttn = 4 * dModel * dModel + 4 * dModel
+      const crossAttn = isDecoder ? 4 * dModel * dModel + 4 * dModel : 0
+      const feedForward = 2 * dModel * dFf + (dFf + dModel)
+      const numLayerNorms = isDecoder ? 3 : 2
+      const layerNorms = numLayerNorms * 2 * dModel
+
+      analysis.parameters = selfAttn + crossAttn + feedForward + layerNorms
+
+      const tSeqLen = typeof inputShape.sequence === "number" ? inputShape.sequence : 100
+      // Attention is O(seq^2 * d); FFN is O(seq * d * dff). Rough estimate.
+      const attnBlocks = isDecoder ? 2 : 1
+      analysis.flops =
+        batchSize *
+        (attnBlocks * tSeqLen * tSeqLen * dModel + 2 * tSeqLen * dModel * dFf) *
+        2
+      break
+    }
 
     case "moeNode": {
       // Sparse MoE: all experts hold parameters, but only top_k run per token.
@@ -261,12 +340,19 @@ export function analyzeLayer(
       analysis.flops = 0
   }
 
+  // Unless a case reported a distinct trainable count (e.g. BatchNorm excludes
+  // its running_mean/running_var buffers), all parameters are trainable.
+  if (analysis.trainableParameters === undefined) {
+    analysis.trainableParameters = analysis.parameters
+  }
+
   return analysis
 }
 
 export function analyzeModel(nodes: any[], edges: any[]): ModelAnalysis {
   const layerAnalyses: LayerAnalysis[] = []
   let totalParameters = 0
+  let trainableParameters = 0
   let totalFLOPs = 0
   let totalMemoryMB = 0
 
@@ -281,6 +367,7 @@ export function analyzeModel(nodes: any[], edges: any[]): ModelAnalysis {
     layerAnalyses.push(layerAnalysis)
 
     totalParameters += layerAnalysis.parameters
+    trainableParameters += layerAnalysis.trainableParameters ?? layerAnalysis.parameters
     totalFLOPs += layerAnalysis.flops
     totalMemoryMB += layerAnalysis.memoryMB
   }
@@ -294,7 +381,7 @@ export function analyzeModel(nodes: any[], edges: any[]): ModelAnalysis {
 
   return {
     totalParameters,
-    trainableParameters: totalParameters, // Assume all parameters are trainable
+    trainableParameters, // excludes non-trainable buffers (e.g. BatchNorm running stats)
     totalFLOPs,
     memoryUsageMB: totalMemoryMB,
     layers: layerAnalyses,

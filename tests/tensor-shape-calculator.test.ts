@@ -149,6 +149,170 @@ describe('calculateOutputShape', () => {
         );
         expect(out).toEqual({ channels: 16, height: 28, width: 28 });
     });
+
+    it('doubles hidden_size features for a bidirectional LSTM', () => {
+        const out = calculateOutputShape(
+            'lstmNode',
+            [{ sequence: 10, features: 64 }],
+            { input_size: 64, hidden_size: 128, bidirectional: true },
+        );
+        expect(out).toEqual({ sequence: 10, features: 256 });
+    });
+
+    it('keeps hidden_size features for a unidirectional GRU', () => {
+        const out = calculateOutputShape(
+            'gruNode',
+            [{ sequence: 10, features: 64 }],
+            { input_size: 64, hidden_size: 128 },
+        );
+        expect(out).toEqual({ sequence: 10, features: 128 });
+    });
+
+    it('maxpool2d with a tuple string kernel yields a concrete shape (not dynamic)', () => {
+        const out = calculateOutputShape(
+            'maxpool2dNode',
+            [{ channels: 8, height: 32, width: 32 }],
+            { kernel_size: '2,2' },
+        );
+        expect(out).toEqual({ channels: 8, height: 16, width: 16 });
+        expect(out.height).not.toBe('dynamic');
+        expect(out.width).not.toBe('dynamic');
+    });
+
+    it('maxpool2d with an array tuple kernel/stride is concrete', () => {
+        const out = calculateOutputShape(
+            'maxpool2dNode',
+            [{ channels: 4, height: 30, width: 30 }],
+            { kernel_size: [3, 3], stride: [3, 3] },
+        );
+        expect(out).toEqual({ channels: 4, height: 10, width: 10 });
+    });
+
+    it('lppool2d with a tuple string kernel is concrete', () => {
+        const out = calculateOutputShape(
+            'lppool2dNode',
+            [{ channels: 4, height: 16, width: 16 }],
+            { kernel_size: '2,2' },
+        );
+        expect(out).toEqual({ channels: 4, height: 8, width: 8 });
+    });
+
+    it("conv2d padding='same' preserves H/W", () => {
+        const out = calculateOutputShape(
+            'conv2dNode',
+            [{ channels: 3, height: 28, width: 28 }],
+            { out_channels: 16, kernel_size: 5, stride: 1, padding: 'same' },
+        );
+        expect(out).toEqual({ channels: 16, height: 28, width: 28 });
+    });
+
+    it("conv2d padding='valid' means no padding", () => {
+        const out = calculateOutputShape(
+            'conv2dNode',
+            [{ channels: 3, height: 28, width: 28 }],
+            { out_channels: 16, kernel_size: 3, stride: 1, padding: 'valid' },
+        );
+        expect(out).toEqual({ channels: 16, height: 26, width: 26 });
+    });
+
+    it("conv1d padding='same' preserves length", () => {
+        const out = calculateOutputShape(
+            'conv1dNode',
+            [{ channels: 3, length: 100 }],
+            { out_channels: 16, kernel_size: 5, stride: 1, padding: 'same' },
+        );
+        expect(out).toEqual({ channels: 16, length: 100 });
+    });
+
+    it('conv1d parses tuple string kernel/padding without NaN', () => {
+        const out = calculateOutputShape(
+            'conv1dNode',
+            [{ channels: 3, length: 100 }],
+            { out_channels: 8, kernel_size: '3', stride: 1, padding: '1' },
+        );
+        expect(out).toEqual({ channels: 8, length: 100 });
+    });
+
+    it("conv3d padding='same' preserves D/H/W", () => {
+        const out = calculateOutputShape(
+            'conv3dNode',
+            [{ channels: 2, depth: 8, height: 8, width: 8 }],
+            { out_channels: 4, kernel_size: 3, stride: 1, padding: 'same' },
+        );
+        expect(out).toEqual({ channels: 4, depth: 8, height: 8, width: 8 });
+    });
+
+    it('adaptiveavgpool2d accepts a scalar output_size', () => {
+        const out = calculateOutputShape(
+            'adaptiveavgpool2dNode',
+            [{ channels: 16, height: 32, width: 32 }],
+            { output_size: 7 },
+        );
+        expect(out).toEqual({ channels: 16, height: 7, width: 7 });
+    });
+
+    it('adaptiveavgpool2d accepts an array output_size', () => {
+        const out = calculateOutputShape(
+            'adaptiveavgpool2dNode',
+            [{ channels: 16, height: 32, width: 32 }],
+            { output_size: [4, 8] },
+        );
+        expect(out).toEqual({ channels: 16, height: 4, width: 8 });
+    });
+
+    it('adaptivemaxpool2d mirrors the avg variant', () => {
+        const out = calculateOutputShape(
+            'adaptivemaxpool2dNode',
+            [{ channels: 8, height: 20, width: 20 }],
+            { output_size: 1 },
+        );
+        expect(out).toEqual({ channels: 8, height: 1, width: 1 });
+    });
+
+    it('adaptiveavgpool1d produces a length dimension', () => {
+        const out = calculateOutputShape(
+            'adaptiveavgpool1dNode',
+            [{ channels: 8, length: 100 }],
+            { output_size: 5 },
+        );
+        expect(out).toEqual({ channels: 8, length: 5 });
+    });
+
+    it('adaptiveavgpool3d produces D/H/W dimensions', () => {
+        const out = calculateOutputShape(
+            'adaptiveavgpool3dNode',
+            [{ channels: 8, depth: 16, height: 16, width: 16 }],
+            { output_size: [2, 2, 2] },
+        );
+        expect(out).toEqual({ channels: 8, depth: 2, height: 2, width: 2 });
+    });
+
+    it('embedding appends embedding_dim as features, preserving the sequence', () => {
+        const out = calculateOutputShape(
+            'embeddingNode',
+            [{ sequence: 32 }],
+            { num_embeddings: 1000, embedding_dim: 64 },
+        );
+        expect(out).toEqual({ sequence: 32, features: 64 });
+    });
+
+    it('embedding treats a flat features dim as the sequence of ids', () => {
+        const out = calculateOutputShape(
+            'embeddingNode',
+            [{ features: 32 }],
+            { num_embeddings: 1000, embedding_dim: 64 },
+        );
+        expect(out).toEqual({ sequence: 32, features: 64 });
+    });
+
+    it('embedding with no input dims yields just features', () => {
+        const out = calculateOutputShape(
+            'embeddingNode',
+            [{}],
+            { num_embeddings: 1000, embedding_dim: 128 },
+        );
+        expect(out).toEqual({ features: 128 });
+    });
 });
 
 describe('formatTensorShape', () => {

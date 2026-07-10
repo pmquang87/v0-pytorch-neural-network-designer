@@ -14,11 +14,22 @@ export interface ShapeValidationResult {
   warning?: string
 }
 
+// Detects PyTorch's string padding mode `padding='same'`, which keeps the
+// spatial size unchanged. Callers short-circuit to preserve input H/W/L.
+function isSamePadding(value: any): boolean {
+  return typeof value === 'string' && value.trim().toLowerCase() === 'same';
+}
+
 function parseTuple(value: any, defaultValue: number): [number, number] {
-  if (value === undefined) return [defaultValue, defaultValue];
+  if (value === undefined || value === null) return [defaultValue, defaultValue];
   if (typeof value === 'number') return [value, value];
   if (typeof value === 'string') {
-    const parts = value.split(',').map(s => parseInt(s.trim(), 10));
+    const s = value.trim().toLowerCase();
+    // String padding modes: 'valid' means no padding, 'same' preserves size
+    // (handled by isSamePadding at the call site → falls back to default here).
+    if (s === 'valid') return [0, 0];
+    if (s === 'same') return [defaultValue, defaultValue];
+    const parts = value.split(',').map(p => parseInt(p.trim(), 10));
     if (parts.length === 1 && !isNaN(parts[0])) return [parts[0], parts[0]];
     if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) return [parts[0], parts[1]];
   }
@@ -27,6 +38,26 @@ function parseTuple(value: any, defaultValue: number): [number, number] {
     if (value.length === 2 && !isNaN(Number(value[0])) && !isNaN(Number(value[1]))) return [Number(value[0]), Number(value[1])];
   }
   return [defaultValue, defaultValue];
+}
+
+// Scalar counterpart of parseTuple for 1D/3D layers that use a single value
+// per spatial dim. Accepts numbers, `"3"`, `"3,3"` (first element), and
+// arrays; maps 'valid' → 0 and 'same' → default (callers detect 'same').
+function parseScalar(value: any, defaultValue: number): number {
+  if (value === undefined || value === null) return defaultValue;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const s = value.trim().toLowerCase();
+    if (s === 'valid') return 0;
+    if (s === 'same') return defaultValue;
+    const first = parseInt(s.split(',')[0].trim(), 10);
+    return isNaN(first) ? defaultValue : first;
+  }
+  if (Array.isArray(value)) {
+    const first = Number(value[0]);
+    return isNaN(first) ? defaultValue : first;
+  }
+  return defaultValue;
 }
 
 const CANONICAL_DIM_ORDER: (keyof TensorShape)[] = ["channels", "depth", "height", "width", "sequence", "length", "features"];
@@ -389,12 +420,21 @@ export function calculateOutputShape(
 
     case "conv2dNode":
     case "depthwiseconv2dNode":
+      const conv2dSamePad = isSamePadding(nodeData.padding);
       const padding = parseTuple(nodeData.padding, 0);
       const stride = parseTuple(nodeData.stride, 1);
       const kernel = parseTuple(nodeData.kernel_size, 3);
       const dilation = parseTuple(nodeData.dilation, 1);
 
       if (inputShape.height && inputShape.width && stride[0] > 0 && stride[1] > 0) {
+        if (conv2dSamePad) {
+          // padding='same' keeps spatial dimensions unchanged
+          return {
+            channels: nodeData.out_channels || 32,
+            height: inputShape.height,
+            width: inputShape.width,
+          };
+        }
         const newHeight = Math.floor(
           (Number(inputShape.height) + 2 * padding[0] - dilation[0] * (kernel[0] - 1) - 1) / stride[0] + 1,
         );
@@ -410,15 +450,21 @@ export function calculateOutputShape(
       return { ...inputShape, channels: nodeData.out_channels || 32 };
 
     case "conv1dNode": {
-      const conv1dPadding = nodeData.padding || 0;
-      const conv1dStride = nodeData.stride || 1;
-      const conv1dKernel = nodeData.kernel_size || 3;
-      const conv1dDilation = nodeData.dilation || 1;
+      const conv1dSamePad = isSamePadding(nodeData.padding);
+      const conv1dPadding = parseScalar(nodeData.padding, 0);
+      const conv1dStride = parseScalar(nodeData.stride, 1);
+      const conv1dKernel = parseScalar(nodeData.kernel_size, 3);
+      const conv1dDilation = parseScalar(nodeData.dilation, 1);
 
       const lengthDim = inputShape.length !== undefined ? "length" : "width";
       const inputLength = inputShape[lengthDim];
 
       if (inputLength && typeof inputLength === 'number') {
+        if (conv1dSamePad) {
+          const sameShape: TensorShape = { ...inputShape };
+          sameShape.channels = nodeData.out_channels || 32;
+          return sameShape;
+        }
         const newLength = Math.floor(
           (inputLength + 2 * conv1dPadding - conv1dDilation * (conv1dKernel - 1) - 1) /
             conv1dStride +
@@ -433,12 +479,22 @@ export function calculateOutputShape(
     }
 
     case "conv3dNode":
-      const conv3dPadding = nodeData.padding || 0;
-      const conv3dStride = nodeData.stride || 1;
-      const conv3dKernel = nodeData.kernel_size || 3;
-      const conv3dDilation = nodeData.dilation || 1;
+      const conv3dSamePad = isSamePadding(nodeData.padding);
+      const conv3dPadding = parseScalar(nodeData.padding, 0);
+      const conv3dStride = parseScalar(nodeData.stride, 1);
+      const conv3dKernel = parseScalar(nodeData.kernel_size, 3);
+      const conv3dDilation = parseScalar(nodeData.dilation, 1);
 
       if (inputShape.depth && inputShape.height && inputShape.width) {
+        if (conv3dSamePad) {
+          // padding='same' keeps spatial dimensions unchanged
+          return {
+            channels: nodeData.out_channels || 32,
+            depth: inputShape.depth,
+            height: inputShape.height,
+            width: inputShape.width,
+          };
+        }
         const newDepth = Math.floor(
           (Number(inputShape.depth) + 2 * conv3dPadding - conv3dDilation * (conv3dKernel - 1) - 1) /
             conv3dStride +
@@ -608,20 +664,24 @@ export function calculateOutputShape(
     }
 
     case "maxpool2dNode":
-    case "avgpool2dNode":
-      const poolKernel = Number(nodeData.kernel_size || 2);
-      const poolStride = Number(nodeData.stride || poolKernel);
-      const poolPadding = Number(nodeData.padding || 0);
-      const poolDilation = nodeData.dilation || 1;
+    case "avgpool2dNode": {
+      const poolSamePad = isSamePadding(nodeData.padding);
+      const poolKernel = parseTuple(nodeData.kernel_size, 2);
+      const poolStride = parseTuple(nodeData.stride ?? nodeData.kernel_size, 2);
+      const poolPadding = parseTuple(nodeData.padding, 0);
+      const poolDilation = parseTuple(nodeData.dilation, 1);
 
       if (inputShape.height && inputShape.width) {
-        if (poolStride === 0) return inputShape; // Avoid division by zero
+        if (poolSamePad) {
+          return { channels: inputShape.channels, height: inputShape.height, width: inputShape.width };
+        }
+        if (poolStride[0] === 0 || poolStride[1] === 0) return inputShape; // Avoid division by zero
 
         const newHeight = Math.floor(
-          (Number(inputShape.height) + 2 * poolPadding - poolDilation * (poolKernel - 1) - 1) / poolStride + 1,
+          (Number(inputShape.height) + 2 * poolPadding[0] - poolDilation[0] * (poolKernel[0] - 1) - 1) / poolStride[0] + 1,
         );
         const newWidth = Math.floor(
-          (Number(inputShape.width) + 2 * poolPadding - poolDilation * (poolKernel - 1) - 1) / poolStride + 1,
+          (Number(inputShape.width) + 2 * poolPadding[1] - poolDilation[1] * (poolKernel[1] - 1) - 1) / poolStride[1] + 1,
         );
         return {
           channels: inputShape.channels,
@@ -630,6 +690,7 @@ export function calculateOutputShape(
         };
       }
       return inputShape;
+    }
 
     case "maxpool1dNode":
     case "avgpool1dNode":
@@ -684,19 +745,39 @@ export function calculateOutputShape(
       return inputShape;
 
     case "adaptivemaxpool1dNode":
+    case "adaptiveavgpool1dNode": {
+      const os1d = nodeData.output_size;
+      let length1d: number | "dynamic" = 1;
+      if (Array.isArray(os1d)) {
+        length1d = os1d[0] ?? 1;
+      } else if (typeof os1d === "number") {
+        length1d = os1d;
+      } else if (typeof os1d === "string") {
+        const parsed = parseInt(os1d.trim(), 10);
+        length1d = isNaN(parsed) ? 1 : parsed;
+      }
       return {
         channels: inputShape.channels,
-        length: nodeData.output_size || 1,
+        length: length1d,
       };
+    }
 
     case "adaptivemaxpool3dNode":
-      const output3d = nodeData.output_size || [1, 1, 1];
+    case "adaptiveavgpool3dNode": {
+      const os3d = nodeData.output_size;
+      let d3 = 1, h3 = 1, w3 = 1;
+      if (Array.isArray(os3d) && os3d.length === 3) {
+        d3 = os3d[0] ?? 1; h3 = os3d[1] ?? 1; w3 = os3d[2] ?? 1;
+      } else if (typeof os3d === "number") {
+        d3 = os3d; h3 = os3d; w3 = os3d;
+      }
       return {
         channels: inputShape.channels,
-        depth: output3d[0],
-        height: output3d[1],
-        width: output3d[2],
+        depth: d3,
+        height: h3,
+        width: w3,
       };
+    }
 
     case "fractionalmaxpool2dNode":
       const outputRatio = nodeData.output_ratio || 0.5;
@@ -711,16 +792,16 @@ export function calculateOutputShape(
       }
       return inputShape;
 
-    case "lppool2dNode":
-      const lpKernel = Number(nodeData.kernel_size || 2);
-      const lpStride = Number(nodeData.stride || lpKernel);
-      const lpPadding = 0; // LPPool2d does not have padding
+    case "lppool2dNode": {
+      const lpKernel = parseTuple(nodeData.kernel_size, 2);
+      const lpStride = parseTuple(nodeData.stride ?? nodeData.kernel_size, 2);
+      // LPPool2d does not have padding
 
       if (inputShape.height && inputShape.width) {
-        if (lpStride === 0) return inputShape;
+        if (lpStride[0] === 0 || lpStride[1] === 0) return inputShape;
 
-        const newHeight = Math.floor((Number(inputShape.height) + 2 * lpPadding - lpKernel) / lpStride + 1);
-        const newWidth = Math.floor((Number(inputShape.width) + 2 * lpPadding - lpKernel) / lpStride + 1);
+        const newHeight = Math.floor((Number(inputShape.height) - lpKernel[0]) / lpStride[0] + 1);
+        const newWidth = Math.floor((Number(inputShape.width) - lpKernel[1]) / lpStride[1] + 1);
         return {
           channels: inputShape.channels,
           height: isNaN(newHeight) ? "dynamic" : Math.max(1, newHeight),
@@ -728,6 +809,7 @@ export function calculateOutputShape(
         };
       }
       return inputShape;
+    }
 
     case "flattenNode": {
       const start_dim_ui = nodeData.start_dim ?? 1;
@@ -881,28 +963,40 @@ export function calculateOutputShape(
     }
 
     case "adaptiveavgpool2dNode":
+    case "adaptivemaxpool2dNode": {
       const outputSize = nodeData.output_size;
+      let h2: number | "dynamic" = 1, w2: number | "dynamic" = 1;
       if (Array.isArray(outputSize) && outputSize.length === 2) {
-        return {
-          channels: inputShape.channels,
-          height: outputSize[0] ?? 1,
-          width: outputSize[1] ?? 1,
-        };
+        h2 = outputSize[0] ?? 1;
+        w2 = outputSize[1] ?? 1;
+      } else if (typeof outputSize === "number") {
+        // Scalar output_size: int → (n, n)
+        h2 = outputSize;
+        w2 = outputSize;
+      } else if (typeof outputSize === "string") {
+        const t = parseTuple(outputSize, 1);
+        h2 = t[0];
+        w2 = t[1];
       }
       return {
         channels: inputShape.channels,
-        height: 1,
-        width: 1,
+        height: h2,
+        width: w2,
       };
+    }
 
     case "gruNode":
     case "lstmNode":
-    case "rnnNode":
+    case "rnnNode": {
       const sequenceLength = inputShape.sequence || inputShape.channels;
+      const directions = nodeData.bidirectional ? 2 : 1;
+      const hidden = nodeData.hidden_size;
       return {
         sequence: sequenceLength,
-        features: nodeData.hidden_size,
+        // Bidirectional layers concatenate forward/backward → hidden_size * 2
+        features: typeof hidden === "number" ? hidden * directions : hidden,
       };
+    }
 
     case "multiheadattentionNode":
       // Preserve spatial/sequence layout used in examples: (C=1, H=sequence, W=embed)
@@ -946,6 +1040,19 @@ export function calculateOutputShape(
       });
 
       return newShape as TensorShape;
+    }
+
+    case "embeddingNode": {
+      // Embedding appends an embedding dimension to a tensor of token ids:
+      // (…, S) ids → (…, S, embedding_dim). Preserve sequence/length dims;
+      // if the ids arrive as a flat `features` dim, treat it as the sequence.
+      const embeddingDim = nodeData.embedding_dim;
+      const newShape: TensorShape = { ...inputShape };
+      if (newShape.sequence === undefined && newShape.length === undefined && newShape.features !== undefined) {
+        newShape.sequence = newShape.features;
+      }
+      newShape.features = embeddingDim;
+      return newShape;
     }
 
     case "layernormNode":

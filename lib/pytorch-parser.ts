@@ -84,7 +84,19 @@ export const NN_NODE_TYPE_MAP: Record<string, string> = {
   MultiheadAttention: "multiheadattentionNode",
   TransformerEncoderLayer: "transformerencoderlayerNode",
   TransformerDecoderLayer: "transformerdecoderlayerNode",
+  Embedding: "embeddingNode",
   Upsample: "upsampleNode",
+}
+
+// Layer classes that collapse onto an existing node type but must preserve
+// their distinct identity via a `data.variant` tag (consumed by the generator).
+export const LAYER_VARIANT_MAP: Record<string, string> = {
+  LogSoftmax: "log",
+  ReLU6: "relu6",
+  Dropout2d: "dropout2d",
+  Dropout3d: "dropout3d",
+  LazyLinear: "lazy",
+  Bilinear: "bilinear",
 }
 
 // Node types that accept more than one distinct tensor input and therefore
@@ -744,6 +756,7 @@ function layerData(desc: { layerType: string; args: Expr[]; kwargs: Record<strin
 const POSITIONAL_ARGS: Record<string, string[]> = {
   Linear: ["in_features", "out_features", "bias"],
   LazyLinear: ["out_features", "bias"],
+  Bilinear: ["in1_features", "in2_features", "out_features", "bias"],
   Conv1d: ["in_channels", "out_channels", "kernel_size", "stride", "padding", "dilation", "groups", "bias"],
   Conv2d: ["in_channels", "out_channels", "kernel_size", "stride", "padding", "dilation", "groups", "bias"],
   Conv3d: ["in_channels", "out_channels", "kernel_size", "stride", "padding", "dilation", "groups", "bias"],
@@ -778,7 +791,7 @@ const POSITIONAL_ARGS: Record<string, string[]> = {
   MultiheadAttention: ["embed_dim", "num_heads", "dropout"],
   TransformerEncoderLayer: ["d_model", "nhead", "dim_feedforward", "dropout"],
   TransformerDecoderLayer: ["d_model", "nhead", "dim_feedforward", "dropout"],
-  Embedding: ["num_embeddings", "embedding_dim"],
+  Embedding: ["num_embeddings", "embedding_dim", "padding_idx"],
   Upsample: ["size", "scale_factor"],
 }
 
@@ -803,6 +816,8 @@ function instantiateModule(
         return id
       }
       const data = layerData(desc)
+      const variant = LAYER_VARIANT_MAP[desc.layerType]
+      if (variant) data.variant = variant
       const id = addNode(ctx, nodeType, data, hint)
       connect(ctx, inputs, id, MULTI_INPUT_NODE_TYPES.has(nodeType))
       return id
@@ -963,12 +978,12 @@ function evalExpr(
         return left ?? right
       }
       if (expr.op === "+" || expr.op === "-") {
-        const id = addNode(ctx, "addNode", {}, "add")
+        const id = addNode(ctx, "addNode", { op: expr.op }, "add")
         connect(ctx, [left.nodeId, right.nodeId], id, true)
         return { nodeId: id }
       }
       if (expr.op === "*" || expr.op === "@" || expr.op === "/") {
-        const id = addNode(ctx, "multiplyNode", {}, "mul")
+        const id = addNode(ctx, "multiplyNode", { op: expr.op }, "mul")
         connect(ctx, [left.nodeId, right.nodeId], id, true)
         return { nodeId: id }
       }
@@ -1032,16 +1047,17 @@ function evalCall(
       const ins = collectTensorInputs(ctx, expr.args, cls, scope, hint, depth)
       const base = methodReceiver(ctx, func, cls, scope, hint, depth)
       const all = [base, ...ins].filter(Boolean) as string[]
-      const id = addNode(ctx, "addNode", {}, "add")
+      const id = addNode(ctx, "addNode", { op: "+" }, "add")
       connect(ctx, all, id, true)
       return { nodeId: id }
     }
-    // torch.mul / tensor.mul
+    // torch.mul / tensor.mul / matmul / bmm
     if (short === "mul" || short === "matmul" || short === "bmm") {
       const ins = collectTensorInputs(ctx, expr.args, cls, scope, hint, depth)
       const base = methodReceiver(ctx, func, cls, scope, hint, depth)
       const all = [base, ...ins].filter(Boolean) as string[]
-      const id = addNode(ctx, "multiplyNode", {}, "mul")
+      const op = short === "matmul" || short === "bmm" ? "matmul" : "*"
+      const id = addNode(ctx, "multiplyNode", { op }, "mul")
       connect(ctx, all, id, true)
       return { nodeId: id }
     }
@@ -1054,8 +1070,9 @@ function evalCall(
       const argInputs = collectTensorInputs(ctx, expr.args, cls, scope, hint, depth)
       const inputs = receiver ? [receiver, ...argInputs] : argInputs
       const data: Record<string, any> = {}
-      const dim = kwargOrArgNumber(expr, "dim", -1)
+      const dim = kwargOrArgNumber(expr, "dim", 1)
       if (fnType === "softmaxNode" && dim !== null) data.dim = dim
+      if (fnType === "softmaxNode" && short === "log_softmax") data.variant = "log"
       const id = addNode(ctx, fnType, data, short)
       connect(ctx, inputs.slice(0, 1), id, false)
       return { nodeId: id }
@@ -1067,9 +1084,11 @@ function evalCall(
       const dims = expr.args.map(exprToValue).filter((v) => typeof v === "number")
       // A `.view(N, -1)` style flatten is common — detect 2D flatten.
       const isFlatten = expr.args.length === 2 && dims.includes(-1)
+      // For non-flatten reshapes, preserve interior -1 (an inferred dimension)
+      // so e.g. view(B, -1, C) round-trips faithfully.
       const id = isFlatten
         ? addNode(ctx, "flattenNode", {}, "flatten")
-        : addNode(ctx, "reshapeNode", { targetShape: dims.filter((d) => d !== -1) }, "reshape")
+        : addNode(ctx, "reshapeNode", { targetShape: dims }, "reshape")
       connect(ctx, [receiver], id, false)
       return { nodeId: id }
     }
@@ -1085,7 +1104,21 @@ function evalCall(
       const receiver = func.kind === "attr" ? methodReceiver(ctx, func, cls, scope, hint, depth) : null
       const argInputs = collectTensorInputs(ctx, expr.args, cls, scope, hint, depth)
       const input = receiver ?? argInputs[0] ?? null
-      const id = addNode(ctx, "transposeNode", {}, "transpose")
+      // Capture the numeric dim arguments (flattening a tuple/list arg such as
+      // `x.permute((0, 2, 1))`).
+      const numericDims: number[] = []
+      for (const a of expr.args) {
+        const v = exprToValue(a)
+        if (typeof v === "number") numericDims.push(v)
+        else if (Array.isArray(v)) for (const e of v) if (typeof e === "number") numericDims.push(e)
+      }
+      const data: Record<string, any> = {}
+      if (short === "permute") {
+        if (numericDims.length > 0) data.dims = numericDims
+      }
+      if (numericDims.length >= 1) data.dim0 = numericDims[0]
+      if (numericDims.length >= 2) data.dim1 = numericDims[1]
+      const id = addNode(ctx, "transposeNode", data, "transpose")
       connect(ctx, [input], id, false)
       return { nodeId: id }
     }
@@ -1205,6 +1238,15 @@ function kwargOrArgNumber(expr: Expr & { kind: "call" }, kw: string, argIndex: n
   if (expr.kwargs[kw] !== undefined) {
     const v = exprToValue(expr.kwargs[kw])
     return typeof v === "number" ? v : null
+  }
+  // Fall back to the positional argument at `argIndex` (e.g. the `2` in
+  // `torch.cat([a, b], 2)` or the `1` in `F.softmax(x, 1)`).
+  if (argIndex >= 0) {
+    const arg = expr.args[argIndex]
+    if (arg !== undefined) {
+      const v = exprToValue(arg)
+      return typeof v === "number" ? v : null
+    }
   }
   return null
 }
