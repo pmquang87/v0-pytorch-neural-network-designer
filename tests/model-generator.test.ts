@@ -193,6 +193,39 @@ describe('ModelGenerator', () => {
         expect(code).toContain('const1 = torch.zeros(1, 1, 4, 4)');
     });
 
+    it('generates nn.RMSNorm with normalized_shape', () => {
+        const code = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 128 }),
+                { id: 'norm', type: 'rmsnormNode', data: { normalized_shape: [128] } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'norm' }],
+        ).generateCode();
+
+        expect(code).toContain('self.norm = nn.RMSNorm(normalized_shape=(128))');
+        expect(code).toContain('norm = self.norm(x)');
+    });
+
+    it('omits the GELU approximate arg by default but emits it when set', () => {
+        const plain = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 16 }),
+                { id: 'act', type: 'geluNode', data: {} },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'act' }],
+        ).generateCode();
+        expect(plain).toContain('self.act = nn.GELU()');
+
+        const tanh = makeGraph(
+            [
+                inputNode('input1', { name: 'x', features: 16 }),
+                { id: 'act', type: 'geluNode', data: { approximate: 'tanh' } },
+            ],
+            [{ id: 'e1', source: 'input1', target: 'act' }],
+        ).generateCode();
+        expect(tanh).toContain('self.act = nn.GELU(approximate="tanh")');
+    });
+
     it('rejects graphs without an input node', () => {
         const generator = makeGraph(
             [{ id: 'fc1', type: 'linearNode', data: { in_features: 4, out_features: 2 } }],

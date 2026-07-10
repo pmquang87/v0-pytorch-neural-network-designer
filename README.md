@@ -14,10 +14,11 @@ This application provides a powerful drag-and-drop interface that allows users t
 
 -   **Visual Model Building:** Drag, drop, and connect nodes to build your network architecture.
 -   **Rich Layer Library:** A wide range of PyTorch layers are supported, including:
-    -   Core layers (Linear, Conv2D, Pooling, Dropout)
-    -   Activation functions (ReLU, Sigmoid, Tanh, etc.)
-    -   Normalization layers (BatchNorm, LayerNorm)
-    -   Advanced layers (LSTM, GRU, Transformers)
+    -   Core layers (Linear, Conv1D/2D/3D, Transposed Conv, Pooling, Dropout)
+    -   Activation functions (ReLU, LeakyReLU, GELU, SiLU, Mish, Hardswish, Softmax, etc.)
+    -   Normalization layers (BatchNorm, LayerNorm, **RMSNorm**, GroupNorm, InstanceNorm)
+    -   Advanced layers (LSTM, GRU, RNN, MultiheadAttention, Transformer encoder/decoder)
+-   **Up-to-date PyTorch API:** Layers are mapped to the current **PyTorch 2.x** `torch.nn` API, including recent additions such as `nn.RMSNorm` (PyTorch 2.4+) and the `approximate` option on `nn.GELU`. See the [PyTorch Layer Reference](docs/PYTORCH.md) for the full mapping and links to the official docs.
 -   **Real-time Shape Propagation:** Automatically calculates and displays the output tensor shape for each layer as you build.
 -   **Model Validation:** Checks for common errors such as shape mismatches, disconnected nodes, and cycles.
 -   **Code Generation:** Export your visual model to clean, readable PyTorch code.
@@ -25,6 +26,10 @@ This application provides a powerful drag-and-drop interface that allows users t
 -   **Save, Load, Import & Export:** Save models to your browser's local storage, or export/import them as `.json` files to share and back up your work.
 -   **Model Analysis:** Get insights into your model's complexity, including total parameters, FLOPs, and estimated memory usage.
 -   **Example Library:** Load and explore pre-built models like LeNet-5, ResNet, U-Net, and YOLO to learn common architectures.
+
+## Documentation
+
+-   **[PyTorch Layer Reference](docs/PYTORCH.md):** How each canvas layer maps onto the `torch.nn` API, which constructor arguments the code generator emits, version compatibility notes, and links to the official PyTorch documentation for every layer.
 
 ## Tech Stack
 

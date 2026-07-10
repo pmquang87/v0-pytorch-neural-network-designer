@@ -105,6 +105,7 @@ import { AdaptiveAvgPool2DNode } from "@/components/nodes/AdaptiveAvgPool2DNode"
 import { BatchNorm1DNode } from "@/components/nodes/BatchNorm1DNode"
 import { BatchNorm2DNode } from "@/components/nodes/BatchNorm2DNode"
 import { LayerNormNode } from "@/components/nodes/LayerNormNode"
+import { RMSNormNode } from "@/components/nodes/RMSNormNode"
 import { GroupNormNode } from "@/components/nodes/GroupNormNode"
 import { ConcatenateNode } from "@/components/nodes/ConcatenateNode"
 import { AddNode } from "@/components/nodes/AddNode"
@@ -255,6 +256,7 @@ const nodeTypes: NodeTypes = {
   batchnorm2dNode: BatchNorm2DNode,
   batchnorm3dNode: BatchNorm3DNode,
   layernormNode: LayerNormNode,
+  rmsnormNode: RMSNormNode,
   groupnormNode: GroupNormNode,
   instancenorm1dNode: InstanceNorm1DNode,
   instancenorm2dNode: InstanceNorm2DNode,
@@ -1284,6 +1286,7 @@ export default function NeuralNetworkDesigner() {
           BatchNorm2d: "batchnorm2dNode",
           BatchNorm3d: "batchnorm3dNode",
           LayerNorm: "layernormNode",
+          RMSNorm: "rmsnormNode",
           GroupNorm: "groupnormNode",
           InstanceNorm1d: "instancenorm1dNode",
           InstanceNorm2d: "instancenorm2dNode",
@@ -1605,6 +1608,7 @@ export default function NeuralNetworkDesigner() {
       case 'batchnorm1dNode':
       case 'batchnorm2dNode':
       case 'layernormNode':
+      case 'rmsnormNode':
       case 'groupnormNode':
       case 'instancenorm1dNode':
       case 'instancenorm2dNode':
@@ -2027,6 +2031,15 @@ export default function NeuralNetworkDesigner() {
                     <div className="flex items-center gap-2">
                       <BarChart3 className="h-4 w-4 text-cyan-500" />
                       <span className="text-sm font-medium text-sidebar-foreground">LayerNorm</span>
+                    </div>
+                  </Card>
+                  <Card
+                    className="p-3 cursor-pointer hover:bg-sidebar-accent/50 transition-colors border-sidebar-border"
+                    onClick={() => addNode("rmsnormNode", { normalized_shape: [128] })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-cyan-500" />
+                      <span className="text-sm font-medium text-sidebar-foreground">RMSNorm</span>
                     </div>
                   </Card>
                   <Card
@@ -2974,6 +2987,47 @@ export default function NeuralNetworkDesigner() {
                         onUpdate={(value) => updateNodeData(selectedNode.id, { eps: value })}
                       />
                     </>
+                  )}
+                  {selectedNode.type === "rmsnormNode" && (
+                    <>
+                      <EditableNumberInput
+                        label="Normalized Shape"
+                        value={
+                          Array.isArray(selectedNode.data.normalized_shape)
+                            ? (selectedNode.data.normalized_shape[selectedNode.data.normalized_shape.length - 1] as number)
+                            : (selectedNode.data.normalized_shape as number | undefined)
+                        }
+                        defaultValue={128}
+                        min={1}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { normalized_shape: [value] })}
+                      />
+                      <EditableNumberInput
+                        label="Epsilon (eps)"
+                        value={selectedNode.data.eps as number | undefined}
+                        defaultValue={1e-5}
+                        min={0}
+                        step={1e-6}
+                        onUpdate={(value) => updateNodeData(selectedNode.id, { eps: value })}
+                      />
+                    </>
+                  )}
+                  {selectedNode.type === "geluNode" && (
+                    <div className="space-y-2">
+                      <label htmlFor="gelu-approximate" className="text-sm font-medium">Approximate</label>
+                      <select
+                        id="gelu-approximate"
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={(selectedNode.data.approximate as string | undefined) ?? "none"}
+                        onChange={(e) =>
+                          updateNodeData(selectedNode.id, {
+                            approximate: e.target.value === "none" ? undefined : e.target.value,
+                          })
+                        }
+                      >
+                        <option value="none">none (exact)</option>
+                        <option value="tanh">tanh (approximation)</option>
+                      </select>
+                    </div>
                   )}
                   {selectedNode.type === "groupnormNode" && (
                     <>
